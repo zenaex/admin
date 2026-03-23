@@ -1,4 +1,4 @@
-import { OtpPage } from "@/pages/otp-page";
+import { OtpPage } from "@/pages/auth/otp-page";
 
 export default function OtpRoutePage() {
   return <OtpPage />;

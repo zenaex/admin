@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import {
   ArrowDown2,
@@ -16,6 +18,7 @@ import {
 } from "iconsax-react";
 
 type SidebarItemProps = {
+  href: string;
   label: string;
   icon: ReactNode;
   active?: boolean;
@@ -24,6 +27,7 @@ type SidebarItemProps = {
 };
 
 function SidebarItem({
+  href,
   label,
   icon,
   active = false,
@@ -31,8 +35,8 @@ function SidebarItem({
   collapsed = false,
 }: SidebarItemProps) {
   return (
-    <button
-      type="button"
+    <Link
+      href={href}
       className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
         active
           ? "bg-[#013E2A] text-white"
@@ -48,22 +52,32 @@ function SidebarItem({
       {!collapsed && trailing ? (
         <span className="ml-auto text-[#9DB0A4]">{trailing}</span>
       ) : null}
-    </button>
+    </Link>
   );
 }
 
 type DashboardSidebarProps = {
   collapsed?: boolean;
-  onToggle?: () => void;
 };
 
-export function DashboardSidebar({
-  collapsed = false,
-  onToggle,
-}: DashboardSidebarProps) {
+export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
+  const pathname = usePathname() ?? "";
+
+  const isActive = (href: string) =>
+    href === "/dashboard"
+      ? pathname === "/dashboard"
+      : pathname === href || pathname.startsWith(`${href}/`);
+
+  const isUserMgtOpen = isActive("/dashboard/user-mgt");
+  const activeUserMgtItem = pathname.startsWith("/dashboard/user-mgt/admin-management")
+    ? "admin-management"
+    : pathname.startsWith("/dashboard/user-mgt/referral")
+      ? "referral"
+      : "customers";
+
   return (
     <aside
-      className={`flex h-screen w-full flex-col overflow-hidden rounded-[22px] bg-[#003E2A] text-white transition-[max-width] duration-200 ease-out will-change-[max-width] ${
+      className={`flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[22px] bg-[#003E2A] text-white transition-[max-width] duration-200 ease-out will-change-[max-width] ${
         collapsed ? "max-w-19" : "max-w-55"
       }`}
     >
@@ -73,32 +87,25 @@ export function DashboardSidebar({
         }`}
       >
         {collapsed ? (
-          <div className="flex w-full justify-center">
+          <Link href="/dashboard" className="flex w-full justify-center" aria-label="Dashboard home">
             <Image
               src="/logo/Logo-small.svg"
               alt="Zenaex compact logo"
-            width={28}
-            height={28}
+              width={28}
+              height={28}
             />
-          </div>
+          </Link>
         ) : (
-          <Image
-            src="/logo/logo-green.svg"
-            alt="Zenaex logo"
-            width={116}
-            height={18}
-          />
+          <Link href="/dashboard" aria-label="Dashboard home">
+            <Image
+              src="/logo/logo-green.svg"
+              alt="Zenaex logo"
+              width={116}
+              height={18}
+            />
+          </Link>
         )}
-        {!collapsed ? (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#013E2A] text-[#C9D8CE]"
-            aria-label="Collapse sidebar"
-          >
-            {/* placeholder; interaction is hover-driven */}
-          </button>
-        ) : null}
+        {!collapsed ? <span className="inline-flex h-8 w-8" aria-hidden /> : null}
       </div>
 
       <div className="h-px bg-[#155241]" />
@@ -112,44 +119,178 @@ export function DashboardSidebar({
 
         <div className="mt-4 space-y-1">
           <SidebarItem
+            href="/dashboard"
             label="Dashboard"
-            icon={<Element size="20" color="currentColor" variant="Bold" />}
-            active
-            collapsed={collapsed}
-          />
-          <SidebarItem
-            label="Transactions"
-            icon={<Moneys size="20" color="currentColor" variant="Outline" />}
-            collapsed={collapsed}
-          />
-          <SidebarItem
-            label="User Mgt"
-            icon={<People size="20" color="currentColor" variant="Outline" />}
-            trailing={
-              collapsed ? null : (
-                <ArrowDown2 size="14" color="currentColor" variant="Outline" />
-              )
+            icon={
+              <Element
+                size="20"
+                color="currentColor"
+                variant={isActive("/dashboard") ? "Bold" : "Outline"}
+              />
             }
+            active={isActive("/dashboard")}
             collapsed={collapsed}
           />
           <SidebarItem
+            href="/dashboard/transactions"
+            label="Transactions"
+            icon={
+              <Moneys
+                size="20"
+                color="currentColor"
+                variant={isActive("/dashboard/transactions") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/transactions")}
+            collapsed={collapsed}
+          />
+          <Link
+            href="/dashboard/user-mgt"
+            className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
+              isUserMgtOpen
+                ? "bg-[#013E2A] text-white"
+                : "text-[#C9D8CE] hover:bg-[#013E2A] hover:text-white"
+            } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
+            aria-label="User Mgt"
+          >
+            {isUserMgtOpen ? (
+              <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-[#BCEB0F]" />
+            ) : null}
+            <span className={isUserMgtOpen ? "text-white" : "text-[#B7C7BE]"}>
+              <People
+                size="20"
+                color="currentColor"
+                variant={isUserMgtOpen ? "Bold" : "Outline"}
+              />
+            </span>
+            {!collapsed ? (
+              <span className="text-[14px] font-medium">User Mgt</span>
+            ) : null}
+            {!collapsed ? (
+              <span
+                className={`ml-auto text-[#9DB0A4] transition-transform ${
+                  isUserMgtOpen ? "rotate-180" : ""
+                }`}
+              >
+                <ArrowDown2 size="14" color="currentColor" variant="Outline" />
+              </span>
+            ) : null}
+          </Link>
+
+          {!collapsed && isUserMgtOpen ? (
+            <div className="relative mt-1 ml-5 pl-3">
+              <div className="absolute left-0 top-0 bottom-0 w-px bg-[#155241]" />
+
+              <div className="space-y-3">
+                <Link
+                  href="/dashboard/user-mgt/customers"
+                  className={`relative flex items-center pl-6 text-[14px] font-medium ${
+                    activeUserMgtItem === "customers"
+                      ? "text-white"
+                      : "text-[#9DB0A4] hover:text-white"
+                  }`}
+                  aria-label="Customers"
+                >
+                  <span
+                    className={`absolute left-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
+                      activeUserMgtItem === "customers"
+                        ? "bg-[#BCEB0F]"
+                        : "bg-[#C9D8CE]"
+                    }`}
+                  />
+                  Customers
+                </Link>
+
+                <Link
+                  href="/dashboard/user-mgt/admin-management"
+                  className={`relative flex items-center pl-6 text-[14px] font-medium ${
+                    activeUserMgtItem === "admin-management"
+                      ? "text-white"
+                      : "text-[#9DB0A4] hover:text-white"
+                  }`}
+                  aria-label="Admin Management"
+                >
+                  <span
+                    className={`absolute left-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
+                      activeUserMgtItem === "admin-management"
+                        ? "bg-[#BCEB0F]"
+                        : "bg-[#C9D8CE]"
+                    }`}
+                  />
+                  Admin Management
+                </Link>
+
+                <Link
+                  href="/dashboard/user-mgt/referral"
+                  className={`relative flex items-center pl-6 text-[14px] font-medium ${
+                    activeUserMgtItem === "referral"
+                      ? "text-white"
+                      : "text-[#9DB0A4] hover:text-white"
+                  }`}
+                  aria-label="Referral"
+                >
+                  <span
+                    className={`absolute left-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
+                      activeUserMgtItem === "referral"
+                        ? "bg-[#BCEB0F]"
+                        : "bg-[#C9D8CE]"
+                    }`}
+                  />
+                  Referral
+                </Link>
+              </div>
+            </div>
+          ) : null}
+          <SidebarItem
+            href="/dashboard/product-mgt"
             label="Product Mgt"
-            icon={<I3Dcube size="20" color="currentColor" variant="Outline" />}
+            icon={
+              <I3Dcube
+                size="20"
+                color="currentColor"
+                variant={isActive("/dashboard/product-mgt") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/product-mgt")}
             collapsed={collapsed}
           />
           <SidebarItem
+            href="/dashboard/e-trades"
             label="E-trades"
-            icon={<I3Dcube size="20" color="currentColor" variant="Outline" />}
+            icon={
+              <I3Dcube
+                size="20"
+                color="currentColor"
+                variant={isActive("/dashboard/e-trades") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/e-trades")}
             collapsed={collapsed}
           />
           <SidebarItem
+            href="/dashboard/biller-management"
             label="Biller Management"
-            icon={<NotificationStatus size="20" color="currentColor" variant="Outline" />}
+            icon={
+              <NotificationStatus
+                size="20"
+                color="currentColor"
+                variant={isActive("/dashboard/biller-management") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/biller-management")}
             collapsed={collapsed}
           />
           <SidebarItem
+            href="/dashboard/audit-trail"
             label="Audit Trail"
-            icon={<Activity size="20" color="currentColor" variant="Outline" />}
+            icon={
+              <Activity
+                size="20"
+                color="currentColor"
+                variant={isActive("/dashboard/audit-trail") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/audit-trail")}
             collapsed={collapsed}
           />
         </div>
@@ -161,13 +302,29 @@ export function DashboardSidebar({
         ) : null}
         <div className="mt-4 space-y-1">
           <SidebarItem
+            href="/dashboard/communication"
             label="Communication"
-            icon={<DirectboxNotif size="20" color="currentColor" variant="Outline" />}
+            icon={
+              <DirectboxNotif
+                size="20"
+                color="currentColor"
+                variant={isActive("/dashboard/communication") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/communication")}
             collapsed={collapsed}
           />
           <SidebarItem
+            href="/dashboard/settings"
             label="Settings"
-            icon={<Setting2 size="20" color="currentColor" variant="Outline" />}
+            icon={
+              <Setting2
+                size="20"
+                color="currentColor"
+                variant={isActive("/dashboard/settings") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/settings")}
             collapsed={collapsed}
           />
         </div>
@@ -188,13 +345,13 @@ export function DashboardSidebar({
           ) : null}
         </div>
         {!collapsed ? (
-          <button
-            type="button"
+          <Link
+            href="/login"
             className="mt-4 inline-flex items-center gap-2 text-[13px] text-[#D6E2DA]"
           >
             <LogoutCurve size="20" color="#FF3B30" variant="Outline" />
             <span>Log out</span>
-          </button>
+          </Link>
         ) : null}
       </div>
     </aside>
