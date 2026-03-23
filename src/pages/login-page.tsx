@@ -84,6 +84,7 @@ export function LoginPage() {
                   <div className="mt-2 flex justify-end">
                     <button
                       type="button"
+                      onClick={() => router.push("/forgot-password")}
                       className="text-[11px] font-medium text-secondary-green"
                     >
                       Forget Password
