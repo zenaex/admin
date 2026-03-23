@@ -253,7 +253,7 @@ export function ForgotPasswordPage() {
           <div className="w-full max-w-[620px] rounded-2xl bg-white px-8 py-10 text-center shadow-[0_24px_72px_rgba(0,0,0,0.12)]">
             <div className="mx-auto h-[2px] w-16 rounded-full bg-zinc-200" />
             <div className="mx-auto mt-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
-              <TickCircle size="38" color="#2f8f46" variant="Bold" />
+              <TickCircle size="38" color="#2f8f46" variant="Linear" />
             </div>
             <h2 className="text-primary-text mt-6 text-[44px] font-semibold leading-none">
               Successful
@@ -272,3 +272,5 @@ export function ForgotPasswordPage() {
     </div>
   );
 }
+
+export default ForgotPasswordPage;
