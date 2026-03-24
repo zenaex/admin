@@ -45,7 +45,7 @@ export function CommunicationTable({ rows }: CommunicationTableProps) {
               className="cursor-pointer transition-colors hover:bg-zinc-50"
               onClick={() => router.push(`/dashboard/communication/${row.id}`)}
             >
-              <td className="border-b border-zinc-100 px-4 py-3 font-medium text-primary-text">
+              <td className="border-b border-zinc-100 px-4 py-3 font-medium text-secondary-green">
                 {row.campaign}
               </td>
               <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.startDate}</td>
