@@ -179,7 +179,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
 
           {!collapsed && isUserMgtOpen ? (
             <div className="relative mt-1 ml-5 pl-3">
-              <div className="absolute left-0 top-0 bottom-0 w-px bg-[#155241]" />
+              <div className="absolute left-4 top-0 bottom-0 w-px bg-[#155241]" />
 
               <div className="space-y-3">
                 <Link
