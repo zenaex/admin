@@ -9,6 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tiptap/extension-link": "^3.20.4",
+    "@tiptap/extension-text-align": "^3.20.4",
+    "@tiptap/extension-underline": "^3.20.4",
+    "@tiptap/react": "^3.20.4",
+    "@tiptap/starter-kit": "^3.20.4",
     "es-abstract": "^1.24.1",
     "iconsax-react": "^0.0.8",
     "next": "16.2.1",
