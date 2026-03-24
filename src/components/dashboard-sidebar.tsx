@@ -77,8 +77,8 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
 
   return (
     <aside
-      className={`flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[22px] bg-[#003E2A] text-white transition-[max-width] duration-200 ease-out will-change-[max-width] ${
-        collapsed ? "max-w-19" : "max-w-55"
+      className={`flex h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-[22px] bg-[#003E2A] text-white transition-[width] duration-200 ease-in-out will-change-[width] ${
+        collapsed ? "w-[calc(var(--spacing)*19)]" : "w-[calc(var(--spacing)*55)]"
       }`}
     >
       <div
