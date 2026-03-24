@@ -77,7 +77,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
 
   return (
     <aside
-      className={`flex h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-[22px] bg-[#003E2A] text-white transition-[width] duration-200 ease-in-out will-change-[width] ${
+      className={`flex h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-[12px] bg-[#003E2A] text-white transition-[width] duration-200 ease-in-out will-change-[width] ${
         collapsed ? "w-[calc(var(--spacing)*19)]" : "w-[calc(var(--spacing)*55)]"
       }`}
     >
@@ -178,7 +178,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           </Link>
 
           {!collapsed && isUserMgtOpen ? (
-            <div className="relative mt-1 ml-5 pl-3">
+            <div className="relative mt-1 ml-5 pl-3 rounded-[6px]">
               <div className="absolute left-4 top-0 bottom-0 w-px bg-[#155241]" />
 
               <div className="space-y-3">
