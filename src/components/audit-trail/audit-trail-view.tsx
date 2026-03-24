@@ -8,7 +8,7 @@ import { AuditTrailRow, AuditTrailTable } from "@/components/audit-trail/audit-t
 import { AuditTrailTabId, AuditTrailTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 
-const BASE_ROWS: Omit<AuditTrailRow, "id">[] = [
+const INTERNAL_BASE_ROWS: Omit<AuditTrailRow, "id">[] = [
   {
     name: "Adeboye Temidayo",
     email: "Adeboye.temidayo@zaneax.com",
@@ -75,18 +75,90 @@ const BASE_ROWS: Omit<AuditTrailRow, "id">[] = [
   },
 ];
 
-function buildMockRows(count: number): AuditTrailRow[] {
+const CUSTOMER_BASE_ROWS: Omit<AuditTrailRow, "id">[] = [
+  {
+    name: "Adeboye Temidayo",
+    email: "Adeboye.temidayo@zaneax.com",
+    role: "@Kashmadupe",
+    action: "Approved wallet transaction",
+    sessionIn: "Jan 6, 2026 | 9:32AM",
+    sessionOut: "Jan 6, 2026 | 9:32AM",
+  },
+  {
+    name: "Azuka Adefemi",
+    email: "Azuka.adefemi@zaneax.com",
+    role: "@Kashmadupe",
+    action: "Added a user",
+    sessionIn: "Jan 6, 2026 | 9:32AM",
+    sessionOut: "Jan 6, 2026 | 9:32AM",
+  },
+  {
+    name: "Babangida Tunde",
+    email: "Babangida.tunde@zaneax.com",
+    role: "@Kashmadupe",
+    action: "Deactivated a user",
+    sessionIn: "Jan 6, 2026 | 9:32AM",
+    sessionOut: "Jan 6, 2026 | 9:32AM",
+  },
+  {
+    name: "Chiamaka Ngozi",
+    email: "Chiamaka.ngozi@zaneax.com",
+    role: "@Kashmadupe",
+    action: "Added a user",
+    sessionIn: "Jan 6, 2026 | 9:32AM",
+    sessionOut: "Jan 6, 2026 | 9:32AM",
+  },
+  {
+    name: "Chiroma Ikechukwu",
+    email: "Chiroma.ikechukwu@zaneax.com",
+    role: "@Kashmadupe",
+    action: "Approved wallet transaction",
+    sessionIn: "Jan 6, 2026 | 9:32AM",
+    sessionOut: "Jan 6, 2026 | 9:32AM",
+  },
+  {
+    name: "Chizoba Adekunle",
+    email: "Chizoba.adekunle@zaneax.com",
+    role: "@Kashmadupe",
+    action: "Approved wallet transaction",
+    sessionIn: "Jan 6, 2026 | 9:32AM",
+    sessionOut: "Jan 6, 2026 | 9:32AM",
+  },
+  {
+    name: "Lala Jibola",
+    email: "Lala.jibola@zaneax.com",
+    role: "@Kashmadupe",
+    action: "Approved wallet transaction",
+    sessionIn: "Jan 6, 2026 | 9:32AM",
+    sessionOut: "Jan 6, 2026 | 9:32AM",
+  },
+  {
+    name: "Lala Serubawon",
+    email: "Lala.serubawon@zaneax.com",
+    role: "@Kashmadupe",
+    action: "Approved wallet transaction",
+    sessionIn: "Jan 6, 2026 | 9:32AM",
+    sessionOut: "Jan 6, 2026 | 9:32AM",
+  },
+];
+
+function buildMockRows(
+  count: number,
+  baseRows: Omit<AuditTrailRow, "id">[],
+  idPrefix: string,
+): AuditTrailRow[] {
   return Array.from({ length: count }, (_, i) => {
-    const base = BASE_ROWS[i % BASE_ROWS.length];
+    const base = baseRows[i % baseRows.length];
     return {
       ...base,
-      id: `row-${i}`,
-      name: i < BASE_ROWS.length ? base.name : `${base.name} (${i + 1})`,
+      id: `${idPrefix}-row-${i}`,
+      name: i < baseRows.length ? base.name : `${base.name} (${i + 1})`,
     };
   });
 }
 
-const ALL_ROWS = buildMockRows(180);
+const INTERNAL_ROWS = buildMockRows(180, INTERNAL_BASE_ROWS, "internal");
+const CUSTOMER_ROWS = buildMockRows(180, CUSTOMER_BASE_ROWS, "customer");
 
 export function AuditTrailView() {
   const [tab, setTab] = useState<AuditTrailTabId>("internal");
@@ -94,9 +166,11 @@ export function AuditTrailView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
 
+  const activeRows = tab === "customers" ? CUSTOMER_ROWS : INTERNAL_ROWS;
+
   const filteredRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
-    const source = ALL_ROWS;
+    const source = activeRows;
     if (!q) return source;
     return source.filter(
       (r) =>
@@ -104,7 +178,7 @@ export function AuditTrailView() {
         r.email.toLowerCase().includes(q) ||
         r.id.toLowerCase().includes(q),
     );
-  }, [tableSearch]);
+  }, [tableSearch, activeRows]);
 
   const totalItems = filteredRows.length;
 
@@ -119,7 +193,13 @@ export function AuditTrailView() {
   return (
     <div>
       <AuditTrailHeader />
-      <AuditTrailTabs active={tab} onChange={setTab} />
+      <AuditTrailTabs
+        active={tab}
+        onChange={(nextTab) => {
+          setTab(nextTab);
+          setPage(1);
+        }}
+      />
       <AuditTrailToolbar tableSearch={tableSearch} onTableSearchChange={setTableSearch} />
       <AuditTrailTable rows={paginatedRows} />
       <AuditTrailPagination
