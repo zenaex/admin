@@ -19,7 +19,7 @@ export function OtpPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#FAFAFA] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <main className="w-full max-w-[700px] rounded-2xl bg-white px-6 py-12 shadow-[0_30px_80px_rgba(0,0,0,0.08)] sm:px-10">
         <div className="mx-auto w-full max-w-[360px] text-center">
           <h1 className="text-primary-text text-[24px] font-semibold leading-tight">

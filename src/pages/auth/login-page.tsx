@@ -21,7 +21,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#FAFAFA] p-4 lg:p-8">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 lg:p-8">
       <main className="grid w-full max-w-[1280px] grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(420px,520px)_1fr] lg:gap-12">
         <section className="relative mx-auto aspect-[649/846] w-full max-w-[520px] overflow-hidden rounded-2xl">
           <Image
@@ -54,7 +54,7 @@ export function LoginPage() {
         </section>
 
         <section className="flex items-center justify-center">
-          <div className="w-full max-w-[760px] rounded-2xl bg-[#FAFAFA] px-6 py-10 sm:px-10 lg:px-14">
+          <div className="w-full max-w-[760px] rounded-2xl bg-background px-6 py-10 sm:px-10 lg:px-14">
             <div className="mx-auto w-full max-w-[470px] rounded-md bg-[#FFFFFF] px-8 py-9">
               <h1 className="text-primary-text text-[40px] font-semibold leading-[0.98] tracking-[-0.01em]">
                 Welcome back
