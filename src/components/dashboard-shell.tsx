@@ -13,7 +13,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const collapseTimerRef = useRef<number | null>(null);
 
   return (
-    <div className="box-border flex h-dvh max-h-dvh min-h-0 gap-4 overflow-hidden bg-background p-3">
+    <div className="box-border flex h-dvh max-h-dvh min-h-0 gap-4 overflow-hidden bg-background p-2">
       <div
         className="flex h-full min-h-0 shrink-0"
         onMouseEnter={() => {
@@ -31,7 +31,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         <DashboardSidebar collapsed={isSidebarCollapsed} />
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 justify-center">
-        <main className="min-h-0 w-full max-w-[1280px] overflow-y-auto overscroll-y-contain rounded-[22px] bg-[#FAFAFA] px-8 pb-8 pt-6">
+        <main className="min-h-0 w-full max-w-[1280px] overflow-y-auto overscroll-y-contain rounded-[22px] bg-[#FAFAFA] px-8 pb-8 pt-4">
           {children}
         </main>
       </div>

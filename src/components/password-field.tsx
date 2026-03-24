@@ -8,6 +8,7 @@ import { InputField } from "@/components/input-field";
 type PasswordFieldProps = {
   id: string;
   label: string;
+  className?: string;
   placeholder?: string;
   value: string;
   onChange: (value: string) => void;
@@ -17,6 +18,7 @@ type PasswordFieldProps = {
 export function PasswordField({
   id,
   label,
+  className = "",
   placeholder = "Password",
   value,
   onChange,
@@ -31,6 +33,7 @@ export function PasswordField({
       type={showPassword ? "text" : "password"}
       value={value}
       placeholder={placeholder}
+      className={className}
       onChange={(event) => onChange(event.target.value)}
       error={error}
       endAdornment={
