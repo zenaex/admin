@@ -39,8 +39,8 @@ function SidebarItem({
       href={href}
       className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
         active
-          ? "bg-[#013E2A] text-white"
-          : "text-[#C9D8CE] hover:bg-[#013E2A] hover:text-white"
+          ? "bg-secondary-green text-white"
+          : "text-[#C9D8CE] hover:bg-secondary-green hover:text-white"
       } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
       aria-label={label}
     >
@@ -77,8 +77,8 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
 
   return (
     <aside
-      className={`flex h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-[12px] bg-[#003E2A] text-white transition-[width] duration-200 ease-in-out will-change-[width] ${
-        collapsed ? "w-[calc(var(--spacing)*19)]" : "w-[calc(var(--spacing)*55)]"
+      className={`flex h-full min-h-0 shrink-0 flex-col overflow-hidden rounded-[12px] bg-secondary-green text-white transition-[width] duration-200 ease-in-out will-change-[width] ${
+        collapsed ? "w-[82px]" : "w-[232px]"
       }`}
     >
       <div
@@ -108,7 +108,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
         {!collapsed ? <span className="inline-flex h-8 w-8" aria-hidden /> : null}
       </div>
 
-      <div className="h-px bg-[#155241]" />
+      <div className="h-px bg-secondary-green" />
 
       <div className={`flex-1 overflow-y-auto py-5 ${collapsed ? "px-3" : "px-3"}`}>
         {!collapsed ? (
@@ -123,7 +123,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             label="Dashboard"
             icon={
               <Element
-                size="20"
+                size="24"
                 color="currentColor"
                 variant={isActive("/dashboard") ? "Bold" : "Outline"}
               />
@@ -136,7 +136,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             label="Transactions"
             icon={
               <Moneys
-                size="20"
+                size="24"
                 color="currentColor"
                 variant={isActive("/dashboard/transactions") ? "Bold" : "Outline"}
               />
@@ -148,8 +148,8 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             href="/dashboard/user-mgt"
             className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
               isUserMgtOpen
-                ? "bg-[#013E2A] text-white"
-                : "text-[#C9D8CE] hover:bg-[#013E2A] hover:text-white"
+                ? "bg-secondary-green text-white"
+                : "text-[#C9D8CE] hover:bg-secondary-green hover:text-white"
             } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
             aria-label="User Mgt"
           >
@@ -158,7 +158,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             ) : null}
             <span className={isUserMgtOpen ? "text-white" : "text-[#B7C7BE]"}>
               <People
-                size="20"
+                size="24px"
                 color="currentColor"
                 variant={isUserMgtOpen ? "Bold" : "Outline"}
               />
@@ -172,14 +172,14 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                   isUserMgtOpen ? "rotate-180" : ""
                 }`}
               >
-                <ArrowDown2 size="14" color="currentColor" variant="Outline" />
+                <ArrowDown2 size="24" color="currentColor" variant="Outline" />
               </span>
             ) : null}
           </Link>
 
           {!collapsed && isUserMgtOpen ? (
-            <div className="relative mt-1 ml-5 pl-3 rounded-[6px]">
-              <div className="absolute left-4 top-0 bottom-0 w-px bg-[#155241]" />
+            <div className="relative mt-1 ml-5 pl-3 rounded-[6px] w-[82px]">
+              <div className="absolute left-4 top-0 bottom-0 w-px bg-secondary-green" />
 
               <div className="space-y-3">
                 <Link
@@ -246,7 +246,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             label="Product Mgt"
             icon={
               <I3Dcube
-                size="20"
+                size="24"
                 color="currentColor"
                 variant={isActive("/dashboard/product-mgt") ? "Bold" : "Outline"}
               />
@@ -259,7 +259,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             label="E-trades"
             icon={
               <I3Dcube
-                size="20"
+                size="24"
                 color="currentColor"
                 variant={isActive("/dashboard/e-trades") ? "Bold" : "Outline"}
               />
@@ -272,7 +272,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             label="Biller Management"
             icon={
               <NotificationStatus
-                size="20"
+                size="24"
                 color="currentColor"
                 variant={isActive("/dashboard/biller-management") ? "Bold" : "Outline"}
               />
@@ -285,7 +285,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             label="Audit Trail"
             icon={
               <Activity
-                size="20"
+                size="24"
                 color="currentColor"
                 variant={isActive("/dashboard/audit-trail") ? "Bold" : "Outline"}
               />
@@ -306,7 +306,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             label="Communication"
             icon={
               <DirectboxNotif
-                size="20"
+                size="24"
                 color="currentColor"
                 variant={isActive("/dashboard/communication") ? "Bold" : "Outline"}
               />
@@ -319,7 +319,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             label="Settings"
             icon={
               <Setting2
-                size="20"
+                size="24"
                 color="currentColor"
                 variant={isActive("/dashboard/settings") ? "Bold" : "Outline"}
               />
@@ -330,11 +330,11 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
         </div>
       </div>
 
-      <div className="h-px bg-[#155241]" />
+      <div className="h-px bg-secondary-green" />
 
       <div className={`pb-6 pt-4 ${collapsed ? "px-3" : "px-4"}`}>
         <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-[14px] font-medium text-[#003E2A]">
+          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-[14px] font-medium text-secondary-green">
             RJ
           </div>
           {!collapsed ? (
@@ -349,7 +349,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             href="/login"
             className="mt-4 inline-flex items-center gap-2 text-[13px] text-[#D6E2DA]"
           >
-            <LogoutCurve size="20" color="#FF3B30" variant="Outline" />
+            <LogoutCurve size="24" color="#FF3B30" variant="Outline" />
             <span>Log out</span>
           </Link>
         ) : null}

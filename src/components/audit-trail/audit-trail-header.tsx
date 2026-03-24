@@ -7,12 +7,12 @@ import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-
 export function AuditTrailHeader() {
   return (
     <header className="flex flex-wrap items-center gap-4">
-      <h1 className="text-primary-text shrink-0 text-[18px] font-semibold tracking-tight md:text-[22px]">
+      <h1 className="text-primary-text shrink-0 text-[20px] font-semibold tracking-tight">
         Audit Trail
       </h1>
 
       <div className="flex min-w-0 flex-1 justify-center">
-        <div className="w-full max-w-md">
+        <div className="h-10 w-[382px] shrink-0">
           <AuditTrailIconSearch variant="header" placeholder="Search here..." aria-label="Search" />
         </div>
       </div>

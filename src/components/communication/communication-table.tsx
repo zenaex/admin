@@ -30,12 +30,12 @@ export function CommunicationTable({ rows }: CommunicationTableProps) {
       <table className="w-full min-w-200 border-collapse bg-white text-left text-sm">
         <thead>
           <tr className="bg-zinc-100 text-zinc-500">
-            <th className="border-b border-zinc-200 px-4 py-3 font-medium">Campaign</th>
-            <th className="border-b border-zinc-200 px-4 py-3 font-medium">Start Date</th>
-            <th className="border-b border-zinc-200 px-4 py-3 font-medium">End Date</th>
-            <th className="border-b border-zinc-200 px-4 py-3 font-medium">Last Modified</th>
-            <th className="border-b border-zinc-200 px-4 py-3 font-medium">Status</th>
-            <th className="border-b border-zinc-200 px-4 py-3 font-medium">Action</th>
+            <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Campaign</th>
+            <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Start Date</th>
+            <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">End Date</th>
+            <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Last Modified</th>
+            <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Status</th>
+            <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -45,18 +45,18 @@ export function CommunicationTable({ rows }: CommunicationTableProps) {
               className="cursor-pointer transition-colors hover:bg-zinc-50"
               onClick={() => router.push(`/dashboard/communication/${row.id}`)}
             >
-              <td className="border-b border-zinc-100 px-4 py-3 font-medium text-secondary-green">
+              <td className="h-18 border-b border-zinc-100 px-4 py-0 font-medium text-secondary-green align-middle">
                 {row.campaign}
               </td>
-              <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.startDate}</td>
-              <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.endDate}</td>
-              <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.lastModified}</td>
-              <td className="border-b border-zinc-100 px-4 py-3">
+              <td className="h-18 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.startDate}</td>
+              <td className="h-18 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.endDate}</td>
+              <td className="h-18 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.lastModified}</td>
+              <td className="h-18 border-b border-zinc-100 px-4 py-0 align-middle">
                 <span className={`inline-flex rounded-full px-2 py-0.5 text-xs ${statusClassMap[row.status]}`}>
                   {row.status}
                 </span>
               </td>
-              <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">
+              <td className="h-18 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">
                 <button
                   type="button"
                   className="inline-flex items-center justify-center"

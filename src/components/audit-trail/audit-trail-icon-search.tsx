@@ -16,7 +16,7 @@ const variantWrapper: Record<NonNullable<AuditTrailIconSearchProps["variant"]>, 
 const variantLayout: Record<NonNullable<AuditTrailIconSearchProps["variant"]>, string> = {
   header: "relative flex h-10 w-full min-w-0 items-center gap-2 rounded-lg px-3",
   toolbar:
-    "relative flex h-9 w-full min-w-0 items-center gap-2 rounded-xl px-3 sm:px-3.5",
+    "relative flex h-10 w-full min-w-0 items-center gap-2 rounded-xl px-3 sm:px-3.5",
 };
 
 export function AuditTrailIconSearch({
