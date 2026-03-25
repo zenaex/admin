@@ -20,7 +20,7 @@ export function AuditTrailTable({ rows }: AuditTrailTableProps) {
   const router = useRouter();
 
   return (
-    <div className="mt-4 overflow-x-auto">
+    <div className="mt-4 overflow-x-auto rounded-[8px]">
       <table className="bg-white w-full min-w-200 border-collapse text-left text-sm">
         <thead>
           <tr className="bg-zinc-100 text-zinc-500">

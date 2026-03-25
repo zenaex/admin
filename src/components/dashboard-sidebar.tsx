@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   ArrowDown2,
   DirectboxNotif,
@@ -40,17 +40,17 @@ function SidebarItem({
       className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
         active
           ? "bg-secondary-green text-white"
-          : "text-[#C9D8CE] hover:bg-secondary-green hover:text-white"
+          : "text-[#B0B0B0] hover:bg-secondary-green hover:text-white"
       } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
       aria-label={label}
     >
       {active ? (
         <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-[#BCEB0F]" />
       ) : null}
-      <span className={active ? "text-white" : "text-[#B7C7BE]"}>{icon}</span>
+      <span className={active ? "text-white" : "text-[#B0B0B0]"}>{icon}</span>
       {!collapsed ? <span className="text-[14px] font-medium">{label}</span> : null}
       {!collapsed && trailing ? (
-        <span className="ml-auto text-[#9DB0A4]">{trailing}</span>
+        <span className="ml-auto text-[#B0B0B0]">{trailing}</span>
       ) : null}
     </Link>
   );
@@ -68,12 +68,20 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
       ? pathname === "/dashboard"
       : pathname === href || pathname.startsWith(`${href}/`);
 
-  const isUserMgtOpen = isActive("/dashboard/user-mgt");
+  const isUserMgtRoute = isActive("/dashboard/user-mgt");
   const activeUserMgtItem = pathname.startsWith("/dashboard/user-mgt/admin-management")
     ? "admin-management"
     : pathname.startsWith("/dashboard/user-mgt/referral")
       ? "referral"
       : "customers";
+
+  const [isUserMgtOpen, setIsUserMgtOpen] = useState(isUserMgtRoute);
+  const [wasUserMgtRoute, setWasUserMgtRoute] = useState(isUserMgtRoute);
+
+  useEffect(() => {
+    if (isUserMgtRoute && !wasUserMgtRoute) setIsUserMgtOpen(true);
+    setWasUserMgtRoute(isUserMgtRoute);
+  }, [isUserMgtRoute, wasUserMgtRoute]);
 
   return (
     <aside
@@ -112,7 +120,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
 
       <div className={`flex-1 overflow-y-auto py-5 ${collapsed ? "px-3" : "px-3"}`}>
         {!collapsed ? (
-          <p className="px-2 text-[12px] font-medium uppercase tracking-wide text-[#D6E2DA]">
+          <p className="px-2 text-[13px] font-medium uppercase tracking-wide text-[#D6E2DA]">
             Main Menu
           </p>
         ) : null}
@@ -147,16 +155,19 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           <Link
             href="/dashboard/user-mgt"
             className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
-              isUserMgtOpen
+              isUserMgtRoute
                 ? "bg-secondary-green text-white"
-                : "text-[#C9D8CE] hover:bg-secondary-green hover:text-white"
+                : "text-[#B0B0B0] hover:bg-secondary-green hover:text-white"
             } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
             aria-label="User Mgt"
+            onClick={() => {
+              if (!collapsed) setIsUserMgtOpen((prev) => !prev);
+            }}
           >
             {isUserMgtOpen ? (
               <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-[#BCEB0F]" />
             ) : null}
-            <span className={isUserMgtOpen ? "text-white" : "text-[#B7C7BE]"}>
+            <span className={isUserMgtOpen ? "text-white" : "text-[#B0B0B0]"}>
               <People
                 size="24px"
                 color="currentColor"
@@ -168,7 +179,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             ) : null}
             {!collapsed ? (
               <span
-                className={`ml-auto text-[#9DB0A4] transition-transform ${
+                className={`ml-auto text-[#B0B0B0] transition-transform ${
                   isUserMgtOpen ? "rotate-180" : ""
                 }`}
               >
@@ -178,63 +189,64 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           </Link>
 
           {!collapsed && isUserMgtOpen ? (
-            <div className="relative mt-1 ml-5 pl-3 rounded-[6px] w-[82px]">
-              <div className="absolute left-4 top-0 bottom-0 w-px bg-secondary-green" />
+            <div className="relative mt-1 ml-5 pl-3 rounded-[6px] w-[96px]">
+              {/* Connector line that passes through the submenu dots */}
+              <div className="absolute left-5 -top-2 bottom-4 w-px bg-[#B0B0B0]" />
 
               <div className="space-y-3">
                 <Link
                   href="/dashboard/user-mgt/customers"
-                  className={`relative flex items-center pl-6 text-[14px] font-medium ${
+                  className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
                     activeUserMgtItem === "customers"
                       ? "text-white"
-                      : "text-[#9DB0A4] hover:text-white"
+                      : "text-[#B0B0B0] hover:text-white"
                   }`}
                   aria-label="Customers"
                 >
                   <span
-                    className={`absolute left-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
+                    className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
                       activeUserMgtItem === "customers"
-                        ? "bg-[#BCEB0F]"
-                        : "bg-[#C9D8CE]"
-                    }`}
+                        ? "bg-[#FFFFFF]"
+                        : "bg-[#B0B0B0]"
+                    } z-10`}
                   />
                   Customers
                 </Link>
 
                 <Link
                   href="/dashboard/user-mgt/admin-management"
-                  className={`relative flex items-center pl-6 text-[14px] font-medium ${
+                  className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
                     activeUserMgtItem === "admin-management"
                       ? "text-white"
-                      : "text-[#9DB0A4] hover:text-white"
+                      : "text-[#B0B0B0] hover:text-white"
                   }`}
-                  aria-label="Admin Management"
+                  aria-label="Admin Mgt"
                 >
                   <span
-                    className={`absolute left-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
+                    className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
                       activeUserMgtItem === "admin-management"
-                        ? "bg-[#BCEB0F]"
-                        : "bg-[#C9D8CE]"
-                    }`}
+                        ? "bg-[#FFFFFF]"
+                        : "bg-[#B0B0B0]"
+                    } z-10`}
                   />
-                  Admin Management
+                  Admin Mgt
                 </Link>
 
                 <Link
                   href="/dashboard/user-mgt/referral"
-                  className={`relative flex items-center pl-6 text-[14px] font-medium ${
+                  className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
                     activeUserMgtItem === "referral"
                       ? "text-white"
-                      : "text-[#9DB0A4] hover:text-white"
+                      : "text-[#B0B0B0] hover:text-white"
                   }`}
                   aria-label="Referral"
                 >
                   <span
-                    className={`absolute left-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
+                    className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
                       activeUserMgtItem === "referral"
-                        ? "bg-[#BCEB0F]"
-                        : "bg-[#C9D8CE]"
-                    }`}
+                        ? "bg-[#FFFFFF]"
+                        : "bg-[#B0B0B0]"
+                    } z-10`}
                   />
                   Referral
                 </Link>
@@ -268,16 +280,16 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             collapsed={collapsed}
           />
           <SidebarItem
-            href="/dashboard/biller-management"
-            label="Biller Management"
+            href="/dashboard/provider"
+            label="Provider"
             icon={
               <NotificationStatus
                 size="24"
                 color="currentColor"
-                variant={isActive("/dashboard/biller-management") ? "Bold" : "Outline"}
+                variant={isActive("/dashboard/provider") ? "Bold" : "Outline"}
               />
             }
-            active={isActive("/dashboard/biller-management")}
+            active={isActive("/dashboard/provider")}
             collapsed={collapsed}
           />
           <SidebarItem
@@ -296,7 +308,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
         </div>
 
         {!collapsed ? (
-          <p className="mt-7 px-2 text-[12px] font-medium text-[#D6E2DA]">
+          <p className="mt-7 px-2 text-[13px] font-medium uppercase text-[#D6E2DA]">
             Account Management
           </p>
         ) : null}
@@ -339,7 +351,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           </div>
           {!collapsed ? (
             <div>
-              <p className="text-[12px] font-semibold leading-tight">Roscoly Jibola</p>
+              <p className="text-[13px] font-semibold leading-tight">Roscoly Jibola</p>
               <p className="text-[11px] text-[#9FB4A8]">Superadmin</p>
             </div>
           ) : null}

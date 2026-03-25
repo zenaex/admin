@@ -31,7 +31,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         <DashboardSidebar collapsed={isSidebarCollapsed} />
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 justify-center">
-        <main className="min-h-0 w-full overflow-y-auto overscroll-y-contain rounded-[22px] bg-[#FAFAFA] px-8 pb-8 pt-4">
+        <main className="min-h-0 w-full overflow-y-auto overscroll-y-contain rounded-[22px] bg-[#F7F7F7] px-8 pb-8 pt-4">
           {children}
         </main>
       </div>

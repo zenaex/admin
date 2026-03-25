@@ -26,7 +26,7 @@ export function CommunicationTable({ rows }: CommunicationTableProps) {
   const router = useRouter();
 
   return (
-    <div className="mt-4 overflow-x-auto">
+    <div className="mt-4 overflow-x-auto rounded-[8px]">
       <table className="w-full min-w-200 border-collapse bg-white text-left text-sm">
         <thead>
           <tr className="bg-zinc-100 text-zinc-500">

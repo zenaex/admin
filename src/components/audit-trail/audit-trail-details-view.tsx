@@ -42,10 +42,10 @@ function ActivityGroup({ title, items }: { title: string; items: ActivityItem[] 
             key={`${title}-${idx}`}
             className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-xl border border-zinc-100 bg-white px-4 py-4 text-sm"
           >
-            <span className="rounded-md bg-zinc-100 px-2 py-1 text-zinc-500">{item.time}</span>
-            <span className="text-primary-text">{item.message}</span>
-            <span className="text-zinc-500">{item.userAgent}</span>
-            <span className="text-primary-text">{item.ip}</span>
+            <span className="rounded-md bg-zinc-100 px-2 py-1 text-[#001928]">{item.time}</span>
+            <span className="text-[#001928]">{item.message}</span>
+            <span className="text-[#001928]">{item.userAgent}</span>
+            <span className="text-[#001928]">{item.ip}</span>
           </div>
         ))}
       </div>
@@ -68,7 +68,7 @@ export function AuditTrailDetailsView() {
 
         <button
           type="button"
-          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-[#FAFAFA] px-3 text-xs font-semibold text-primary-text"
+          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-3 text-xs font-semibold text-primary-text"
         >
           Action
           <ArrowDown2 size={12} variant="Outline" color="currentColor" />

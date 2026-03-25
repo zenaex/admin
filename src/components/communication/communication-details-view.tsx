@@ -129,7 +129,7 @@ export function CommunicationDetailsView() {
         </div>
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-[#FAFAFA] px-3 text-xs font-semibold text-primary-text"
+          className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-3 text-xs font-semibold text-primary-text"
         >
           Action
           <ArrowDown2 size={12} variant="Outline" color="currentColor" />
@@ -300,7 +300,7 @@ export function CommunicationDetailsView() {
             <h2 className="text-sm font-semibold text-zinc-500">Preview</h2>
             <button
               type="button"
-              className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-[#FAFAFA] px-2.5 text-[11px] font-medium text-zinc-600"
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-2.5 text-[11px] font-medium text-zinc-600"
             >
               <Eye size={10} variant="Outline" color="currentColor" />
               Preview Campaign
