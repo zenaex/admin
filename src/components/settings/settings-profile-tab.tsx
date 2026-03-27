@@ -1,0 +1,52 @@
+"use client";
+
+const profile = {
+  employeeId: "ZN-00393022",
+  name: "Shakur Walsu",
+  email: "Shakur.wasiu@zenaex.com",
+  phoneNumber: "08077657678",
+  department: "Technology",
+  role: "Operations",
+  dateJoined: "Jan 6, 2025 | 9:32AM",
+};
+
+export function SettingsProfileTab() {
+  return (
+    <div>
+      {/* Profile table */}
+      <div className="overflow-x-auto rounded-xl border border-zinc-100 bg-white">
+        <table className="w-full min-w-200 border-collapse text-left text-sm">
+          <thead>
+            <tr className="text-zinc-500 bg-zinc-50">
+              <th className="border-b border-zinc-100 px-4 py-3 font-medium">Employee ID</th>
+              <th className="border-b border-zinc-100 px-4 py-3 font-medium">Name</th>
+              <th className="border-b border-zinc-100 px-4 py-3 font-medium">Email Address</th>
+              <th className="border-b border-zinc-100 px-4 py-3 font-medium">Phone Number</th>
+              <th className="border-b border-zinc-100 px-4 py-3 font-medium">Department</th>
+              <th className="border-b border-zinc-100 px-4 py-3 font-medium">Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="px-4 py-5 font-medium border-r border-zinc-100 text-black underline underline-offset-2">
+                {profile.employeeId}
+              </td>
+              <td className="px-4 py-5 border-r border-zinc-100 text-primary-text">{profile.name}</td>
+              <td className="px-4 py-5 border-r border-zinc-100 text-zinc-500">{profile.email}</td>
+              <td className="px-4 py-5 border-r border-zinc-100 text-zinc-500">{profile.phoneNumber}</td>
+              <td className="px-4 py-5 border-r border-zinc-100 text-zinc-500">{profile.department}</td>
+              <td className="px-4 py-5 border-r border-zinc-100 text-zinc-500">{profile.role}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Date Joined */}
+      <div className="mt-4 rounded-xl border border-zinc-100 bg-white py-4">
+        <p className="px-4 mb-2 text-sm font-medium text-zinc-500 bg-zinc-50">Date Joined</p>
+        <hr className="my-2 border-t border-zinc-100 w-full" />
+        <p className="px-4 text-sm text-primary-text h-10">{profile.dateJoined}</p>
+      </div>
+    </div>
+  );
+}

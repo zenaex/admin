@@ -1,6 +1,7 @@
 "use client";
 
-import { Edit2 } from "iconsax-react";
+import { useRouter } from "next/navigation";
+import { Edit } from "iconsax-react";
 
 export type ProviderRow = {
   id: string;
@@ -22,6 +23,8 @@ const statusStyles: Record<ProviderRow["status"], string> = {
 };
 
 export function ProviderTable({ rows }: ProviderTableProps) {
+  const router = useRouter();
+
   return (
     <div className="mt-4 overflow-x-auto rounded-[8px]">
       <table className="w-full min-w-200 border-collapse bg-white text-left text-sm">
@@ -38,7 +41,11 @@ export function ProviderTable({ rows }: ProviderTableProps) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className="transition-colors hover:bg-zinc-50">
+            <tr
+              key={row.id}
+              className="cursor-pointer transition-colors hover:bg-zinc-50"
+              onClick={() => router.push(`/dashboard/provider/${row.id}`)}
+            >
               <td className="h-18 border-b border-zinc-100 px-4 py-0 font-medium text-primary-text align-middle">
                 {row.name}
               </td>
@@ -61,13 +68,16 @@ export function ProviderTable({ rows }: ProviderTableProps) {
                   {row.status}
                 </span>
               </td>
-              <td className="h-18 border-b border-zinc-100 px-4 py-0 align-middle">
+              <td
+                className="h-18 border-b border-zinc-100 px-4 py-0 align-middle"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   type="button"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
                   aria-label={`Edit ${row.name}`}
                 >
-                  <Edit2 size={16} variant="Outline" color="currentColor" />
+                  <Edit size={16} variant="Outline" color="currentColor" />
                 </button>
               </td>
             </tr>
