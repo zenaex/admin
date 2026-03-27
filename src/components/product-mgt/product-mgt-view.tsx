@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowDown2, Edit, Import, Sort, WalletMoney, CardReceive, CardSend } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
+import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ProviderHeader } from "@/components/provider/provider-header";
 
 /* ── Types ── */
@@ -80,9 +82,9 @@ function StatusToggle({ checked, onChange }: { checked: boolean; onChange: (v: b
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-zinc-300 transition-colors"
+        className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-zinc-200 transition-colors"
       >
-        <span className={`inline-block h-4 w-4 rounded-full shadow transition-transform ${checked ? "translate-x-4 bg-primary-green" : "translate-x-0.5 bg-white"}`} />
+        <span className={`pointer-events-none inline-block h-4 w-4 rounded-full shadow-sm ring-0 transition-transform ${checked ? "translate-x-4 bg-green-500" : "translate-x-0 bg-white"}`} />
       </button>
       <span className="text-xs text-zinc-400">{checked ? "Active" : "Inactive"}</span>
     </div>
@@ -122,6 +124,7 @@ function ProviderDropdown({ value, onChange }: { value: string; onChange: (v: st
 
 /* ── Main view ── */
 export function ProductMgtView() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProductTab>("All");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -159,21 +162,12 @@ export function ProductMgtView() {
       </div>
 
       {/* Tab bar */}
-      <div className="mt-6 flex items-center gap-6 border-b border-zinc-100">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => { setActiveTab(tab); setPage(1); }}
-            className={`pb-2 text-sm font-medium transition-colors ${
-              activeTab === tab
-                ? "border-b-2 border-primary-text text-primary-text font-semibold"
-                : "text-zinc-400 hover:text-zinc-600"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="mt-6">
+        <UnderlineTabs
+          tabs={TABS.map((t) => ({ id: t, label: t }))}
+          active={activeTab}
+          onChange={(id) => { setActiveTab(id as ProductTab); setPage(1); }}
+        />
       </div>
 
       {/* Toolbar */}
@@ -214,25 +208,25 @@ export function ProductMgtView() {
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-zinc-50">
+              <tr key={row.id} onClick={() => router.push(`/dashboard/product-mgt/${row.id}`)} className="cursor-pointer transition-colors hover:bg-zinc-50">
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 font-medium text-primary-text align-middle">{row.productName}</td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.productCategory}</td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.commissionType}</td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.commissionRate}</td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.cap}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <ProviderDropdown
                     value={getProvider(row)}
                     onChange={(v) => setProviders((prev) => ({ ...prev, [row.id]: v }))}
                   />
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <StatusToggle
                     checked={getStatus(row) === "Active"}
                     onChange={(v) => setStatuses((prev) => ({ ...prev, [row.id]: v ? "Active" : "Inactive" }))}
                   />
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="text-zinc-400 transition-colors hover:text-zinc-600" aria-label="Edit">
                     <Edit size={18} variant="Outline" color="currentColor" />
                   </button>
