@@ -7,43 +7,48 @@ type ConfirmModalProps = {
   title: string;
   message: string;
   confirmLabel: string;
+  cancelLabel?: string;
+  variant?: "danger" | "approve";
   onConfirm: () => void;
   onCancel: () => void;
 };
 
-export function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: ConfirmModalProps) {
+export function ConfirmModal({
+  title, message, confirmLabel, cancelLabel = "Cancel",
+  variant = "danger", onConfirm, onCancel,
+}: ConfirmModalProps) {
+  const iconColor = variant === "approve" ? "#013220" : "#dc2626";
+  const confirmCls = variant === "approve"
+    ? "flex-1 rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+    : "flex-1 rounded-full bg-red-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-red-700";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl mx-4">
-        {/* Drag handle */}
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
-        {/* Warning icon */}
         <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-red-600">
-            <span className="text-[22px] font-bold leading-none text-red-600">!</span>
+          <div
+            className="flex h-14 w-14 items-center justify-center rounded-full border-[3px]"
+            style={{ borderColor: iconColor }}
+          >
+            <span className="text-[22px] font-bold leading-none" style={{ color: iconColor }}>!</span>
           </div>
         </div>
 
-        {/* Text */}
         <h2 className="mb-2 text-center text-[20px] font-bold text-primary-text">{title}</h2>
         <p className="mb-7 text-center text-sm text-zinc-400">{message}</p>
 
-        {/* Buttons */}
         <div className="flex gap-3">
           <button
             type="button"
             onClick={onCancel}
             className="flex-1 rounded-full bg-zinc-100 py-3.5 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-200"
           >
-            Cancel
+            {cancelLabel}
           </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="flex-1 rounded-full bg-red-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-red-700"
-          >
+          <button type="button" onClick={onConfirm} className={confirmCls}>
             {confirmLabel}
           </button>
         </div>

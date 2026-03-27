@@ -42,11 +42,16 @@ export function SettingsProfileTab() {
       </div>
 
       {/* Date Joined */}
-      <div className="mt-4 rounded-xl border border-zinc-100 bg-white py-4">
-        <p className="px-4 mb-2 text-sm font-medium text-zinc-500 bg-zinc-50">Date Joined</p>
+     
+    <div className="mt-4 border rounded-xl border-zinc-100 py-4 bg-zinc-50">
+      <div>
+        <p className="px-4 mb-2 text-sm font-medium text-zinc-500">Date Joined</p>
+      </div>
+      <div className="bg-white h-16 rounded-b-xl"> 
         <hr className="my-2 border-t border-zinc-100 w-full" />
         <p className="px-4 text-sm text-primary-text h-10">{profile.dateJoined}</p>
       </div>
+    </div>
     </div>
   );
 }
