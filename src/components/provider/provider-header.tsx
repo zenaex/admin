@@ -3,11 +3,11 @@
 import { Notification, Setting2 } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 
-export function ProviderHeader() {
+export function ProviderHeader({ title = "Provider" }: { title?: string }) {
   return (
     <header className="flex flex-wrap items-center gap-4">
       <h1 className="text-primary-text shrink-0 text-[20px] font-semibold tracking-tight">
-        Provider
+        {title}
       </h1>
 
       <div className="flex min-w-0 flex-1 justify-center">

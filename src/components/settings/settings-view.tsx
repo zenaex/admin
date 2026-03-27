@@ -6,6 +6,8 @@ import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-
 import { SettingsTabs, SettingsTabId } from "@/components/settings/settings-tabs";
 import { SettingsProfileTab } from "@/components/settings/settings-profile-tab";
 import { SettingsPasswordTab } from "@/components/settings/settings-password-tab";
+import { SettingsPasswordPolicyTab } from "@/components/settings/settings-password-policy-tab";
+import { SettingsAuthenticationTab } from "@/components/settings/settings-authentication-tab";
 
 export function SettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
@@ -41,12 +43,8 @@ export function SettingsView() {
       <div className="mt-6">
         {activeTab === "profile" && <SettingsProfileTab />}
         {activeTab === "password" && <SettingsPasswordTab />}
-        {activeTab === "password-policy" && (
-          <p className="text-sm text-zinc-400">Password policy settings coming soon.</p>
-        )}
-        {activeTab === "authentication" && (
-          <p className="text-sm text-zinc-400">Authentication settings coming soon.</p>
-        )}
+        {activeTab === "password-policy" && <SettingsPasswordPolicyTab />}
+        {activeTab === "authentication" && <SettingsAuthenticationTab />}
       </div>
     </div>
   );
