@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { SettingsTabs, SettingsTabId } from "@/components/settings/settings-tabs";
 import { SettingsProfileTab } from "@/components/settings/settings-profile-tab";
+import { SettingsPasswordTab } from "@/components/settings/settings-password-tab";
 
 export function SettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
@@ -17,9 +18,7 @@ export function SettingsView() {
 
         <div className="mt-6">
           {activeTab === "profile" && <SettingsProfileTab />}
-          {activeTab === "password" && (
-            <p className="text-sm text-zinc-400">Password settings coming soon.</p>
-          )}
+          {activeTab === "password" && <SettingsPasswordTab />}
           {activeTab === "password-policy" && (
             <p className="text-sm text-zinc-400">Password policy settings coming soon.</p>
           )}
