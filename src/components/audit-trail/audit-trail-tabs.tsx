@@ -7,14 +7,31 @@ type AuditTrailTabsProps = {
   onChange: (id: AuditTrailTabId) => void;
 };
 
-const tabs: { id: AuditTrailTabId; label: string }[] = [
+const AUDIT_TABS: { id: AuditTrailTabId; label: string }[] = [
   { id: "internal", label: "Internal Users" },
   { id: "customers", label: "Customers" },
 ];
 
 export function AuditTrailTabs({ active, onChange }: AuditTrailTabsProps) {
   return (
-    <div className="mt-8 flex items-baseline gap-8 border-b border-zinc-200">
+    <UnderlineTabs
+      tabs={AUDIT_TABS}
+      active={active}
+      onChange={onChange as (id: string) => void}
+    />
+  );
+}
+
+/* ── Generic reusable underline tab bar ── */
+type UnderlineTabsProps = {
+  tabs: { id: string; label: string }[];
+  active: string;
+  onChange: (id: string) => void;
+};
+
+export function UnderlineTabs({ tabs, active, onChange }: UnderlineTabsProps) {
+  return (
+    <div className="flex items-baseline gap-8 border-b border-zinc-200">
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         return (
@@ -31,12 +48,9 @@ export function AuditTrailTabs({ active, onChange }: AuditTrailTabsProps) {
             >
               {tab.label}
             </button>
-            {isActive ? (
-              <div
-                className="pointer-events-none -mb-px h-0.5 w-full bg-secondary-green"
-                aria-hidden
-              />
-            ) : null}
+            {isActive && (
+              <div className="pointer-events-none -mb-px h-0.5 w-full bg-secondary-green" aria-hidden />
+            )}
           </div>
         );
       })}
