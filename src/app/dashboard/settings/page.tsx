@@ -1,8 +1,5 @@
+import { SettingsView } from "@/components/settings/settings-view";
+
 export default function SettingsPage() {
-  return (
-    <>
-      <h1 className="text-primary-text text-[20px] font-semibold">Settings</h1>
-      <p className="mt-2 text-zinc-600">Settings (mock).</p>
-    </>
-  );
+  return <SettingsView />;
 }

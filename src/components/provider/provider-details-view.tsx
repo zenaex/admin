@@ -6,6 +6,7 @@ import { ArrowDown2, ArrowLeft2, ArrowRight2, Edit, Import, Sort } from "iconsax
 
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
+import { AddProductModal, ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 
 type ProviderDetail = {
   providerId: string;
@@ -98,6 +99,13 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
   const [productStatuses, setProductStatuses] = useState<Record<string, boolean>>(
     () => Object.fromEntries(ALL_PRODUCTS.map((p) => [p.id, p.status])),
   );
+  const [billerActive, setBillerActive] = useState(PROVIDER_DETAIL.status === "Active");
+
+  // Modal state
+  type PendingToggle = { type: "biller" } | { type: "product"; id: string; value: boolean };
+  const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(null);
+  const [showSuccess, setShowSuccess] = useState<{ message: string } | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
 
   const filteredProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
@@ -119,9 +127,29 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
     return filteredProducts.slice(start, start + pageSize);
   }, [filteredProducts, safePage, pageSize]);
 
-  const toggleStatus = (id: string, value: boolean) => {
-    setProductStatuses((prev) => ({ ...prev, [id]: value }));
+  const requestProductToggle = (id: string, value: boolean) => {
+    setPendingToggle({ type: "product", id, value });
   };
+
+  const requestBillerToggle = () => {
+    setPendingToggle({ type: "biller" });
+  };
+
+  const handleConfirm = () => {
+    if (!pendingToggle) return;
+    if (pendingToggle.type === "biller") {
+      const next = !billerActive;
+      setBillerActive(next);
+      setPendingToggle(null);
+      setShowSuccess({ message: `Biller has been successfully ${next ? "activated" : "deactivated"}` });
+    } else {
+      setProductStatuses((prev) => ({ ...prev, [pendingToggle.id]: pendingToggle.value }));
+      setPendingToggle(null);
+      setShowSuccess({ message: `Product has been successfully ${pendingToggle.value ? "activated" : "deactivated"}` });
+    }
+  };
+
+  const handleCancel = () => setPendingToggle(null);
 
   return (
     <div>
@@ -173,9 +201,9 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
                 <td className="px-4 py-5 border-r border-zinc-100 whitespace-nowrap text-zinc-500">{PROVIDER_DETAIL.lastUpdated}</td>
                 <td className="px-4 py-5">
                   <StatusToggle
-                    checked={PROVIDER_DETAIL.status === "Active"}
-                    onChange={() => {}}
-                    label="Toggle provider status"
+                    checked={billerActive}
+                    onChange={requestBillerToggle}
+                    label="Toggle biller status"
                   />
                 </td>
               </tr>
@@ -251,13 +279,14 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                     <StatusToggle
                       checked={productStatuses[product.id] ?? product.status}
-                      onChange={(val) => toggleStatus(product.id, val)}
+                      onChange={(val) => requestProductToggle(product.id, val)}
                       label={`Toggle status for ${product.productName}`}
                     />
                   </td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                     <button
                       type="button"
+                      onClick={() => setEditingProduct(product)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
                       aria-label={`Edit ${product.productName}`}
                     >
@@ -281,6 +310,37 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
           }}
         />
       </section>
+
+      {/* Edit product modal */}
+      {editingProduct && (
+        <AddProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSuccess={() => {
+            setEditingProduct(null);
+            setShowSuccess({ message: "Product has been successfully added" });
+          }}
+        />
+      )}
+
+      {/* Confirmation modal */}
+      {pendingToggle && (
+        <ConfirmModal
+          title={pendingToggle.type === "biller" ? "Deactivate Biller" : (pendingToggle.value ? "Activate Product" : "Deactivate Product")}
+          message={pendingToggle.type === "biller" ? "Are you sure you want to deactivate this biller?" : (pendingToggle.value ? "Are you sure you want to activate this product?" : "Are you sure you want to deactivate this product?")}
+          confirmLabel={pendingToggle.type === "biller" ? "Yes, Deactivate" : (pendingToggle.value ? "Yes, Activate" : "Yes, Deactivate")}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
+      )}
+
+      {/* Success modal */}
+      {showSuccess && (
+        <SuccessModal
+          message={showSuccess.message}
+          onContinue={() => setShowSuccess(null)}
+        />
+      )}
     </div>
   );
 }
