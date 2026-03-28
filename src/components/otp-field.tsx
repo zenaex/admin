@@ -36,7 +36,7 @@ export function OtpField({ length = 6, value, onChange }: OtpFieldProps) {
   };
 
   return (
-    <div className="flex items-center justify-center gap-2">
+    <div className="flex items-center justify-center gap-[16px]">
       {digits.map((digit, index) => (
         <input
           key={index}
@@ -50,7 +50,7 @@ export function OtpField({ length = 6, value, onChange }: OtpFieldProps) {
           value={digit}
           onChange={(event) => handleChange(index, event)}
           onKeyDown={(event) => handleKeyDown(index, event)}
-          className="h-9 w-9 rounded-md border border-zinc-300 bg-white text-center text-sm text-primary-text outline-none focus:border-secondary-green"
+          className="h-[56px] w-[56px] rounded-md border border-zinc-300 bg-white text-center text-sm text-primary-text outline-none focus:border-secondary-green"
         />
       ))}
     </div>

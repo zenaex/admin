@@ -40,17 +40,17 @@ function SidebarItem({
       className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
         active
           ? "bg-secondary-green text-white"
-          : "text-[#B0B0B0] hover:bg-secondary-green hover:text-white"
+          : "text-input-disabled-text hover:bg-secondary-green hover:text-white"
       } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
       aria-label={label}
     >
       {active ? (
-        <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-[#BCEB0F]" />
+        <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-primary-green" />
       ) : null}
-      <span className={active ? "text-white" : "text-[#B0B0B0]"}>{icon}</span>
+      <span className={active ? "text-white" : "text-input-disabled-text"}>{icon}</span>
       {!collapsed ? <span className="text-[14px] font-medium">{label}</span> : null}
       {!collapsed && trailing ? (
-        <span className="ml-auto text-[#B0B0B0]">{trailing}</span>
+        <span className="ml-auto text-input-disabled-text">{trailing}</span>
       ) : null}
     </Link>
   );
@@ -120,7 +120,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
 
       <div className={`flex-1 overflow-y-auto py-5 ${collapsed ? "px-3" : "px-3"}`}>
         {!collapsed ? (
-          <p className="px-2 text-[13px] font-medium uppercase tracking-wide text-[#D6E2DA]">
+          <p className="px-2 text-[13px] font-medium uppercase tracking-wide text-sidebar-label">
             Main Menu
           </p>
         ) : null}
@@ -157,7 +157,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
               isUserMgtRoute
                 ? "bg-secondary-green text-white"
-                : "text-[#B0B0B0] hover:bg-secondary-green hover:text-white"
+                : "text-input-disabled-text hover:bg-secondary-green hover:text-white"
             } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
             aria-label="User Mgt"
             onClick={() => {
@@ -165,9 +165,9 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             }}
           >
             {isUserMgtOpen ? (
-              <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-[#BCEB0F]" />
+              <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-primary-green" />
             ) : null}
-            <span className={isUserMgtOpen ? "text-white" : "text-[#B0B0B0]"}>
+            <span className={isUserMgtOpen ? "text-white" : "text-input-disabled-text"}>
               <People
                 size="24px"
                 color="currentColor"
@@ -179,7 +179,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             ) : null}
             {!collapsed ? (
               <span
-                className={`ml-auto text-[#B0B0B0] transition-transform ${
+                className={`ml-auto text-input-disabled-text transition-transform ${
                   isUserMgtOpen ? "rotate-180" : ""
                 }`}
               >
@@ -191,7 +191,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           {!collapsed && isUserMgtOpen ? (
             <div className="relative mt-1 ml-5 pl-3 rounded-[6px] w-[96px]">
               {/* Connector line that passes through the submenu dots */}
-              <div className="absolute left-5 -top-2 bottom-4 w-px bg-[#B0B0B0]" />
+              <div className="absolute left-5 -top-2 bottom-4 w-px bg-input-disabled-text" />
 
               <div className="space-y-3">
                 <Link
@@ -199,15 +199,15 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                   className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
                     activeUserMgtItem === "customers"
                       ? "text-white"
-                      : "text-[#B0B0B0] hover:text-white"
+                      : "text-input-disabled-text hover:text-white"
                   }`}
                   aria-label="Customers"
                 >
                   <span
                     className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
                       activeUserMgtItem === "customers"
-                        ? "bg-[#FFFFFF]"
-                        : "bg-[#B0B0B0]"
+                        ? "bg-white"
+                        : "bg-input-disabled-text"
                     } z-10`}
                   />
                   Customers
@@ -218,15 +218,15 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                   className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
                     activeUserMgtItem === "admin-management"
                       ? "text-white"
-                      : "text-[#B0B0B0] hover:text-white"
+                      : "text-input-disabled-text hover:text-white"
                   }`}
                   aria-label="Admin Mgt"
                 >
                   <span
                     className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
                       activeUserMgtItem === "admin-management"
-                        ? "bg-[#FFFFFF]"
-                        : "bg-[#B0B0B0]"
+                        ? "bg-white"
+                        : "bg-input-disabled-text"
                     } z-10`}
                   />
                   Admin Mgt
@@ -237,15 +237,15 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                   className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
                     activeUserMgtItem === "referral"
                       ? "text-white"
-                      : "text-[#B0B0B0] hover:text-white"
+                      : "text-input-disabled-text hover:text-white"
                   }`}
                   aria-label="Referral"
                 >
                   <span
                     className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
                       activeUserMgtItem === "referral"
-                        ? "bg-[#FFFFFF]"
-                        : "bg-[#B0B0B0]"
+                        ? "bg-white"
+                        : "bg-input-disabled-text"
                     } z-10`}
                   />
                   Referral
@@ -308,7 +308,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
         </div>
 
         {!collapsed ? (
-          <p className="mt-7 px-2 text-[13px] font-medium uppercase text-[#D6E2DA]">
+          <p className="mt-7 px-2 text-[13px] font-medium uppercase text-sidebar-label">
             Account Management
           </p>
         ) : null}
@@ -352,16 +352,16 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           {!collapsed ? (
             <div>
               <p className="text-[13px] font-semibold leading-tight">Roscoly Jibola</p>
-              <p className="text-[11px] text-[#9FB4A8]">Superadmin</p>
+              <p className="text-[11px] text-label">Superadmin</p>
             </div>
           ) : null}
         </div>
         {!collapsed ? (
           <Link
             href="/login"
-            className="mt-4 inline-flex items-center gap-2 text-[13px] text-[#D6E2DA]"
+            className="mt-4 inline-flex items-center gap-2 text-[13px] text-sidebar-label"
           >
-            <LogoutCurve size="24" color="#FF3B30" variant="Outline" />
+            <LogoutCurve size="24" color="var(--color-coral-red)" variant="Outline" />
             <span>Log out</span>
           </Link>
         ) : null}

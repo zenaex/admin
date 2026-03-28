@@ -29,7 +29,7 @@ export function ProviderTable({ rows }: ProviderTableProps) {
     <div className="mt-4 overflow-x-auto rounded-[8px]">
       <table className="w-full min-w-200 border-collapse bg-white text-left text-sm">
         <thead>
-          <tr className="bg-zinc-100 text-zinc-500">
+          <tr className="bg-outline text-zinc-500">
             <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Providers Name</th>
             <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Category</th>
             <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Added</th>
@@ -43,25 +43,25 @@ export function ProviderTable({ rows }: ProviderTableProps) {
           {rows.map((row) => (
             <tr
               key={row.id}
-              className="cursor-pointer transition-colors hover:bg-zinc-50"
+              className="cursor-pointer transition-colors hover:bg-surface-subtle"
               onClick={() => router.push(`/dashboard/provider/${row.id}`)}
             >
-              <td className="h-18 border-b border-zinc-100 px-4 py-0 font-medium text-primary-text align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 font-medium text-primary-text align-middle">
                 {row.name}
               </td>
-              <td className="h-18 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 text-zinc-500 align-middle">
                 {row.category}
               </td>
-              <td className="h-18 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
                 {row.dateAdded}
               </td>
-              <td className="h-18 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
                 {row.lastUpdated}
               </td>
-              <td className="h-18 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 text-zinc-500 align-middle">
                 {row.noOfProducts}
               </td>
-              <td className="h-18 border-b border-zinc-100 px-4 py-0 align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 align-middle">
                 <span
                   className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${statusStyles[row.status]}`}
                 >
@@ -69,12 +69,12 @@ export function ProviderTable({ rows }: ProviderTableProps) {
                 </span>
               </td>
               <td
-                className="h-18 border-b border-zinc-100 px-4 py-0 align-middle"
+                className="h-18 border-b border-outline px-4 py-0 align-middle"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
                   type="button"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
                   aria-label={`Edit ${row.name}`}
                 >
                   <Edit size={16} variant="Outline" color="currentColor" />

@@ -4,7 +4,16 @@
       "Bash(git -C /c/Users/Youngestage/admin log --oneline -10)",
       "Bash(npx tsc:*)",
       "Bash(ls /c/Users/Youngestage/admin/tailwind*)",
-      "Bash(ls /c/Users/Youngestage/admin/*.config*)"
+      "Bash(ls /c/Users/Youngestage/admin/*.config*)",
+      "Bash(find C:/Users/Youngestage/admin/src/app -path */login/otp* -o -path */otp*)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(sed -i 's/bg-zinc-50/bg-[#F9FAFB]/g; s/hover:bg-zinc-50/hover:bg-[#F9FAFB]/g; s/text-zinc-50/text-[#F9FAFB]/g; s/border-zinc-50/border-[#F9FAFB]/g' \"$f\")",
+      "Bash(done)",
+      "Bash(grep -rh --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.css\" -oE '#[0-9A-Fa-f]{3,8}' \"C:/Users/Youngestage/admin/src\")",
+      "Bash(grep -rh --include=\"*.tsx\" --include=\"*.ts\" -oE '#[0-9A-Fa-f]{6,8}' \"C:/Users/Youngestage/admin/src\")",
+      "Bash(while read:*)",
+      "Bash(do sed:*)"
     ]
   }
 }

@@ -65,7 +65,7 @@ function QrCodeModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200"
+          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-outline text-zinc-500 transition-colors hover:bg-zinc-200"
           aria-label="Close"
         >
           <CloseSquare size={16} variant="Outline" color="currentColor" />
@@ -176,7 +176,7 @@ function GeneralTab() {
   };
 
   return (
-    <div className="rounded-xl border border-zinc-100 bg-white">
+    <div className="rounded-xl border border-outline bg-white">
       {methods.map((method, idx) => (
         <div key={method.id}>
           <div className="px-6 py-7">
@@ -206,7 +206,7 @@ function GeneralTab() {
             <p className="mt-3 text-xs text-zinc-400">{method.description}</p>
           </div>
 
-          {idx < methods.length - 1 && <hr className="border-zinc-100" />}
+          {idx < methods.length - 1 && <hr className="border-outline" />}
         </div>
       ))}
 
@@ -234,7 +234,7 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200"
+          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-outline text-zinc-500 transition-colors hover:bg-zinc-200"
           aria-label="Close"
         >
           <CloseSquare size={16} variant="Outline" color="currentColor" />
@@ -249,9 +249,9 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
 function SuccessScreen({ message, buttonLabel, onClose }: { message: string; buttonLabel: string; onClose: () => void }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-outline">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-secondary-green">
-          <TickCircle size={32} variant="Outline" color="#013220" />
+          <TickCircle size={32} variant="Outline" color="var(--color-secondary-green)" />
         </div>
       </div>
       <h2 className="mb-2 text-lg font-bold text-primary-text">Successful</h2>
@@ -345,7 +345,7 @@ function DisableMfaModal({ userName, onClose }: { userName: string; onClose: () 
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-full border border-zinc-200 bg-white py-3 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-50"
+              className="flex-1 rounded-full border border-zinc-200 bg-white py-3 text-sm font-semibold text-primary-text transition-colors hover:bg-surface-subtle"
             >
               Cancel
             </button>
@@ -383,7 +383,7 @@ function DisableMfaModal({ userName, onClose }: { userName: string; onClose: () 
                   key={opt}
                   type="button"
                   onClick={() => { setTimeRange(opt); setDropdownOpen(false); }}
-                  className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-zinc-50 ${timeRange === opt ? "font-semibold text-primary-text" : "text-zinc-500"}`}
+                  className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-surface-subtle ${timeRange === opt ? "font-semibold text-primary-text" : "text-zinc-500"}`}
                 >
                   {opt}
                 </button>
@@ -475,7 +475,7 @@ function UsersTab() {
       <div className="overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
-            <tr className="bg-zinc-50 text-zinc-400 text-xs">
+            <tr className="bg-surface-subtle text-zinc-400 text-xs">
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Name</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Role</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Authentication Status</th>
@@ -484,17 +484,17 @@ function UsersTab() {
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-zinc-50">
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-sm font-medium text-primary-text align-middle">
+              <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
+                <td className="h-16 border-b border-outline px-4 py-0 text-sm font-medium text-primary-text align-middle">
                   {row.name}
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-sm text-zinc-500 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 text-sm text-zinc-500 align-middle">
                   {row.role}
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <button
                     type="button"
                     onClick={() => setDisablingUser(row)}
@@ -555,18 +555,18 @@ export function SettingsAuthenticationTab() {
           {/* Filter */}
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-zinc-50"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
             aria-label="Filter"
           >
-            <Sort size={18} variant="Outline" color="#17375E" />
+            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
           </button>
 
           {/* Export */}
           <button
             type="button"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-zinc-50"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
           >
-            <Import size={18} variant="Outline" color="#17375E" />
+            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
             Export
           </button>
 
@@ -583,7 +583,7 @@ export function SettingsAuthenticationTab() {
       </div>
 
       {/* Sub-tab bar */}
-      <div className="mb-6 flex items-center gap-6 rounded-full border border-zinc-100 bg-white px-5 py-3.5">
+      <div className="mb-6 flex items-center gap-6 rounded-full border border-outline bg-white px-5 py-3.5">
         {(["general", "users"] as AuthSubTab[]).map((id) => {
           const label = id === "general" ? "General" : "Users";
           const active = subTab === id;

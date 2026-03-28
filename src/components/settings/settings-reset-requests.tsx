@@ -71,7 +71,7 @@ export function ResetRequestsTable() {
       <div className="overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
-            <tr className="bg-zinc-50 text-zinc-500">
+            <tr className="bg-surface-subtle text-zinc-500">
               <th className="h-11 w-10 border-b border-zinc-200 px-4 py-0 align-middle">
                 <input
                   type="checkbox"
@@ -93,8 +93,8 @@ export function ResetRequestsTable() {
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-zinc-50">
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+              <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <input
                     type="checkbox"
                     checked={selected.has(row.id)}
@@ -102,17 +102,17 @@ export function ResetRequestsTable() {
                     className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
                   />
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <span className="cursor-pointer font-medium text-black underline underline-offset-2">
                     {row.name}
                   </span>
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
                   {row.dateRequested}
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <div className="flex items-center gap-4">
                     <button
                       type="button"

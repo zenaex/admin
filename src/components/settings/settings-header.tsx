@@ -19,7 +19,7 @@ export function SettingsHeader() {
       <div className="ml-auto shrink-0">
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-primary-text transition-colors hover:bg-surface-subtle"
         >
           Action
           <ArrowDown2 size={14} variant="Outline" color="currentColor" />

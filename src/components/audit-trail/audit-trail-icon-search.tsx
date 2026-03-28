@@ -9,7 +9,7 @@ type AuditTrailIconSearchProps = Omit<InputHTMLAttributes<HTMLInputElement>, "cl
 };
 
 const variantWrapper: Record<NonNullable<AuditTrailIconSearchProps["variant"]>, string> = {
-  header: "bg-zinc-100",
+  header: "bg-outline",
   toolbar: "border border-zinc-200 bg-white",
 };
 

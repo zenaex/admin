@@ -81,14 +81,14 @@ export function AuditTrailPagination({
       </div>
 
       <nav
-        className="flex flex-wrap items-center gap-1 rounded-full border border-zinc-100 bg-white px-2 py-1 text-zinc-500"
+        className="flex flex-wrap items-center gap-1 rounded-full border border-outline bg-white px-2 py-1 text-zinc-500"
         aria-label="Pagination"
       >
         <button
           type="button"
           disabled={safePage <= 1}
           onClick={() => onPageChange(safePage - 1)}
-          className="rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-zinc-50 disabled:opacity-40"
+          className="rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-surface-subtle disabled:opacity-40"
         >
           « Previous
         </button>
@@ -104,7 +104,7 @@ export function AuditTrailPagination({
               onClick={() => onPageChange(item)}
               className={[
                 "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-sm font-medium transition-colors",
-                item === safePage ? "bg-primary-green text-primary-text" : "text-zinc-500 hover:bg-zinc-50",
+                item === safePage ? "bg-primary-green text-primary-text" : "text-zinc-500 hover:bg-surface-subtle",
               ].join(" ")}
             >
               {item}
@@ -115,7 +115,7 @@ export function AuditTrailPagination({
           type="button"
           disabled={safePage >= totalPages}
           onClick={() => onPageChange(safePage + 1)}
-          className="rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-zinc-50 disabled:opacity-40"
+          className="rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-surface-subtle disabled:opacity-40"
         >
           Next »
         </button>
@@ -126,7 +126,7 @@ export function AuditTrailPagination({
         <input
           type="text"
           inputMode="numeric"
-          className="h-8 w-12 rounded-full border border-zinc-100 bg-white px-2 text-center text-sm text-zinc-500 outline-none"
+          className="h-8 w-12 rounded-full border border-outline bg-white px-2 text-center text-sm text-zinc-500 outline-none"
           value={goTo}
           onChange={(e) => setGoTo(e.target.value)}
           onKeyDown={(e) => {
