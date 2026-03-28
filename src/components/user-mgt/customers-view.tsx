@@ -50,11 +50,11 @@ function StatCard({
   label, value, accentColor, icon,
 }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
   return (
-    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-[#E8EBEE] bg-white px-5 py-4">
+    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-outline bg-white px-5 py-4">
       <div className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full" style={{ backgroundColor: accentColor }} />
       <div className="flex items-start justify-between">
         <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#E8EBEE] text-zinc-400">{icon}</span>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-outline text-zinc-400">{icon}</span>
       </div>
       <p className="text-[28px] font-bold text-primary-text">{value}</p>
     </div>
@@ -135,7 +135,7 @@ export function CustomersView() {
         <StatCard
           label="Total Customers"
           value="₦ 150,000"
-          accentColor="#BCEB0F"
+          accentColor="var(--color-primary-green)"
           icon={
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
           }
@@ -143,7 +143,7 @@ export function CustomersView() {
         <StatCard
           label="Active Customers"
           value="100,000"
-          accentColor="#3B82F6"
+          accentColor="var(--color-vivid-azure)"
           icon={
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6"/><circle cx="17" cy="8" r="3"/><path d="M21 20c0-3.3-2.7-6-6-6"/></svg>
           }
@@ -151,7 +151,7 @@ export function CustomersView() {
         <StatCard
           label="Inactive Customers"
           value="50,000"
-          accentColor="#EF4444"
+          accentColor="var(--color-failed)"
           icon={
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><line x1="17" y1="3" x2="22" y2="8"/></svg>
           }
@@ -159,7 +159,7 @@ export function CustomersView() {
         <StatCard
           label="New Sign ups"
           value="50,000"
-          accentColor="#013220"
+          accentColor="var(--color-secondary-green)"
           icon={
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="10" cy="8" r="4"/><path d="M2 20c0-4 3.6-7 8-7"/><path d="M19 8v6m3-3h-6"/></svg>
           }
@@ -179,16 +179,16 @@ export function CustomersView() {
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-[#F9FAFB]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
             aria-label="Filter"
           >
-            <Sort size={18} variant="Outline" color="#17375E" />
+            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
           </button>
           <button
             type="button"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-[#F9FAFB]"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
           >
-            <Import size={18} variant="Outline" color="#17375E" />
+            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
             Export
           </button>
         </div>
@@ -198,7 +198,7 @@ export function CustomersView() {
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
-            <tr className="bg-[#F9FAFB] text-xs text-zinc-400">
+            <tr className="bg-surface-subtle text-xs text-zinc-400">
               <th className="h-11 w-10 border-b border-zinc-200 px-4 py-0 align-middle">
                 <input
                   type="checkbox"
@@ -218,8 +218,8 @@ export function CustomersView() {
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-[#F9FAFB]">
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
+              <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <input
                     type="checkbox"
                     checked={selected.has(row.id)}
@@ -227,7 +227,7 @@ export function CustomersView() {
                     className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
                   />
                 </td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <div className="flex items-center gap-3">
                     <Avatar initials={row.initials} colorClass={row.avatarColor} />
                     <div>
@@ -236,12 +236,12 @@ export function CustomersView() {
                     </div>
                   </div>
                 </td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
+                <td className="h-16 border-b border-outline px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
                   {row.dateOnboarded}
                 </td>
               </tr>

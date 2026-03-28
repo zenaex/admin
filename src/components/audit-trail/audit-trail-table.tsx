@@ -23,7 +23,7 @@ export function AuditTrailTable({ rows }: AuditTrailTableProps) {
     <div className="mt-4 overflow-x-auto rounded-[8px]">
       <table className="bg-white w-full min-w-200 border-collapse text-left text-sm">
         <thead>
-          <tr className="bg-[#E8EBEE] text-zinc-500">
+          <tr className="bg-outline text-zinc-500">
             <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Name</th>
             <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email</th>
             <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Role</th>
@@ -36,19 +36,19 @@ export function AuditTrailTable({ rows }: AuditTrailTableProps) {
           {rows.map((row) => (
             <tr
               key={row.id}
-              className="cursor-pointer transition-colors hover:bg-[#E8EBEE]"
+              className="cursor-pointer transition-colors hover:bg-outline"
               onClick={() => router.push(`/dashboard/audit-trail/${row.id}`)}
             >
-              <td className="h-18 border-b border-[#E8EBEE] px-4 py-0 font-medium text-primary-text align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 font-medium text-primary-text align-middle">
                 {row.name}
               </td>
-              <td className="h-18 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-              <td className="h-18 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
-              <td className="h-18 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.action}</td>
-              <td className="h-18 border-b border-[#E8EBEE] px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
+              <td className="h-18 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
+              <td className="h-18 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.action}</td>
+              <td className="h-18 border-b border-outline px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
                 {row.sessionIn}
               </td>
-              <td className="h-18 border-b border-[#E8EBEE] px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
+              <td className="h-18 border-b border-outline px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
                 {row.sessionOut}
               </td>
             </tr>

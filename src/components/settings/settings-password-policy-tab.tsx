@@ -92,7 +92,7 @@ function ExpiryConfiguration() {
                 key={opt}
                 type="button"
                 onClick={() => { setSelected(opt); setOpen(false); }}
-                className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-[#F9FAFB] ${
+                className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-surface-subtle ${
                   selected === opt ? "font-semibold text-primary-text" : "text-zinc-500"
                 }`}
               >
@@ -103,7 +103,7 @@ function ExpiryConfiguration() {
         )}
       </div>
 
-      <hr className="border-[#E8EBEE]" />
+      <hr className="border-outline" />
 
       {/* Enable reusable password toggle */}
       <Toggle checked={reusable} onChange={setReusable} label="Enable reusable password" />
@@ -150,7 +150,7 @@ function PasswordLength() {
             {minOptions.map((opt) => (
               <button key={opt} type="button"
                 onClick={() => { setMinChar(opt); setOpenMin(false); }}
-                className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-[#F9FAFB] ${minChar === opt ? "font-semibold text-primary-text" : "text-zinc-500"}`}
+                className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-surface-subtle ${minChar === opt ? "font-semibold text-primary-text" : "text-zinc-500"}`}
               >
                 {opt} characters
               </button>
@@ -176,7 +176,7 @@ function PasswordLength() {
             {maxOptions.map((opt) => (
               <button key={opt} type="button"
                 onClick={() => { setMaxChar(opt); setOpenMax(false); }}
-                className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-[#F9FAFB] ${maxChar === opt ? "font-semibold text-primary-text" : "text-zinc-500"}`}
+                className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-surface-subtle ${maxChar === opt ? "font-semibold text-primary-text" : "text-zinc-500"}`}
               >
                 {opt} characters
               </button>
@@ -246,7 +246,7 @@ export function SettingsPasswordPolicyTab() {
   return (
     <div>
       {/* Sub-tab bar */}
-      <div className="mb-6 flex items-center gap-6 rounded-full border border-[#E8EBEE] bg-white px-5 py-3.5">
+      <div className="mb-6 flex items-center gap-6 rounded-full border border-outline bg-white px-5 py-3.5">
         {tabs.map(({ id, label }) => {
           const active = subTab === id;
           return (
@@ -267,7 +267,7 @@ export function SettingsPasswordPolicyTab() {
       </div>
 
       {/* Content card */}
-      <div className="w-[566px] rounded-xl border border-[#E8EBEE] bg-white p-6">
+      <div className="w-[566px] rounded-xl border border-outline bg-white p-6">
         {subTab === "expiry" && <ExpiryConfiguration />}
         {subTab === "length" && <PasswordLength />}
         {subTab === "combination" && <CombinationSetting />}

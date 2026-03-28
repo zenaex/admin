@@ -55,7 +55,7 @@ export function LoginPage() {
 
         <section className="flex items-center justify-center p-[60px]">
           <div className="w-full max-w-[660px] h-[553] rounded-[20px] bg-background px-6 py-10 sm:px-10 lg:px-14">
-            <div className="mx-auto w-full max-w-[470px] rounded-md bg-[#FFFFFF] px-8 py-9">
+            <div className="mx-auto w-full max-w-[470px] rounded-md bg-white px-8 py-9">
               <h1 className="text-primary-text text-[30px] font-semibold leading-[0.98] tracking-[-0.01em]">
                 Welcome back
               </h1>

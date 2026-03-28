@@ -24,16 +24,16 @@ export function AuditTrailToolbar({ tableSearch, onTableSearchChange }: AuditTra
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-[#F9FAFB]"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
           aria-label="Filter"
         >
-          <Sort size={18} variant="Outline" color="#17375E" />
+          <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
         </button>
         <button
           type="button"
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-[#F9FAFB]"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
         >
-          <Import size={18} variant="Outline" color="#17375E" />
+          <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
           Export
         </button>
       </div>

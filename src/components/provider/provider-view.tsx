@@ -42,14 +42,14 @@ type StatCardProps = {
 
 function StatCard({ label, value, accentColor, icon }: StatCardProps) {
   return (
-    <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-xl border gap-[13px] border-[#E8EBEE] bg-white px-5 py-4">
+    <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-xl border gap-[13px] border-outline bg-white px-5 py-4">
       <div
         className="absolute left-0 h-full top-0 bottom-0 w-[4px] rounded-r-full"
         style={{ backgroundColor: accentColor }}
       />
       <div className="flex items-start justify-between">
         <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#E8EBEE] text-zinc-400">
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-outline text-zinc-400">
           {icon}
         </span>
       </div>
@@ -89,9 +89,9 @@ export function ProviderView() {
 
       {/* Stat cards */}
       <div className="mt-6 flex gap-3">
-        <StatCard label="Total Providers" value={TOTAL.toLocaleString()} accentColor="#BCEB0F" icon={<WalletMoney size="20" color="currentColor" variant="Outline" />} />
-        <StatCard label="Active Providers" value={ACTIVE.toLocaleString()} accentColor="#3B82F6" icon={<CardReceive size="20" color="currentColor" variant="Outline" />} />
-        <StatCard label="Inactive Providers" value={INACTIVE.toLocaleString()} accentColor="#EF4444" icon={<CardSend size="20" color="currentColor" variant="Outline" />} />
+        <StatCard label="Total Providers" value={TOTAL.toLocaleString()} accentColor="var(--color-primary-green)" icon={<WalletMoney size="20" color="currentColor" variant="Outline" />} />
+        <StatCard label="Active Providers" value={ACTIVE.toLocaleString()} accentColor="var(--color-vivid-azure)" icon={<CardReceive size="20" color="currentColor" variant="Outline" />} />
+        <StatCard label="Inactive Providers" value={INACTIVE.toLocaleString()} accentColor="var(--color-failed)" icon={<CardSend size="20" color="currentColor" variant="Outline" />} />
       </div>
 
       {/* Toolbar */}
@@ -108,16 +108,16 @@ export function ProviderView() {
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-[#F9FAFB]"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
             aria-label="Filter"
           >
-            <Sort size={18} variant="Outline" color="#17375E" />
+            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
           </button>
           <button
             type="button"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-[#F9FAFB]"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
           >
-            <Import size={18} variant="Outline" color="#17375E" />
+            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
             Export
           </button>
         </div>

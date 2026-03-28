@@ -25,7 +25,7 @@ export function OtpPage() {
           <h1 className="text-primary-text text-[24px] font-semibold">
             OTP Verification Code
           </h1>
-          <p className="mt-2 text-[16px] text-[#777F89]">
+          <p className="mt-2 text-[16px] text-text-body">
             Enter the code sent to your email
           </p>
 
@@ -33,11 +33,11 @@ export function OtpPage() {
             <OtpField value={otpCode} onChange={setOtpCode} />
 
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1 text-[14px] text-[#667085]">
+              <span className="inline-flex items-center gap-1 text-[14px] text-text-grey">
                 <Timer1 size="12" color="currentColor" variant="Outline" />
                 Expires in 0:13
               </span>
-              <span className="text-[#6B6B6B] text-[16px]">
+              <span className="text-grey-600 text-[16px]">
                 Didn&apos;t get a code?{" "}
                 <button type="button" className="font-semibold text-[16px] text-secondary-green">
                   Resend

@@ -103,22 +103,22 @@ export function CommunicationDetailsView() {
       Immediate:
         scheduleMode === "Immediate"
           ? "bg-primary-green text-primary-text"
-          : "bg-[#E8EBEE] text-zinc-600 hover:bg-zinc-200",
+          : "bg-outline text-zinc-600 hover:bg-zinc-200",
       Scheduled:
         scheduleMode === "Scheduled"
           ? "bg-primary-green text-primary-text"
-          : "bg-[#E8EBEE] text-zinc-600 hover:bg-zinc-200",
+          : "bg-outline text-zinc-600 hover:bg-zinc-200",
       Recurring:
         scheduleMode === "Recurring"
           ? "bg-primary-green text-primary-text"
-          : "bg-[#E8EBEE] text-zinc-600 hover:bg-zinc-200",
+          : "bg-outline text-zinc-600 hover:bg-zinc-200",
     }),
     [scheduleMode],
   );
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between rounded-xl border border-[#E8EBEE] bg-white px-3 py-2.5">
+      <div className="mb-4 flex items-center justify-between rounded-xl border border-outline bg-white px-3 py-2.5">
         <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
           <Link href="/dashboard/communication" className="inline-flex items-center gap-1 text-primary-text">
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
@@ -129,7 +129,7 @@ export function CommunicationDetailsView() {
         </div>
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-3 text-xs font-semibold text-primary-text"
+          className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
         >
           Action
           <ArrowDown2 size={12} variant="Outline" color="currentColor" />
@@ -138,7 +138,7 @@ export function CommunicationDetailsView() {
 
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="space-y-3">
-          <section className="rounded-xl border border-[#E8EBEE] bg-white p-3">
+          <section className="rounded-xl border border-outline bg-white p-3">
             <button
               type="button"
               className="mb-2 flex w-full items-center justify-between"
@@ -219,7 +219,7 @@ export function CommunicationDetailsView() {
             </div> : null}
           </section>
 
-          <section className="rounded-xl border border-[#E8EBEE] bg-white p-3">
+          <section className="rounded-xl border border-outline bg-white p-3">
             <button
               type="button"
               className="mb-2 flex w-full items-center justify-between"
@@ -262,7 +262,7 @@ export function CommunicationDetailsView() {
             </div> : null}
           </section>
 
-          <section className="rounded-xl border border-[#E8EBEE] bg-white p-3">
+          <section className="rounded-xl border border-outline bg-white p-3">
             <button
               type="button"
               className="mb-2 flex w-full items-center justify-between"
@@ -300,7 +300,7 @@ export function CommunicationDetailsView() {
             <h2 className="text-sm font-semibold text-zinc-500">Preview</h2>
             <button
               type="button"
-              className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-2.5 text-[11px] font-medium text-zinc-600"
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-2.5 text-[11px] font-medium text-zinc-600"
             >
               <Eye size={10} variant="Outline" color="currentColor" />
               Preview Campaign
@@ -337,8 +337,8 @@ export function CommunicationDetailsView() {
             <div className="mx-auto mt-2 h-1.5 w-20 rounded-full bg-zinc-200" />
 
             <div className="mt-6 flex flex-col items-center text-center">
-              <div className="flex h-22 w-22 items-center justify-center rounded-full bg-[#F9FAFB]">
-                <TickCircle size={58} variant="Linear" color="#2f8f46" />
+              <div className="flex h-22 w-22 items-center justify-center rounded-full bg-surface-subtle">
+                <TickCircle size={58} variant="Linear" color="var(--color-success)" />
               </div>
               <h3 className="mt-6 text-[32px] leading-none font-semibold text-primary-text">Successful</h3>
               <p className="mt-4 text-[24px] leading-tight text-zinc-500">

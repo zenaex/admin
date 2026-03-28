@@ -154,7 +154,7 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
   return (
     <div>
       {/* Breadcrumb + Action */}
-      <div className="mb-6 flex items-center justify-between rounded-xl border border-[#E8EBEE] bg-white px-4 py-3">
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
           <Link href="/dashboard/provider" className="inline-flex items-center gap-1 text-primary-text">
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
@@ -166,7 +166,7 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
 
         <button
           type="button"
-          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-3 text-xs font-semibold text-primary-text"
+          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
         >
           Action
           <ArrowDown2 size={12} variant="Outline" color="currentColor" />
@@ -176,29 +176,29 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
       {/* Provider's Details */}
       <section>
         <h2 className="text-[18px] font-semibold text-primary-text">Provider&apos;s Details</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-[#E8EBEE] bg-white">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
           <table className="w-full min-w-200 border-collapse text-left text-sm">
             <thead>
-              <tr className="text-zinc-500 bg-[#F9FAFB]">
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">Provider ID</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">Provider Name</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">Email Address</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">Category</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">Date Onboarded</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">Last Updated</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">Status</th>
+              <tr className="text-zinc-500 bg-surface-subtle">
+                <th className="border-b border-outline px-4 py-3 font-medium">Provider ID</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Provider Name</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Email Address</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Category</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Date Onboarded</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Last Updated</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] font-medium text-secondary-green underline underline-offset-2">
+                <td className="px-4 py-5 border-r border-outline font-medium text-secondary-green underline underline-offset-2">
                   {PROVIDER_DETAIL.providerId}
                 </td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] text-primary-text">{PROVIDER_DETAIL.providerName}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] text-zinc-500">{PROVIDER_DETAIL.email}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] text-zinc-500">{PROVIDER_DETAIL.category}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] whitespace-nowrap text-zinc-500">{PROVIDER_DETAIL.dateOnboarded}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] whitespace-nowrap text-zinc-500">{PROVIDER_DETAIL.lastUpdated}</td>
+                <td className="px-4 py-5 border-r border-outline text-primary-text">{PROVIDER_DETAIL.providerName}</td>
+                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PROVIDER_DETAIL.email}</td>
+                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PROVIDER_DETAIL.category}</td>
+                <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">{PROVIDER_DETAIL.dateOnboarded}</td>
+                <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">{PROVIDER_DETAIL.lastUpdated}</td>
                 <td className="px-4 py-5">
                   <StatusToggle
                     checked={billerActive}
@@ -230,16 +230,16 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-[#F9FAFB]"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
               aria-label="Filter"
             >
-              <Sort size={18} variant="Outline" color="#17375E" />
+              <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
             </button>
             <button
               type="button"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-[#F9FAFB]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
             >
-              <Import size={18} variant="Outline" color="#17375E" />
+              <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
               Export
             </button>
           </div>
@@ -248,7 +248,7 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
         <div className="mt-4 overflow-x-auto rounded-[8px]">
           <table className="w-full min-w-200 border-collapse bg-white text-left text-sm">
             <thead>
-              <tr className="bg-[#E8EBEE] text-zinc-500">
+              <tr className="bg-outline text-zinc-500">
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Product Name</th>
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Product Category</th>
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Commission type</th>
@@ -260,34 +260,34 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
             </thead>
             <tbody>
               {paginatedProducts.map((product) => (
-                <tr key={product.id} className="transition-colors hover:bg-[#F9FAFB]">
-                  <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 font-medium text-primary-text align-middle">
+                <tr key={product.id} className="transition-colors hover:bg-surface-subtle">
+                  <td className="h-16 border-b border-outline px-4 py-0 font-medium text-primary-text align-middle">
                     {product.productName}
                   </td>
-                  <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">
+                  <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">
                     {product.productCategory}
                   </td>
-                  <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">
+                  <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">
                     {product.commissionType}
                   </td>
-                  <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">
+                  <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">
                     {product.commissionRate}
                   </td>
-                  <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">
+                  <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">
                     {product.cap}
                   </td>
-                  <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                     <StatusToggle
                       checked={productStatuses[product.id] ?? product.status}
                       onChange={(val) => requestProductToggle(product.id, val)}
                       label={`Toggle status for ${product.productName}`}
                     />
                   </td>
-                  <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                     <button
                       type="button"
                       onClick={() => setEditingProduct(product)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-[#E8EBEE] hover:text-zinc-600"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
                       aria-label={`Edit ${product.productName}`}
                     >
                       <Edit size={16} variant="Outline" color="currentColor" />

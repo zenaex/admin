@@ -84,7 +84,7 @@ export function ForgotPasswordPage() {
 
         <section className="flex items-center justify-center">
           <div className="w-full max-w-[760px] rounded-2xl bg-background px-6 py-10 sm:px-10 lg:px-14">
-            <div className="mx-auto w-full max-w-[470px] rounded-md bg-[#FFFFFF] px-8 py-9">
+            <div className="mx-auto w-full max-w-[470px] rounded-md bg-white px-8 py-9">
               {!isResetScreen ? (
                 <>
                   <button
@@ -186,17 +186,17 @@ export function ForgotPasswordPage() {
                       <div className="space-y-1.5">
                         <div className="flex w-full items-center gap-1.5 text-[11px] text-zinc-500">
                           {hasMinLength ? (
-                            <TickSquare size="12" color="#013220" variant="Bold" />
+                            <TickSquare size="12" color="var(--color-secondary-green)" variant="Bold" />
                           ) : (
-                            <CloseSquare size="12" color="#9ca3af" variant="Linear" />
+                            <CloseSquare size="12" color="currentColor" variant="Linear" />
                           )}
                           Must contain a minimum of 8 characters
                         </div>
                         <div className="flex w-full items-center gap-1.5 text-[11px] text-zinc-500">
                           {hasNumber ? (
-                            <TickSquare size="12" color="#013220" variant="Bold" />
+                            <TickSquare size="12" color="var(--color-secondary-green)" variant="Bold" />
                           ) : (
-                            <CloseSquare size="12" color="#9ca3af" variant="Linear" />
+                            <CloseSquare size="12" color="currentColor" variant="Linear" />
                           )}
                           Must contain at least one number
                         </div>
@@ -252,8 +252,8 @@ export function ForgotPasswordPage() {
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-[620px] rounded-2xl bg-white px-8 py-10 text-center shadow-[0_24px_72px_rgba(0,0,0,0.12)]">
             <div className="mx-auto h-[2px] w-16 rounded-full bg-zinc-200" />
-            <div className="mx-auto mt-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-[#E8EBEE]">
-              <TickCircle size="38" color="#2f8f46" variant="Linear" />
+            <div className="mx-auto mt-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-outline">
+              <TickCircle size="38" color="var(--color-success)" variant="Linear" />
             </div>
             <h2 className="text-primary-text mt-6 text-[44px] font-semibold leading-none">
               Successful

@@ -105,7 +105,7 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
   return (
     <div>
       {/* Breadcrumb + Action */}
-      <div className="mb-6 flex items-center justify-between rounded-xl border border-[#E8EBEE] bg-white px-4 py-3">
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
           <Link href="/dashboard/product-mgt" className="inline-flex items-center gap-1 hover:underline text-primary-text">
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
@@ -116,7 +116,7 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
         </div>
         <button
           type="button"
-          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-3 text-xs font-semibold text-primary-text"
+          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
         >
           Action
           <ArrowDown2 size={12} variant="Outline" color="currentColor" />
@@ -126,35 +126,35 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
       {/* Product Details */}
       <section>
         <h2 className="text-[18px] font-semibold text-primary-text">Product Details</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-[#E8EBEE] bg-white">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
           {/* Detail row table */}
           <table className="w-full border-collapse text-left text-sm">
             <thead>
-              <tr className="bg-[#F9FAFB] text-zinc-500">
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">Product Name</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium border-r border-[#E8EBEE]">Product Category</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium border-r border-[#E8EBEE]">Date Created</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium border-r border-[#E8EBEE]">Phone Number</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium border-r border-[#E8EBEE]">Commission type</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium border-r border-[#E8EBEE]">Commission Rate</th>
-                <th className="border-b border-[#E8EBEE] px-4 py-3 font-medium">CAP</th>
+              <tr className="bg-surface-subtle text-zinc-500">
+                <th className="border-b border-outline px-4 py-3 font-medium">Product Name</th>
+                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Product Category</th>
+                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Date Created</th>
+                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Phone Number</th>
+                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Commission type</th>
+                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Commission Rate</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">CAP</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] font-medium text-primary-text">{PRODUCT_DETAIL.productName}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] text-zinc-500">{PRODUCT_DETAIL.productCategory}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] whitespace-nowrap text-zinc-500">{PRODUCT_DETAIL.dateCreated}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] text-zinc-500">{PRODUCT_DETAIL.phoneNumber}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] text-zinc-500">{PRODUCT_DETAIL.commissionType}</td>
-                <td className="px-4 py-5 border-r border-[#E8EBEE] text-zinc-500">{PRODUCT_DETAIL.commissionRate}</td>
+                <td className="px-4 py-5 border-r border-outline font-medium text-primary-text">{PRODUCT_DETAIL.productName}</td>
+                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PRODUCT_DETAIL.productCategory}</td>
+                <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">{PRODUCT_DETAIL.dateCreated}</td>
+                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PRODUCT_DETAIL.phoneNumber}</td>
+                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PRODUCT_DETAIL.commissionType}</td>
+                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PRODUCT_DETAIL.commissionRate}</td>
                 <td className="px-4 py-5 text-zinc-500">{PRODUCT_DETAIL.cap}</td>
               </tr>
             </tbody>
           </table>
 
           {/* Status row */}
-          <div className="border-t border-[#E8EBEE] px-4 py-4">
+          <div className="border-t border-outline px-4 py-4">
             <p className="mb-2 text-xs font-medium text-zinc-400">Status</p>
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${productActive ? "bg-green-500" : "bg-zinc-400"}`} />
@@ -181,16 +181,16 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-[#F9FAFB]"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
               aria-label="Filter"
             >
-              <Sort size={18} variant="Outline" color="#17375E" />
+              <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
             </button>
             <button
               type="button"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-[#F9FAFB]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
             >
-              <Import size={18} variant="Outline" color="#17375E" />
+              <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
               Export
             </button>
           </div>
@@ -199,7 +199,7 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
         <div className="mt-4 overflow-x-auto rounded-[8px]">
           <table className="w-full border-collapse bg-white text-left text-sm">
             <thead>
-              <tr className="bg-[#F9FAFB] text-zinc-500 text-xs">
+              <tr className="bg-surface-subtle text-zinc-500 text-xs">
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Provider Name</th>
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Commission type</th>
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Commission Rate</th>
@@ -212,22 +212,22 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
               {paginatedProviders.map((row) => {
                 const active = providerStatuses[row.id] ?? row.status;
                 return (
-                  <tr key={row.id} className="transition-colors hover:bg-[#F9FAFB]">
-                    <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 font-medium text-primary-text align-middle">{row.providerName}</td>
-                    <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.commissionType}</td>
-                    <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.commissionRate}</td>
-                    <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.cap}</td>
-                    <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
+                  <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
+                    <td className="h-16 border-b border-outline px-4 py-0 font-medium text-primary-text align-middle">{row.providerName}</td>
+                    <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.commissionType}</td>
+                    <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.commissionRate}</td>
+                    <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.cap}</td>
+                    <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                       <StatusToggle
                         checked={active}
                         onChange={(val) => setPendingToggle({ id: row.id, value: val })}
                         label={`Toggle status for ${row.providerName}`}
                       />
                     </td>
-                    <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
+                    <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-[#E8EBEE] hover:text-zinc-600"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
                         aria-label={`Edit ${row.providerName}`}
                       >
                         <Edit size={16} variant="Outline" color="currentColor" />

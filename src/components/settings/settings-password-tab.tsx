@@ -12,7 +12,7 @@ export function SettingsPasswordTab() {
   return (
     <div>
       {/* Sub-tab bar */}
-      <div className="mb-6 flex items-center gap-6 rounded-full border border-[#E8EBEE] bg-white px-5 py-3.5">
+      <div className="mb-6 flex items-center gap-6 rounded-full border border-outline bg-white px-5 py-3.5">
         {(["reset", "requests"] as PasswordSubTab[]).map((id) => {
           const label = id === "reset" ? "Password Reset" : "Reset Requests";
           const active = subTab === id;

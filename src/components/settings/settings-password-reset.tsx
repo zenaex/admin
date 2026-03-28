@@ -134,7 +134,7 @@ export function SettingsPasswordReset() {
   };
 
   return (
-    <div className="w-[566px] rounded-xl border border-[#E8EBEE] bg-white p-4">
+    <div className="w-[566px] rounded-xl border border-outline bg-white p-4">
       {!isEditing ? (
         <div className="space-y-4">
           <div>

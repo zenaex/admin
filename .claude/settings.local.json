@@ -9,7 +9,11 @@
       "Bash(for f:*)",
       "Bash(do)",
       "Bash(sed -i 's/bg-zinc-50/bg-[#F9FAFB]/g; s/hover:bg-zinc-50/hover:bg-[#F9FAFB]/g; s/text-zinc-50/text-[#F9FAFB]/g; s/border-zinc-50/border-[#F9FAFB]/g' \"$f\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(grep -rh --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.css\" -oE '#[0-9A-Fa-f]{3,8}' \"C:/Users/Youngestage/admin/src\")",
+      "Bash(grep -rh --include=\"*.tsx\" --include=\"*.ts\" -oE '#[0-9A-Fa-f]{6,8}' \"C:/Users/Youngestage/admin/src\")",
+      "Bash(while read:*)",
+      "Bash(do sed:*)"
     ]
   }
 }

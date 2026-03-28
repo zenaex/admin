@@ -17,7 +17,7 @@ export function ConfirmModal({
   title, message, confirmLabel, cancelLabel = "Cancel",
   variant = "danger", onConfirm, onCancel,
 }: ConfirmModalProps) {
-  const iconColor = variant === "approve" ? "#013220" : "#dc2626";
+  const iconColor = variant === "approve" ? "var(--color-secondary-green)" : "var(--color-failed)";
   const confirmCls = variant === "approve"
     ? "flex-1 rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
     : "flex-1 rounded-full bg-red-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-red-700";
@@ -28,7 +28,7 @@ export function ConfirmModal({
       <div className="relative w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl mx-4">
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#E8EBEE]">
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-outline">
           <div
             className="flex h-14 w-14 items-center justify-center rounded-full border-[3px]"
             style={{ borderColor: iconColor }}
@@ -44,7 +44,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-full bg-[#E8EBEE] py-3.5 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-200"
+            className="flex-1 rounded-full bg-outline py-3.5 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-200"
           >
             {cancelLabel}
           </button>
@@ -192,8 +192,8 @@ export function SuccessModal({ message, onContinue }: SuccessModalProps) {
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
         {/* Success icon */}
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#E8EBEE]">
-          <TickCircle size={56} variant="Outline" color="#013220" />
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-outline">
+          <TickCircle size={56} variant="Outline" color="var(--color-secondary-green)" />
         </div>
 
         {/* Text */}

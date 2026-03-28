@@ -62,11 +62,11 @@ const TAB_CATEGORY_MAP: Record<ProductTab, string | null> = {
 /* ── Stat card ── */
 function StatCard({ label, value, accentColor, icon }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
   return (
-    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-[#E8EBEE] bg-white px-5 py-4">
+    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-outline bg-white px-5 py-4">
       <div className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full" style={{ backgroundColor: accentColor }} />
       <div className="flex items-start justify-between">
         <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#E8EBEE] text-zinc-400">{icon}</span>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-outline text-zinc-400">{icon}</span>
       </div>
       <p className="mt-3 text-[28px] font-bold text-primary-text">{value}</p>
     </div>
@@ -111,7 +111,7 @@ function ProviderDropdown({ value, onChange }: { value: string; onChange: (v: st
               key={p}
               type="button"
               onClick={() => { onChange(p); setOpen(false); }}
-              className={`w-full px-3 py-2 text-left text-xs transition-colors hover:bg-[#F9FAFB] ${value === p ? "font-semibold text-primary-text" : "text-zinc-500"}`}
+              className={`w-full px-3 py-2 text-left text-xs transition-colors hover:bg-surface-subtle ${value === p ? "font-semibold text-primary-text" : "text-zinc-500"}`}
             >
               {p}
             </button>
@@ -156,9 +156,9 @@ export function ProductMgtView() {
 
       {/* Stat cards */}
       <div className="mt-6 flex gap-3">
-        <StatCard label="Total Products"    value="100,000" accentColor="#BCEB0F" icon={<WalletMoney size={20} variant="Outline" color="currentColor" />} />
-        <StatCard label="Active Products"   value="100,000" accentColor="#3B82F6" icon={<CardReceive size={20} variant="Outline" color="currentColor" />} />
-        <StatCard label="Inactive Products" value="50,000"  accentColor="#EF4444" icon={<CardSend    size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="Total Products"    value="100,000" accentColor="var(--color-primary-green)" icon={<WalletMoney size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="Active Products"   value="100,000" accentColor="var(--color-vivid-azure)" icon={<CardReceive size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="Inactive Products" value="50,000"  accentColor="var(--color-failed)" icon={<CardSend    size={20} variant="Outline" color="currentColor" />} />
       </div>
 
       {/* Tab bar */}
@@ -181,11 +181,11 @@ export function ProductMgtView() {
           />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-[#F9FAFB]" aria-label="Filter">
-            <Sort size={18} variant="Outline" color="#17375E" />
+          <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
+            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
           </button>
-          <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-[#F9FAFB]">
-            <Import size={18} variant="Outline" color="#17375E" />
+          <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle">
+            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
             Export
           </button>
         </div>
@@ -195,7 +195,7 @@ export function ProductMgtView() {
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
-            <tr className="bg-[#F9FAFB] text-xs text-zinc-400">
+            <tr className="bg-surface-subtle text-xs text-zinc-400">
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Product Name</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Product Category</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Commission type</th>
@@ -208,25 +208,25 @@ export function ProductMgtView() {
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
-              <tr key={row.id} onClick={() => router.push(`/dashboard/product-mgt/${row.id}`)} className="cursor-pointer transition-colors hover:bg-[#F9FAFB]">
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 font-medium text-primary-text align-middle">{row.productName}</td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.productCategory}</td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.commissionType}</td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.commissionRate}</td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.cap}</td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
+              <tr key={row.id} onClick={() => router.push(`/dashboard/product-mgt/${row.id}`)} className="cursor-pointer transition-colors hover:bg-surface-subtle">
+                <td className="h-16 border-b border-outline px-4 py-0 font-medium text-primary-text align-middle">{row.productName}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.productCategory}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.commissionType}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.commissionRate}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.cap}</td>
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <ProviderDropdown
                     value={getProvider(row)}
                     onChange={(v) => setProviders((prev) => ({ ...prev, [row.id]: v }))}
                   />
                 </td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <StatusToggle
                     checked={getStatus(row) === "Active"}
                     onChange={(v) => setStatuses((prev) => ({ ...prev, [row.id]: v ? "Active" : "Inactive" }))}
                   />
                 </td>
-                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
+                <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <button type="button" className="text-zinc-400 transition-colors hover:text-zinc-600" aria-label="Edit">
                     <Edit size={18} variant="Outline" color="currentColor" />
                   </button>

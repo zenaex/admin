@@ -20,7 +20,7 @@ export function AuditTrailHeader() {
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <button
           type="button"
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-[#E8EBEE] hover:text-zinc-600"
+          className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-outline hover:text-zinc-600"
           aria-label="Notifications"
         >
           <Notification size={22} variant="Outline" color="currentColor" />
@@ -30,7 +30,7 @@ export function AuditTrailHeader() {
         </button>
         <button
           type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-[#E8EBEE] hover:text-zinc-600"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-outline hover:text-zinc-600"
           aria-label="Settings"
         >
           <Setting2 size={22} variant="Outline" color="currentColor" />
