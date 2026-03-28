@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { Import, Sort } from "iconsax-react";
+import { useMemo, useState } from "react";
+import { Import, Sort, People, UserAdd, UserRemove, UserTick } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { ProviderHeader } from "@/components/provider/provider-header";
@@ -11,10 +11,8 @@ type CustomerStatus = "Successful" | "Pending" | "Failed";
 
 type Customer = {
   id: string;
-  initials: string;
-  avatarColor: string;
   name: string;
-  handle: string;
+  username: string;
   email: string;
   phone: string;
   status: CustomerStatus;
@@ -23,17 +21,17 @@ type Customer = {
 
 /* ── Seed data ── */
 const BASE_CUSTOMERS: Omit<Customer, "id">[] = [
-  { initials: "AT", avatarColor: "bg-orange-100 text-orange-600",  name: "Adekunle Timothy",  handle: "@kunielin",    email: "Adekunle@gmail.com",       phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "TN", avatarColor: "bg-teal-100 text-teal-600",      name: "Timothy Nasiru",    handle: "@Timo",        email: "Nastimo@gmail.com",        phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "BT", avatarColor: "bg-blue-100 text-blue-600",      name: "Babangida Tunde",   handle: "@Bangi",       email: "Babangida@yahoo.com",      phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "CN", avatarColor: "bg-purple-100 text-purple-600",  name: "Chiamaka Ngozi",    handle: "@maxxxxxx",    email: "Maxngigozi@gmail.com",     phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "CI", avatarColor: "bg-green-100 text-green-600",    name: "Chiroma Ikechukwu", handle: "@Chillboy",    email: "Ikechukwe@gmail.com",      phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "CA", avatarColor: "bg-pink-100 text-pink-600",      name: "Chizoba Adekunle",  handle: "@Chigirl",     email: "Chizoba@gmail.com",        phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "LJ", avatarColor: "bg-indigo-100 text-indigo-600",  name: "Lala Jibola",       handle: "@Ogala",       email: "Lalajibola@gmail.com",     phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "PF", avatarColor: "bg-yellow-100 text-yellow-600",  name: "Pelumi Fetuga",     handle: "@Fat",         email: "Pelumifetuga@gmail.com",   phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "PI", avatarColor: "bg-rose-100 text-rose-600",      name: "Precious Ikotun",   handle: "@Biotunegbeda", email: "Precioudikotun@gmail.com", phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "PL", avatarColor: "bg-cyan-100 text-cyan-600",      name: "Poco Lee",          handle: "@pocojee",     email: "Poco.lee@yahoo.com",       phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { initials: "SW", avatarColor: "bg-lime-100 text-lime-700",      name: "Shakur Wasiu",      handle: "@2pacsshakur", email: "Shakurrwasiu@gmail.com",   phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Adekunle Timothy",  username: "@kunletin",    email: "Adekunle@gmail.com",      phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Timothy Nasiru",    username: "@Timo",        email: "Nastimo@gmail.com",        phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Babangida Tunde",   username: "@Bangi",       email: "Babangida@yahoo.com",      phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Chiamaka Ngozi",    username: "@maxxxxxx",    email: "Maxngigozi@gmail.com",     phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Chiroma Ikechukwu", username: "@CN1boy",      email: "Ikechukwe@gmail.com",      phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Chizoba Adekunle",  username: "@Cngirl",      email: "Chizoba@gmail.com",        phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Lala Jibola",       username: "@Ogala",       email: "Lalajibola@gmail.com",     phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Pelumi Fetuga",     username: "@Fat",         email: "Pelumifetuga@gmail.com",   phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Precious Ikotun",   username: "@biotunegbeda",email: "Precioudikotun@gmail.com", phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Poco Lee",          username: "@pocojoe",     email: "Poco.lee@yahoo.com",       phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Shakur Wasiu",      username: "@2pacshakur",  email: "Shakurrwasiu@gmail.com",   phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
 ];
 
 const ALL_CUSTOMERS: Customer[] = Array.from({ length: 180 }, (_, i) => ({
@@ -45,19 +43,28 @@ const ALL_CUSTOMERS: Customer[] = Array.from({ length: 180 }, (_, i) => ({
       : `${BASE_CUSTOMERS[i % BASE_CUSTOMERS.length].name} (${i + 1})`,
 }));
 
-/* ── Stat card ── */
-function StatCard({
-  label, value, accentColor, icon,
-}: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
+/* ── Avatar initials ── */
+const AVATAR_COLORS = [
+  "bg-blue-100 text-blue-700",
+  "bg-green-100 text-green-700",
+  "bg-orange-100 text-orange-700",
+  "bg-purple-100 text-purple-700",
+  "bg-pink-100 text-pink-700",
+  "bg-teal-100 text-teal-700",
+];
+
+function Avatar({ name, index }: { name: string; index: number }) {
+  const initials = name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+  const color = AVATAR_COLORS[index % AVATAR_COLORS.length];
   return (
-    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-outline bg-white px-5 py-4">
-      <div className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full" style={{ backgroundColor: accentColor }} />
-      <div className="flex items-start justify-between">
-        <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-outline text-zinc-400">{icon}</span>
-      </div>
-      <p className="text-[28px] font-bold text-primary-text">{value}</p>
-    </div>
+    <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${color}`}>
+      {initials}
+    </span>
   );
 }
 
@@ -75,21 +82,26 @@ function StatusBadge({ status }: { status: CustomerStatus }) {
   );
 }
 
-/* ── Avatar ── */
-function Avatar({ initials, colorClass }: { initials: string; colorClass: string }) {
+/* ── Stat card ── */
+function StatCard({ label, value, accentColor, icon }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
   return (
-    <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${colorClass}`}>
-      {initials}
-    </span>
+    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-zinc-100 bg-white px-5 py-4">
+      <div className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full" style={{ backgroundColor: accentColor }} />
+      <div className="flex items-start justify-between">
+        <span className="text-[13px] text-zinc-400">{label}</span>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-zinc-100 text-zinc-400">{icon}</span>
+      </div>
+      <p className="mt-3 text-[28px] font-bold text-primary-text">{value}</p>
+    </div>
   );
 }
 
 /* ── Main view ── */
 export function CustomersView() {
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -98,13 +110,11 @@ export function CustomersView() {
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
-        c.handle.toLowerCase().includes(q) ||
         c.id.toLowerCase().includes(q),
     );
   }, [search]);
 
-  const totalItems = filtered.length;
-  const safePage = Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)));
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
   const paginatedRows = useMemo(
     () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
     [filtered, safePage, pageSize],
@@ -132,38 +142,10 @@ export function CustomersView() {
 
       {/* Stat cards */}
       <div className="mt-6 flex gap-3">
-        <StatCard
-          label="Total Customers"
-          value="₦ 150,000"
-          accentColor="var(--color-primary-green)"
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-          }
-        />
-        <StatCard
-          label="Active Customers"
-          value="100,000"
-          accentColor="var(--color-vivid-azure)"
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6"/><circle cx="17" cy="8" r="3"/><path d="M21 20c0-3.3-2.7-6-6-6"/></svg>
-          }
-        />
-        <StatCard
-          label="Inactive Customers"
-          value="50,000"
-          accentColor="var(--color-failed)"
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><line x1="17" y1="3" x2="22" y2="8"/></svg>
-          }
-        />
-        <StatCard
-          label="New Sign ups"
-          value="50,000"
-          accentColor="var(--color-secondary-green)"
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="10" cy="8" r="4"/><path d="M2 20c0-4 3.6-7 8-7"/><path d="M19 8v6m3-3h-6"/></svg>
-          }
-        />
+        <StatCard label="Total Customers"    value="₦ 150,000" accentColor="#BCEB0F" icon={<People      size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="Active Customers"   value="100,000"   accentColor="#3B82F6" icon={<UserTick    size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="Inactive Customers" value="50,000"    accentColor="#EF4444" icon={<UserRemove  size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="New Sign ups"       value="50,000"    accentColor="#013220" icon={<UserAdd     size={20} variant="Outline" color="currentColor" />} />
       </div>
 
       {/* Toolbar */}
@@ -177,18 +159,11 @@ export function CustomersView() {
           />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
-            aria-label="Filter"
-          >
-            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
+          <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-zinc-50" aria-label="Filter">
+            <Sort size={18} variant="Outline" color="#17375E" />
           </button>
-          <button
-            type="button"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-          >
-            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
+          <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-zinc-50">
+            <Import size={18} variant="Outline" color="#17375E" />
             Export
           </button>
         </div>
@@ -198,7 +173,7 @@ export function CustomersView() {
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
-            <tr className="bg-surface-subtle text-xs text-zinc-400">
+            <tr className="bg-zinc-50 text-xs text-zinc-400">
               <th className="h-11 w-10 border-b border-zinc-200 px-4 py-0 align-middle">
                 <input
                   type="checkbox"
@@ -207,9 +182,7 @@ export function CustomersView() {
                   className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
                 />
               </th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">
-                <span className="inline-flex items-center gap-1">Customer Name</span>
-              </th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Customer Name</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email Address</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Phone Number</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Status</th>
@@ -217,9 +190,9 @@ export function CustomersView() {
             </tr>
           </thead>
           <tbody>
-            {paginatedRows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+            {paginatedRows.map((row, idx) => (
+              <tr key={row.id} className="cursor-pointer transition-colors hover:bg-zinc-50">
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={selected.has(row.id)}
@@ -227,23 +200,21 @@ export function CustomersView() {
                     className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
                   />
                 </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                   <div className="flex items-center gap-3">
-                    <Avatar initials={row.initials} colorClass={row.avatarColor} />
-                    <div>
-                      <p className="font-medium text-primary-text leading-tight">{row.name}</p>
-                      <p className="text-xs text-zinc-400 leading-tight">{row.handle}</p>
+                    <Avatar name={row.name} index={(safePage - 1) * pageSize + idx} />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-primary-text">{row.name}</span>
+                      <span className="text-xs text-zinc-400">{row.username}</span>
                     </div>
                   </div>
                 </td>
-                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="h-16 border-b border-outline px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
-                  {row.dateOnboarded}
-                </td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">{row.dateOnboarded}</td>
               </tr>
             ))}
           </tbody>
@@ -253,7 +224,7 @@ export function CustomersView() {
       <AuditTrailPagination
         page={safePage}
         pageSize={pageSize}
-        totalItems={totalItems}
+        totalItems={filtered.length}
         onPageChange={(p) => setPage(p)}
         onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
       />
