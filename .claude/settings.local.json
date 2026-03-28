@@ -5,7 +5,11 @@
       "Bash(npx tsc:*)",
       "Bash(ls /c/Users/Youngestage/admin/tailwind*)",
       "Bash(ls /c/Users/Youngestage/admin/*.config*)",
-      "Bash(find C:/Users/Youngestage/admin/src/app -path */login/otp* -o -path */otp*)"
+      "Bash(find C:/Users/Youngestage/admin/src/app -path */login/otp* -o -path */otp*)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(sed -i 's/bg-zinc-50/bg-[#F9FAFB]/g; s/hover:bg-zinc-50/hover:bg-[#F9FAFB]/g; s/text-zinc-50/text-[#F9FAFB]/g; s/border-zinc-50/border-[#F9FAFB]/g' \"$f\")",
+      "Bash(done)"
     ]
   }
 }

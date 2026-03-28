@@ -42,14 +42,14 @@ type StatCardProps = {
 
 function StatCard({ label, value, accentColor, icon }: StatCardProps) {
   return (
-    <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-xl border gap-[13px] border-zinc-100 bg-white px-5 py-4">
+    <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-xl border gap-[13px] border-[#E8EBEE] bg-white px-5 py-4">
       <div
         className="absolute left-0 h-full top-0 bottom-0 w-[4px] rounded-r-full"
         style={{ backgroundColor: accentColor }}
       />
       <div className="flex items-start justify-between">
         <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-zinc-100 text-zinc-400">
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#E8EBEE] text-zinc-400">
           {icon}
         </span>
       </div>
@@ -108,14 +108,14 @@ export function ProviderView() {
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-zinc-50"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-[#F9FAFB]"
             aria-label="Filter"
           >
             <Sort size={18} variant="Outline" color="#17375E" />
           </button>
           <button
             type="button"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-zinc-50"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-[#F9FAFB]"
           >
             <Import size={18} variant="Outline" color="#17375E" />
             Export

@@ -50,11 +50,11 @@ function StatCard({
   label, value, accentColor, icon,
 }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
   return (
-    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-zinc-100 bg-white px-5 py-4">
+    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-[#E8EBEE] bg-white px-5 py-4">
       <div className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full" style={{ backgroundColor: accentColor }} />
       <div className="flex items-start justify-between">
         <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-zinc-100 text-zinc-400">{icon}</span>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#E8EBEE] text-zinc-400">{icon}</span>
       </div>
       <p className="text-[28px] font-bold text-primary-text">{value}</p>
     </div>
@@ -179,14 +179,14 @@ export function CustomersView() {
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-zinc-50"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-[#F9FAFB]"
             aria-label="Filter"
           >
             <Sort size={18} variant="Outline" color="#17375E" />
           </button>
           <button
             type="button"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-zinc-50"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-[#F9FAFB]"
           >
             <Import size={18} variant="Outline" color="#17375E" />
             Export
@@ -198,7 +198,7 @@ export function CustomersView() {
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
-            <tr className="bg-zinc-50 text-xs text-zinc-400">
+            <tr className="bg-[#F9FAFB] text-xs text-zinc-400">
               <th className="h-11 w-10 border-b border-zinc-200 px-4 py-0 align-middle">
                 <input
                   type="checkbox"
@@ -218,8 +218,8 @@ export function CustomersView() {
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-zinc-50">
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+              <tr key={row.id} className="transition-colors hover:bg-[#F9FAFB]">
+                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
                   <input
                     type="checkbox"
                     checked={selected.has(row.id)}
@@ -227,7 +227,7 @@ export function CustomersView() {
                     className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
                   />
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
                   <div className="flex items-center gap-3">
                     <Avatar initials={row.initials} colorClass={row.avatarColor} />
                     <div>
@@ -236,12 +236,12 @@ export function CustomersView() {
                     </div>
                   </div>
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
+                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
+                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 align-middle">
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
+                <td className="h-16 border-b border-[#E8EBEE] px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
                   {row.dateOnboarded}
                 </td>
               </tr>

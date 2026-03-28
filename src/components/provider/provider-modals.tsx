@@ -28,7 +28,7 @@ export function ConfirmModal({
       <div className="relative w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl mx-4">
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#E8EBEE]">
           <div
             className="flex h-14 w-14 items-center justify-center rounded-full border-[3px]"
             style={{ borderColor: iconColor }}
@@ -44,7 +44,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-full bg-zinc-100 py-3.5 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-200"
+            className="flex-1 rounded-full bg-[#E8EBEE] py-3.5 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-200"
           >
             {cancelLabel}
           </button>
@@ -192,7 +192,7 @@ export function SuccessModal({ message, onContinue }: SuccessModalProps) {
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
         {/* Success icon */}
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-zinc-100">
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#E8EBEE]">
           <TickCircle size={56} variant="Outline" color="#013220" />
         </div>
 
