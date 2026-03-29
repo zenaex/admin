@@ -34,10 +34,10 @@ export function OtpPage() {
 
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1 text-[14px] text-text-grey">
-                <Timer1 size="12" color="currentColor" variant="Outline" />
+                <Timer1 size="24" color="currentColor" variant="Outline" />
                 Expires in 0:13
               </span>
-              <span className="text-grey-600 text-[16px]">
+              <span className="text-text-secondary text-[16px]">
                 Didn&apos;t get a code?{" "}
                 <button type="button" className="font-semibold text-[16px] text-secondary-green">
                   Resend

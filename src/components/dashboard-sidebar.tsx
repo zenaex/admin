@@ -120,7 +120,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
 
       <div className={`flex-1 overflow-y-auto py-5 ${collapsed ? "px-3" : "px-3"}`}>
         {!collapsed ? (
-          <p className="px-2 text-[13px] font-medium uppercase tracking-wide text-sidebar-label">
+          <p className="px-2 text-[14px] font-medium uppercase text-grey-400">
             Main Menu
           </p>
         ) : null}
