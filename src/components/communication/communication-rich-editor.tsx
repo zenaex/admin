@@ -41,7 +41,7 @@ function ToolbarButton({ label, icon, active = false, onClick }: ToolbarButtonPr
         onClick();
       }}
       className={`inline-flex h-6 min-w-6 items-center justify-center rounded px-1 text-xs ${
-        active ? "bg-zinc-200 text-primary-text" : "text-zinc-600 hover:bg-zinc-100"
+        active ? "bg-zinc-200 text-primary-text" : "text-zinc-600 hover:bg-outline"
       }`}
       aria-label={label}
       title={label}

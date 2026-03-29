@@ -69,7 +69,7 @@ export function OnboardingPage() {
 
         <section className="flex items-center justify-center">
           <div className="w-full max-w-[760px] rounded-2xl bg-background px-6 py-10 sm:px-10 lg:px-14">
-            <div className="mx-auto w-full max-w-[470px] rounded-md bg-[#FFFFFF] px-8 py-9">
+            <div className="mx-auto w-full max-w-[470px] rounded-md bg-white px-8 py-9">
               <h1 className="text-primary-text text-[40px] font-semibold leading-[0.98] tracking-[-0.01em]">
                 Create Password
               </h1>
@@ -126,17 +126,17 @@ export function OnboardingPage() {
                   <div className="flex flex-col space-y-1.5">
                     <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
                       {hasMinLength ? (
-                        <TickSquare size="12" color="#013220" variant="Bold" />
+                        <TickSquare size="12" color="var(--color-secondary-green)" variant="Bold" />
                       ) : (
-                        <CloseSquare size="12" color="#9ca3af" variant="Linear" />
+                        <CloseSquare size="12" color="currentColor" variant="Linear" />
                       )}
                       Must contain a minimum of 8 characters
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
                       {hasNumber ? (
-                        <TickSquare size="12" color="#013220" variant="Bold" />
+                        <TickSquare size="12" color="var(--color-secondary-green)" variant="Bold" />
                       ) : (
-                        <CloseSquare size="12" color="#9ca3af" variant="Linear" />
+                        <CloseSquare size="12" color="currentColor" variant="Linear" />
                       )}
                       Must contain at least one number
                     </div>

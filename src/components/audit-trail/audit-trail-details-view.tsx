@@ -40,12 +40,12 @@ function ActivityGroup({ title, items }: { title: string; items: ActivityItem[] 
         {items.map((item, idx) => (
           <div
             key={`${title}-${idx}`}
-            className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-xl border border-zinc-100 bg-white px-4 py-4 text-sm"
+            className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-xl border border-outline bg-white px-4 py-4 text-sm"
           >
-            <span className="rounded-md bg-zinc-100 px-2 py-1 text-[#001928]">{item.time}</span>
-            <span className="text-[#001928]">{item.message}</span>
-            <span className="text-[#001928]">{item.userAgent}</span>
-            <span className="text-[#001928]">{item.ip}</span>
+            <span className="rounded-md bg-outline px-2 py-1 text-sidebar-dark">{item.time}</span>
+            <span className="text-sidebar-dark">{item.message}</span>
+            <span className="text-sidebar-dark">{item.userAgent}</span>
+            <span className="text-sidebar-dark">{item.ip}</span>
           </div>
         ))}
       </div>
@@ -56,7 +56,7 @@ function ActivityGroup({ title, items }: { title: string; items: ActivityItem[] 
 export function AuditTrailDetailsView() {
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between rounded-xl border border-zinc-100 bg-white px-4 py-3">
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
           <Link href="/dashboard/audit-trail" className="inline-flex items-center gap-1 text-primary-text">
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
@@ -68,7 +68,7 @@ export function AuditTrailDetailsView() {
 
         <button
           type="button"
-          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-3 text-xs font-semibold text-primary-text"
+          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
         >
           Action
           <ArrowDown2 size={12} variant="Outline" color="currentColor" />
@@ -77,15 +77,15 @@ export function AuditTrailDetailsView() {
 
       <section>
         <h2 className="text-[18px] font-semibold text-primary-text">User Details</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-100 bg-white">
+        <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
           <table className="w-full min-w-200 border-collapse text-left text-sm">
             <thead>
               <tr className="text-zinc-500">
-                <th className="border-b border-zinc-100 px-4 py-3 font-medium">Name</th>
-                <th className="border-b border-zinc-100 px-4 py-3 font-medium">Role</th>
-                <th className="border-b border-zinc-100 px-4 py-3 font-medium">Phone Number</th>
-                <th className="border-b border-zinc-100 px-4 py-3 font-medium">Email Address</th>
-                <th className="border-b border-zinc-100 px-4 py-3 font-medium">Date Added</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Name</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Role</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Phone Number</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Email Address</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Date Added</th>
               </tr>
             </thead>
             <tbody>
