@@ -1,13 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Import, Sort, People, UserAdd, UserRemove, UserTick } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
+import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ProviderHeader } from "@/components/provider/provider-header";
 
+/* ── Tab config ── */
+type CustomerTab = "All" | "Active" | "Blocked" | "PND" | "Lien";
+const TABS: CustomerTab[] = ["All", "Active", "Blocked", "PND", "Lien"];
+
 /* ── Types ── */
-type CustomerStatus = "Successful" | "Pending" | "Failed";
+type CustomerStatus = "Active" | "Inactive" | "Deactivated" | "Blocked" | "PND" | "Lien" | "Blocked | Lien" | "PND | Lien";
 
 type Customer = {
   id: string;
@@ -21,17 +27,17 @@ type Customer = {
 
 /* ── Seed data ── */
 const BASE_CUSTOMERS: Omit<Customer, "id">[] = [
-  { name: "Adekunle Timothy",  username: "@kunletin",    email: "Adekunle@gmail.com",      phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Timothy Nasiru",    username: "@Timo",        email: "Nastimo@gmail.com",        phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Babangida Tunde",   username: "@Bangi",       email: "Babangida@yahoo.com",      phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chiamaka Ngozi",    username: "@maxxxxxx",    email: "Maxngigozi@gmail.com",     phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chiroma Ikechukwu", username: "@CN1boy",      email: "Ikechukwe@gmail.com",      phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chizoba Adekunle",  username: "@Cngirl",      email: "Chizoba@gmail.com",        phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Lala Jibola",       username: "@Ogala",       email: "Lalajibola@gmail.com",     phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Pelumi Fetuga",     username: "@Fat",         email: "Pelumifetuga@gmail.com",   phone: "08077657878", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Precious Ikotun",   username: "@biotunegbeda",email: "Precioudikotun@gmail.com", phone: "08077657878", status: "Pending",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Poco Lee",          username: "@pocojoe",     email: "Poco.lee@yahoo.com",       phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Shakur Wasiu",      username: "@2pacshakur",  email: "Shakurrwasiu@gmail.com",   phone: "08077657878", status: "Failed",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Adekunle Timothy",  username: "@kunletin",    email: "Adekunle@gmail.com",      phone: "08077657878", status: "Deactivated",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Timothy Nasiru",    username: "@Timo",        email: "Nastimo@gmail.com",        phone: "08077657878", status: "Active",         dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Babangida Tunde",   username: "@Bangi",       email: "Babangida@yahoo.com",      phone: "08077657878", status: "Active",         dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Chiamaka Ngozi",    username: "@maxxxxxx",    email: "Maxngigozi@gmail.com",     phone: "08077657878", status: "Blocked | Lien", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Chiroma Ikechukwu", username: "@CN1boy",      email: "Ikechukwe@gmail.com",      phone: "08077657878", status: "Inactive",       dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Chizoba Adekunle",  username: "@Cngirl",      email: "Chizoba@gmail.com",        phone: "08077657878", status: "Active",         dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Lala Jibola",       username: "@Ogala",       email: "Lalajibola@gmail.com",     phone: "08077657878", status: "Blocked",        dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Pelumi Fetuga",     username: "@Fat",         email: "Pelumifetuga@gmail.com",   phone: "08077657878", status: "Active",         dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Precious Ikotun",   username: "@biotunegbeda",email: "Precioudikotun@gmail.com", phone: "08077657878", status: "PND | Lien",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Poco Lee",          username: "@pocojoe",     email: "Poco.lee@yahoo.com",       phone: "08077657878", status: "PND",            dateOnboarded: "Jan 6, 2026 | 9:32AM" },
+  { name: "Shakur Wasiu",      username: "@2pacshakur",  email: "Shakurrwasiu@gmail.com",   phone: "08077657878", status: "Lien",           dateOnboarded: "Jan 6, 2026 | 9:32AM" },
 ];
 
 const ALL_CUSTOMERS: Customer[] = Array.from({ length: 180 }, (_, i) => ({
@@ -44,25 +50,15 @@ const ALL_CUSTOMERS: Customer[] = Array.from({ length: 180 }, (_, i) => ({
 }));
 
 /* ── Avatar initials ── */
-const AVATAR_COLORS = [
-  "bg-blue-100 text-blue-700",
-  "bg-green-100 text-green-700",
-  "bg-orange-100 text-orange-700",
-  "bg-purple-100 text-purple-700",
-  "bg-pink-100 text-pink-700",
-  "bg-teal-100 text-teal-700",
-];
-
-function Avatar({ name, index }: { name: string; index: number }) {
+function Avatar({ name }: { name: string }) {
   const initials = name
     .split(" ")
     .slice(0, 2)
     .map((w) => w[0])
     .join("")
     .toUpperCase();
-  const color = AVATAR_COLORS[index % AVATAR_COLORS.length];
   return (
-    <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${color}`}>
+    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-profile-picture text-xs font-semibold text-blue-grey">
       {initials}
     </span>
   );
@@ -71,9 +67,14 @@ function Avatar({ name, index }: { name: string; index: number }) {
 /* ── Status badge ── */
 function StatusBadge({ status }: { status: CustomerStatus }) {
   const styles: Record<CustomerStatus, string> = {
-    Successful: "bg-green-50 text-green-600",
-    Pending:    "bg-orange-50 text-orange-500",
-    Failed:     "bg-red-50 text-red-500",
+    Active:           "bg-green-50 text-green-600",
+    Inactive:         "bg-zinc-100 text-zinc-500",
+    Deactivated:      "bg-red-50 text-red-500",
+    Blocked:          "bg-red-50 text-red-500",
+    PND:              "bg-red-50 text-red-500",
+    Lien:             "bg-red-50 text-red-500",
+    "Blocked | Lien": "bg-red-50 text-red-500",
+    "PND | Lien":     "bg-red-50 text-red-500",
   };
   return (
     <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${styles[status]}`}>
@@ -98,6 +99,8 @@ function StatCard({ label, value, accentColor, icon }: { label: string; value: s
 
 /* ── Main view ── */
 export function CustomersView() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<CustomerTab>("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
@@ -148,6 +151,15 @@ export function CustomersView() {
         <StatCard label="New Sign ups"       value="50,000"    accentColor="#013220" icon={<UserAdd     size={20} variant="Outline" color="currentColor" />} />
       </div>
 
+      {/* Tab bar */}
+      <div className="mt-6">
+        <UnderlineTabs
+          tabs={TABS.map((t) => ({ id: t, label: t }))}
+          active={activeTab}
+          onChange={(id) => { setActiveTab(id as CustomerTab); setPage(1); }}
+        />
+      </div>
+
       {/* Toolbar */}
       <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
         <div className="w-[280px] shrink-0">
@@ -191,7 +203,7 @@ export function CustomersView() {
           </thead>
           <tbody>
             {paginatedRows.map((row, idx) => (
-              <tr key={row.id} className="cursor-pointer transition-colors hover:bg-zinc-50">
+              <tr key={row.id} onClick={() => router.push(`/dashboard/user-mgt/customers/${row.id}`)} className="cursor-pointer transition-colors hover:bg-zinc-50">
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
@@ -202,7 +214,7 @@ export function CustomersView() {
                 </td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                   <div className="flex items-center gap-3">
-                    <Avatar name={row.name} index={(safePage - 1) * pageSize + idx} />
+                    <Avatar name={row.name} />
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-primary-text">{row.name}</span>
                       <span className="text-xs text-zinc-400">{row.username}</span>

@@ -27,17 +27,17 @@ type ProductRow = {
 const PROVIDERS = ["Buypower", "Presmit", "Quidax", "Baxi", "Flutterwave"];
 
 const BASE_PRODUCTS: Omit<ProductRow, "id">[] = [
-  { productName: "EKEDC Postpaid",  productCategory: "Electricity", commissionType: "Percentage",  commissionRate: "1.0%",  cap: "-",        switchProvider: "Buypower",   status: "Active"   },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦50 FLAT", cap: "₦60 FLAT", switchProvider: "Presmit",    status: "Active"   },
-  { productName: "Global 139",      productCategory: "E-sim",       commissionType: "Flat",        commissionRate: "₦5000", cap: "-",        switchProvider: "Buypower",   status: "Active"   },
-  { productName: "Amazon USA",      productCategory: "Giftcard",    commissionType: "Percentage",  commissionRate: "₦5000", cap: "-",        switchProvider: "Buypower",   status: "Active"   },
-  { productName: "Google Play UK",  productCategory: "Giftcard",    commissionType: "% capped @",  commissionRate: "₦5000", cap: "1.0",      switchProvider: "Buypower",   status: "Inactive" },
-  { productName: "Bitcoin",         productCategory: "Crypto",      commissionType: "% capped @",  commissionRate: "₦5000", cap: "-",        switchProvider: "Quidax",     status: "Active"   },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000", cap: "-",        switchProvider: "Buypower",   status: "Inactive" },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000", cap: "-",        switchProvider: "Buypower",   status: "Active"   },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000", cap: "-",        switchProvider: "Buypower",   status: "Active"   },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000", cap: "-",        switchProvider: "Buypower",   status: "Active"   },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000", cap: "-",        switchProvider: "Buypower",   status: "Active"   },
+  { productName: "EKEDC Postpaid", productCategory: "Electricity", commissionType: "Percentage", commissionRate: "1.0%", cap: "-", switchProvider: "Buypower", status: "Active" },
+  { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦50 FLAT", cap: "₦60 FLAT", switchProvider: "Presmit", status: "Active" },
+  { productName: "Global 139", productCategory: "E-sim", commissionType: "Flat", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
+  { productName: "Amazon USA", productCategory: "Giftcard", commissionType: "Percentage", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
+  { productName: "Google Play UK", productCategory: "Giftcard", commissionType: "% capped @", commissionRate: "₦5000", cap: "1.0", switchProvider: "Buypower", status: "Inactive" },
+  { productName: "Bitcoin", productCategory: "Crypto", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Quidax", status: "Active" },
+  { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Inactive" },
+  { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
+  { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
+  { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
+  { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
 ];
 
 const ALL_PRODUCTS: ProductRow[] = Array.from({ length: 180 }, (_, i) => ({
@@ -156,9 +156,9 @@ export function ProductMgtView() {
 
       {/* Stat cards */}
       <div className="mt-6 flex gap-3">
-        <StatCard label="Total Products"    value="100,000" accentColor="var(--color-primary-green)" icon={<WalletMoney size={20} variant="Outline" color="currentColor" />} />
-        <StatCard label="Active Products"   value="100,000" accentColor="var(--color-vivid-azure)" icon={<CardReceive size={20} variant="Outline" color="currentColor" />} />
-        <StatCard label="Inactive Products" value="50,000"  accentColor="var(--color-failed)" icon={<CardSend    size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="Total Products" value="100,000" accentColor="var(--color-primary-green)" icon={<WalletMoney size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="Active Products" value="100,000" accentColor="var(--color-vivid-azure)" icon={<CardReceive size={20} variant="Outline" color="currentColor" />} />
+        <StatCard label="Inactive Products" value="50,000" accentColor="var(--color-failed)" icon={<CardSend size={20} variant="Outline" color="currentColor" />} />
       </div>
 
       {/* Tab bar */}
@@ -195,7 +195,7 @@ export function ProductMgtView() {
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
-            <tr className="bg-surface-subtle text-xs text-zinc-400">
+            <tr className="bg-outline text-xs text-zinc-400">
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Product Name</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Product Category</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Commission type</th>
