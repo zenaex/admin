@@ -62,7 +62,7 @@
   --color-grey-600: #7A7A7A;
   --color-grey-700: #494A53;
   --color-grey-800: #1A1A1A;
-  --color-grey-900: #141414;
+  --color-grey-900: #101928;
   --color-blue-grey: #374B58;
 
   /* ── Sidebar ── */
@@ -84,12 +84,24 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
-*::-webkit-scrollbar { width: 8px; height: 8px; background: transparent; }
-*::-webkit-scrollbar-track { background: transparent; }
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 *::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-*::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
