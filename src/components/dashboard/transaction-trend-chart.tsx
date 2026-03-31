@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { Export } from "iconsax-react";
+import { ExportSquare } from "iconsax-react";
 
 type TimeFrame = "12 months" | "3 months" | "30 days" | "7 days" | "24 hours";
 
@@ -83,18 +83,18 @@ export function TransactionTrendChart() {
   const data = DATA_MAP[timeFrame];
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-outline bg-white p-5">
+    <div className="flex flex-col gap-4 rounded-[12px] border border-outline bg-white p-5 w-full min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-primary-text">Transaction Trend</h3>
-        <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-primary-text transition-colors">
+        <h3 className="text-[16px] font-semibold text-primary-text">Transaction Trend</h3>
+        <button type="button" className="inline-flex underline items-center gap-1 text-xs font-medium text-zinc-400 hover:text-primary-text transition-colors">
           Explore data
-          <Export size={12} variant="Outline" color="currentColor" />
+          <ExportSquare size={12} variant="Outline" color="currentColor" className="text-primary-text" />
         </button>
       </div>
 
       {/* Time frame switcher */}
-      <div className="flex items-center gap-1 rounded-full border border-outline bg-surface-subtle p-1 w-fit">
+      <div className="flex flex-wrap items-center gap-1 rounded-full p-1 w-fit max-w-full">
         {(["12 months", "3 months", "30 days", "7 days", "24 hours"] as TimeFrame[]).map((tf) => (
           <button
             key={tf}
@@ -102,7 +102,7 @@ export function TransactionTrendChart() {
             onClick={() => setTimeFrame(tf)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               timeFrame === tf
-                ? "bg-white text-primary-text shadow-sm"
+                ? "bg-white text-primary-text"
                 : "text-zinc-400 hover:text-zinc-600"
             }`}
           >
