@@ -1,7 +1,7 @@
 "use client";
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { Export } from "iconsax-react";
+import { ExportSquare } from "iconsax-react";
 
 const DATA = [
   { name: "Crypto",   value: 45, color: "#BCEB0F" },
@@ -23,30 +23,32 @@ function CustomTooltip({ active, payload }: any) {
 
 export function ProductCategoryChart() {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-outline bg-white p-5">
+    <div className="flex flex-col gap-4 rounded-xl border border-outline bg-white p-5 w-full min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-primary-text">Product Category</h3>
-        <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-primary-text transition-colors">
+        <h3 className="text-[16px] font-semibold text-primary-text">Product Category</h3>
+        <button type="button" className="inline-flex underline items-center gap-1 text-[12px] font-medium text-primary-text transition-colors">
           Explore data
-          <Export size={12} variant="Outline" color="currentColor" />
+          <ExportSquare size={12} variant="Outline" color="currentColor" />
         </button>
       </div>
 
       {/* Donut chart */}
       <div className="flex items-center justify-center">
-        <div className="h-[180px] w-[180px]">
+        <div className="h-45 w-45">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
+        
               <Pie
                 data={DATA}
                 cx="50%"
                 cy="50%"
-                innerRadius={55}
-                outerRadius={85}
-                paddingAngle={2}
+                innerRadius={60}
+                outerRadius={90}
+                paddingAngle={4}
                 dataKey="value"
                 strokeWidth={0}
+                cornerRadius={8}
               >
                 {DATA.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />

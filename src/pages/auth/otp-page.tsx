@@ -53,8 +53,8 @@ export function OtpPage() {
                 disabled={isOtpDisabled}
                 className={
                   isOtpDisabled
-                    ? "bg-primary-green/45 w-[400px] h-[48px] text-primary-text/55 hover:opacity-100"
-                    : "w-[400px] h-[48px]"
+                    ? "bg-primary-green/45 w-full h-[48px] text-primary-text/55 hover:opacity-100"
+                    : "w-full h-[48px]"
                 }
               >
                 Submit
