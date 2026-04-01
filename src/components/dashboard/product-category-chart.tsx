@@ -43,12 +43,12 @@ export function ProductCategoryChart() {
                 data={DATA}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
+                innerRadius={65}
                 outerRadius={90}
-                paddingAngle={4}
+                paddingAngle={-15}
                 dataKey="value"
                 strokeWidth={0}
-                cornerRadius={8}
+                cornerRadius={12}
               >
                 {DATA.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
