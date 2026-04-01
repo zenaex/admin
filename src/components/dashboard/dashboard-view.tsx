@@ -16,6 +16,9 @@ import {
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { TransactionTrendChart } from "@/components/dashboard/transaction-trend-chart";
 import { ProductCategoryChart } from "@/components/dashboard/product-category-chart";
+import { CryptoExchangeChart } from "@/components/dashboard/crypto-exchange-chart";
+import { TopCustomers } from "@/components/dashboard/top-customers";
+import { DashboardStatsSection } from "@/components/dashboard/dashboard-stats-section";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 
 /* ── Trend badge ── */
@@ -218,15 +221,23 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* Charts row — 3/4 + 1/4 split */}
+      {/* Charts section — left 3/4 stacked, right 1/4 spans both rows */}
       <div className="mt-4 grid grid-cols-4 gap-4">
-        <div className="col-span-3">
+        {/* Left column — two charts stacked */}
+        <div className="col-span-3 flex flex-col gap-4">
           <TransactionTrendChart />
+          <CryptoExchangeChart />
         </div>
-        <div className="col-span-1">
+
+        {/* Right column — donut on top, top customers below, full height */}
+        <div className="col-span-1 flex flex-col gap-4">
           <ProductCategoryChart />
+          <TopCustomers />
         </div>
       </div>
+
+      {/* Payment Processed + Top Selling Giftcards + Top Utility Product */}
+      <DashboardStatsSection />
 
     </div>
   );

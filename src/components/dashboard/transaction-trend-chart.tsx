@@ -17,9 +17,9 @@ type TimeFrame = "12 months" | "3 months" | "30 days" | "7 days" | "24 hours";
 
 /* ── Monthly data ── */
 const MONTHLY_DATA = [
-  { month: "Jan", inflows: 420, outflows: 310 },
-  { month: "Feb", inflows: 460, outflows: 340 },
-  { month: "Mar", inflows: 490, outflows: 360 },
+  { month: "Jan", inflows: 450, outflows: 390 },
+  { month: "Feb", inflows: 400, outflows: 340 },
+  { month: "Mar", inflows: 500, outflows: 360 },
   { month: "Apr", inflows: 510, outflows: 370 },
   { month: "May", inflows: 560, outflows: 390 },
   { month: "Jun", inflows: 620, outflows: 420 },
@@ -28,7 +28,7 @@ const MONTHLY_DATA = [
   { month: "Sep", inflows: 740, outflows: 480 },
   { month: "Oct", inflows: 780, outflows: 500 },
   { month: "Nov", inflows: 820, outflows: 520 },
-  { month: "Dec", inflows: 870, outflows: 560 },
+  { month: "Dec", inflows: 450, outflows: 390 },
 ];
 
 const THREE_MONTH_DATA = MONTHLY_DATA.slice(9);
@@ -87,7 +87,7 @@ export function TransactionTrendChart() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-[16px] font-semibold text-primary-text">Transaction Trend</h3>
-        <button type="button" className="inline-flex underline items-center gap-1 text-xs font-medium text-zinc-400 hover:text-primary-text transition-colors">
+        <button type="button" className="inline-flex underline items-center gap-1 text-xs font-medium text-primary-text transition-colors">
           Explore data
           <ExportSquare size={12} variant="Outline" color="currentColor" className="text-primary-text" />
         </button>
@@ -114,11 +114,11 @@ export function TransactionTrendChart() {
       {/* Legend */}
       <div className="flex items-center gap-4">
         <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
-          <span className="h-2.5 w-2.5 rounded-full bg-secondary-green" />
+          <span className="h-2.5 w-4.5 rounded-sm bg-secondary-green" />
           Inflows
         </span>
         <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
-          <span className="h-2.5 w-2.5 rounded-full bg-coral-red" />
+          <span className="h-2.5 w-4.5 rounded-sm bg-coral-red" />
           Outflows
         </span>
       </div>

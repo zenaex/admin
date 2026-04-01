@@ -25,9 +25,9 @@ export function ProductCategoryChart() {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-outline bg-white p-5 w-full min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-[16px] font-semibold text-primary-text">Product Category</h3>
-        <button type="button" className="inline-flex underline items-center gap-1 text-[12px] font-medium text-primary-text transition-colors">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[16px] font-semibold text-primary-text whitespace-nowrap">Product Category</h3>
+        <button type="button" className="inline-flex underline items-center gap-1 text-[12px] font-medium text-primary-text transition-colors whitespace-nowrap shrink-0">
           Explore data
           <ExportSquare size={12} variant="Outline" color="currentColor" />
         </button>
@@ -43,12 +43,12 @@ export function ProductCategoryChart() {
                 data={DATA}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
+                innerRadius={65}
                 outerRadius={90}
-                paddingAngle={4}
+                paddingAngle={-15}
                 dataKey="value"
                 strokeWidth={0}
-                cornerRadius={8}
+                cornerRadius={12}
               >
                 {DATA.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
