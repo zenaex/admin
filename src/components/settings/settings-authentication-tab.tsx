@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Import, Sort, Sms, Box, TickCircle, CloseCircle, Add, CloseSquare, Setting2, ArrowDown2 } from "iconsax-react";
+import { Sms, Box, TickCircle, CloseCircle, Add, CloseSquare, Setting2, ArrowDown2 } from "iconsax-react";
+import { Download, ListFilter } from "lucide-react";
 import { useMemo } from "react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 
@@ -558,7 +559,7 @@ export function SettingsAuthenticationTab() {
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
             aria-label="Filter"
           >
-            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
+            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
 
           {/* Export */}
@@ -566,7 +567,7 @@ export function SettingsAuthenticationTab() {
             type="button"
             className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
           >
-            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
+            <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             Export
           </button>
 

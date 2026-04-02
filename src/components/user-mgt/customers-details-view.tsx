@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, Import, Sort, WalletMoney, CardReceive, CardSend, Copy } from "iconsax-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, WalletMoney, CardReceive, CardSend, Copy } from "iconsax-react";
+import { Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
@@ -244,10 +245,10 @@ function TransactionHistoryTab() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
-            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
+            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
           <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle">
-            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
+            <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             Export
           </button>
         </div>

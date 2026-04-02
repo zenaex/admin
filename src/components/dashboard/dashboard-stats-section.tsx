@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUp, ArrowDown, Cards, BitcoinConvert, Gift, Electricity } from "iconsax-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 /* ── Payment Processed ── */
 type PaymentItem = {
@@ -65,9 +66,9 @@ function PaymentProcessed() {
                 }`}
               >
                 {item.trend === "up" ? (
-                  <ArrowUp size={11} variant="Bold" color="#2E7D32" />
+                  <TrendingUp size={19} color="#2E7D32" />
                 ) : (
-                  <ArrowDown size={11} variant="Bold" color="#C62828" />
+                  <TrendingDown size={19} color="#C62828" />
                 )}
               </span>
             </div>

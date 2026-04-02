@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Import, Sort, More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Notification, SearchNormal1 } from "iconsax-react";
+import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Notification, SearchNormal1 } from "iconsax-react";
+import { Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
@@ -160,13 +161,13 @@ export function AdminManagementView() {
                 className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
                 aria-label="Filter"
               >
-                <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
+                <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
               </button>
               <button
                 type="button"
                 className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
               >
-                <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
+                <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
                 Export
               </button>
               <button
@@ -286,10 +287,10 @@ function RolesPermissionTab() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
-            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
+            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
           <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle">
-            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
+            <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             Export
           </button>
           <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90">
@@ -388,10 +389,10 @@ function PendingInvitesTab() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
-            <Sort size={18} variant="Outline" color="var(--color-brand-navy)" />
+            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
           <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle">
-            <Import size={18} variant="Outline" color="var(--color-brand-navy)" />
+            <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             Export
           </button>
         </div>
