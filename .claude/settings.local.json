@@ -13,7 +13,9 @@
       "Bash(grep -rh --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.css\" -oE '#[0-9A-Fa-f]{3,8}' \"C:/Users/Youngestage/admin/src\")",
       "Bash(grep -rh --include=\"*.tsx\" --include=\"*.ts\" -oE '#[0-9A-Fa-f]{6,8}' \"C:/Users/Youngestage/admin/src\")",
       "Bash(while read:*)",
-      "Bash(do sed:*)"
+      "Bash(do sed:*)",
+      "Bash(sed -i 's/<Sort size={\\\\\\([0-9]*\\\\\\)} variant=\"Outline\" color=\"\\\\\\([^\"]*\\\\\\)\"\\\\s*\\\\/>/<ListFilter size={\\\\1} strokeWidth={2} color=\"\\\\2\" \\\\/>/g' src/components/audit-trail/audit-trail-toolbar.tsx src/components/communication/communication-toolbar.tsx src/components/product-mgt/product-details-view.tsx src/components/product-mgt/product-mgt-view.tsx src/components/provider/provider-details-view.tsx src/components/provider/provider-view.tsx src/components/settings/settings-authentication-tab.tsx src/components/user-mgt/admin-management-view.tsx src/components/user-mgt/customers-details-view.tsx src/components/user-mgt/customers-view.tsx)",
+      "Bash(sed -i 's/<Import size={\\\\\\([0-9]*\\\\\\)} variant=\"Outline\" color=\"\\\\\\([^\"]*\\\\\\)\"\\\\s*\\\\/>/<Download size={\\\\1} strokeWidth={2} color=\"\\\\2\" \\\\/>/g' src/components/audit-trail/audit-trail-toolbar.tsx src/components/communication/communication-toolbar.tsx src/components/product-mgt/product-details-view.tsx src/components/product-mgt/product-mgt-view.tsx src/components/provider/provider-details-view.tsx src/components/provider/provider-view.tsx src/components/settings/settings-authentication-tab.tsx src/components/user-mgt/admin-management-view.tsx src/components/user-mgt/customers-details-view.tsx src/components/user-mgt/customers-view.tsx)"
     ]
   }
 }

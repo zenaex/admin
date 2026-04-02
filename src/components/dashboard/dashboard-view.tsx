@@ -4,15 +4,14 @@ import React, { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import {
   ArrowUp,
-  Import,
   InfoCircle,
   People,
   Profile2User,
-  Sort,
   RefreshCircle,
   ChartSquare,
   ProfileAdd,
 } from "iconsax-react";
+import { Download, ListFilter, TrendingUp } from "lucide-react";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { TransactionTrendChart } from "@/components/dashboard/transaction-trend-chart";
 import { ProductCategoryChart } from "@/components/dashboard/product-category-chart";
@@ -35,11 +34,9 @@ function Trend({
         variant === "up" ? "text-green-600" : "text-red-500"
       }`}
     >
-      <ArrowUp
-        size={12}
-        variant="Bold"
+      <TrendingUp
+        size={19}
         color="currentColor"
-        className={variant === "down" ? "rotate-180" : ""}
       />
       {value}
     </span>
@@ -113,14 +110,14 @@ export function DashboardView() {
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg  bg-white text-zinc-500 transition-colors "
             aria-label="Filter"
           >
-            <Sort size={16} variant="Outline" color="currentColor" />
+            <ListFilter size={16} strokeWidth={2} color="currentColor" />
           </button>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
           <button
             type="button"
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors "
           >
-            <Import size={16} variant="Outline" color="currentColor" />
+            <Download size={16} strokeWidth={2} color="currentColor" />
             Export
           </button>
         </div>

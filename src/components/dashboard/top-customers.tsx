@@ -40,7 +40,7 @@ function Avatar({ customer }: { customer: Customer }) {
 
 export function TopCustomers() {
   return (
-    <div className="flex flex-col gap-4 rounded-[12px] border border-outline bg-[#FFFDF7] p-5 w-full min-w-0 h-full">
+    <div className="flex flex-col gap-4 rounded-[12px] border border-outline bg-primary-green/5  p-5 w-full min-w-0 h-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-[16px] font-semibold text-primary-text">Top Customers</h3>
