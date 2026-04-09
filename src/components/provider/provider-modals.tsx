@@ -180,10 +180,11 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
 
 type SuccessModalProps = {
   message: string;
+  confirmLabel?: string;
   onContinue: () => void;
 };
 
-export function SuccessModal({ message, onContinue }: SuccessModalProps) {
+export function SuccessModal({ message, confirmLabel = "Continue", onContinue }: SuccessModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onContinue} />
@@ -206,7 +207,7 @@ export function SuccessModal({ message, onContinue }: SuccessModalProps) {
           onClick={onContinue}
           className="w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
         >
-          Continue
+          {confirmLabel}
         </button>
       </div>
     </div>
