@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, WalletMoney, CardReceive, CardSend, Copy } from "iconsax-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, WalletMoney, CardReceive, CardSend, Copy, DocumentDownload, Warning2, Forbidden2, CloseCircle, Forbidden, DocumentText, Document } from "iconsax-react";
 import { Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
@@ -39,6 +39,15 @@ type CustomerDetailsViewProps = {
 
 export function CustomerDetailsView({ id: _id }: CustomerDetailsViewProps) {
   const [activeTab, setActiveTab] = useState<CustomerDetailTab>("Customer Details");
+  const [actionOpen, setActionOpen] = useState(false);
+
+  const ACTION_ITEMS = [
+    { label: "Account Statement", icon: <DocumentDownload size={16} variant="Outline" color="currentColor" /> },
+    { label: "Place on Lien",     icon: <Warning2        size={16} variant="Outline" color="currentColor" /> },
+    { label: "PND Account",       icon: <Forbidden2      size={16} variant="Outline" color="currentColor" /> },
+    { label: "Block Account",     icon: <CloseCircle     size={16} variant="Outline" color="currentColor" /> },
+    { label: "Deactivate Account",icon: <Forbidden       size={16} variant="Outline" color="currentColor" /> },
+  ];
 
   return (
     <div >
@@ -53,13 +62,34 @@ export function CustomerDetailsView({ id: _id }: CustomerDetailsViewProps) {
           <span className="text-primary-text">Customer Details</span>
         </div>
 
-        <button
-          type="button"
-          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
-        >
-          Action
-          <ArrowDown2 size={12} variant="Outline" color="currentColor" />
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setActionOpen((o) => !o)}
+            className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
+          >
+            Action
+            <ArrowDown2 size={12} variant="Outline" color="currentColor" className={`transition-transform ${actionOpen ? "rotate-180" : ""}`} />
+          </button>
+          {actionOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setActionOpen(false)} />
+              <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
+                {ACTION_ITEMS.map(({ label, icon }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setActionOpen(false)}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50"
+                  >
+                    <span className="text-zinc-500">{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -189,6 +219,7 @@ function TransactionHistoryTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -247,10 +278,33 @@ function TransactionHistoryTab() {
           <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
-          <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle">
-            <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-            Export
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setExportOpen((o) => !o)}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
+            >
+              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+              Export
+            </button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
+                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
+                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                      <DocumentText size={18} variant="Outline" color="currentColor" />
+                      CSV
+                    </button>
+                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                      <Document size={18} variant="Outline" color="currentColor" />
+                      PDF
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

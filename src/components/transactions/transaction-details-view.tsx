@@ -55,6 +55,8 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
   const [activeTab, setActiveTab] = useState<DetailTab>("Transaction Details");
   const [approvalStatus, setApprovalStatus] = useState<TxApprovalStatus>("Pending");
 
+  const isGiftcard = TX_DATA.channel === "Giftcard";
+
   /* Modal states */
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -98,8 +100,8 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
         </button>
       </div>
 
-      {/* Status Banner */}
-      <StatusBanner status={approvalStatus} />
+      {/* Status Banner — Giftcard only */}
+      {isGiftcard && <StatusBanner status={approvalStatus} />}
 
       {/* Tabs */}
       <div className="mt-6">
@@ -112,12 +114,12 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
 
       {/* Tab content */}
       {activeTab === "Transaction Details" && (
-        <TransactionDetailsTab isPending={approvalStatus === "Pending"} />
+        <TransactionDetailsTab isPending={isGiftcard && approvalStatus === "Pending"} />
       )}
       {activeTab === "Transaction Log" && <TransactionLogTab />}
 
-      {/* Action bar for Pending */}
-      {approvalStatus === "Pending" && (
+      {/* Action bar — Giftcard + Pending only */}
+      {isGiftcard && approvalStatus === "Pending" && (
         <div className="sticky bottom-0 z-40 -mx-8 mt-8 flex items-center justify-center gap-4 border-t border-zinc-100 bg-white px-6 py-5">
           <button
             type="button"
