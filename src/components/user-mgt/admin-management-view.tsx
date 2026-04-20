@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Notification, SearchNormal1 } from "iconsax-react";
+import { useMemo, useState } from "react";
+import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Notification, Edit2, PasswordCheck, Forbidden, Trash, DocumentText, Document } from "iconsax-react";
 import { Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
@@ -83,6 +83,8 @@ export function AdminManagementView() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [teamExportOpen, setTeamExportOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -163,13 +165,33 @@ export function AdminManagementView() {
               >
                 <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
               </button>
-              <button
-                type="button"
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-              >
-                <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-                Export
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setTeamExportOpen((o) => !o)}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
+                >
+                  <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+                  Export
+                </button>
+                {teamExportOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setTeamExportOpen(false)} />
+                    <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
+                      <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
+                        <button type="button" onClick={() => setTeamExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                          <DocumentText size={18} variant="Outline" color="currentColor" />
+                          CSV
+                        </button>
+                        <button type="button" onClick={() => setTeamExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                          <Document size={18} variant="Outline" color="currentColor" />
+                          PDF
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 type="button"
                 className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
@@ -211,13 +233,39 @@ export function AdminManagementView() {
                     </td>
                     <td className="h-16 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">{row.dateOnboarded}</td>
                     <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                      <button
-                        type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
-                        aria-label={`Actions for ${row.name}`}
-                      >
-                        <More size={18} variant="Outline" color="currentColor" className="rotate-90" />
-                      </button>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuId((id) => id === row.id ? null : row.id)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
+                          aria-label={`Actions for ${row.name}`}
+                        >
+                          <More size={18} variant="Outline" color="currentColor" className="rotate-90" />
+                        </button>
+                        {openMenuId === row.id && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                            <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
+                              <button type="button" onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                                <Edit2 size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
+                                Edit
+                              </button>
+                              <button type="button" onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                                <PasswordCheck size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
+                                Reset Password
+                              </button>
+                              <button type="button" onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                                <Forbidden size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
+                                Deactivate
+                              </button>
+                              <button type="button" onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-500 transition-colors hover:bg-red-50">
+                                <Trash size={16} variant="Outline" color="currentColor" />
+                                Delete User
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -263,6 +311,7 @@ const MEMBER_AVATARS = ["AT", "TA", "TA"];
 
 function RolesPermissionTab() {
   const [roleSearch, setRoleSearch] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
 
   const filteredRoles = useMemo(() => {
     const q = roleSearch.trim().toLowerCase();
@@ -289,10 +338,33 @@ function RolesPermissionTab() {
           <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
-          <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle">
-            <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-            Export
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setExportOpen((o) => !o)}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
+            >
+              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+              Export
+            </button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
+                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
+                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                      <DocumentText size={18} variant="Outline" color="currentColor" />
+                      CSV
+                    </button>
+                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                      <Document size={18} variant="Outline" color="currentColor" />
+                      PDF
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90">
             <Add size={18} variant="Outline" color="currentColor" />
             Role
@@ -352,6 +424,7 @@ function PendingInvitesTab() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const pendingMembers = useMemo(() => ALL_MEMBERS.filter(m => m.status === "Pending"), []);
 
@@ -391,10 +464,33 @@ function PendingInvitesTab() {
           <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
-          <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle">
-            <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-            Export
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setExportOpen((o) => !o)}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
+            >
+              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+              Export
+            </button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
+                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
+                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                      <DocumentText size={18} variant="Outline" color="currentColor" />
+                      CSV
+                    </button>
+                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                      <Document size={18} variant="Outline" color="currentColor" />
+                      PDF
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

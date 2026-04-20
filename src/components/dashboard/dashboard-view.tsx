@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { DocumentText, Document } from "iconsax-react";
 import type { DateRange } from "react-day-picker";
 import {
   ArrowUp,
@@ -90,6 +91,7 @@ export function DashboardView() {
     from: new Date(2024, 0, 6),
     to: new Date(2024, 0, 6),
   });
+  const [exportOpen, setExportOpen] = useState(false);
 
   return (
     <div>
@@ -113,13 +115,33 @@ export function DashboardView() {
             <ListFilter size={16} strokeWidth={2} color="currentColor" />
           </button>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
-          <button
-            type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors "
-          >
-            <Download size={16} strokeWidth={2} color="currentColor" />
-            Export
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setExportOpen((o) => !o)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors"
+            >
+              <Download size={16} strokeWidth={2} color="currentColor" />
+              Export
+            </button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
+                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
+                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                      <DocumentText size={18} variant="Outline" color="currentColor" />
+                      CSV
+                    </button>
+                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                      <Document size={18} variant="Outline" color="currentColor" />
+                      PDF
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

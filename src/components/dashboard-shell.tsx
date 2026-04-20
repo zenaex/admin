@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
@@ -9,6 +10,11 @@ type DashboardShellProps = {
 };
 
 export function DashboardShell({ children }: DashboardShellProps) {
+  const pathname = usePathname() ?? "";
+  const isEtradeChatroom =
+    /^\/dashboard\/e-trades\/[^/]+$/.test(pathname) &&
+    pathname !== "/dashboard/e-trades/transaction";
+  const isEtradeTransactionDetail = /^\/dashboard\/e-trades\/transaction\/[^/]+$/.test(pathname);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const collapseTimerRef = useRef<number | null>(null);
 
@@ -30,8 +36,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
       >
         <DashboardSidebar collapsed={isSidebarCollapsed} />
       </div>
-      <div className="flex min-h-0 min-w-0 flex-1 justify-center">
-        <main className="min-h-0 w-full overflow-y-auto overscroll-y-contain rounded-[22px] bg-background px-8 pb-8 pt-4">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <main
+          className={[
+            "min-h-0 w-full flex-1 rounded-[22px] bg-background px-8 pb-8 pt-4",
+            isEtradeChatroom || isEtradeTransactionDetail
+              ? "flex flex-col overflow-hidden"
+              : "overflow-y-auto overscroll-y-contain",
+          ].join(" ")}
+        >
           {children}
         </main>
       </div>

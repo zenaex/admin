@@ -15,6 +15,7 @@ import {
   Activity,
   Setting2,
   LogoutCurve,
+  Coin1
 } from "iconsax-react";
 
 type SidebarItemProps = {
@@ -270,7 +271,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             href="/dashboard/e-trades"
             label="E-trades"
             icon={
-              <I3Dcube
+              <Coin1
                 size="24"
                 color="currentColor"
                 variant={isActive("/dashboard/e-trades") ? "Bold" : "Outline"}
