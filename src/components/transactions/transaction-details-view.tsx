@@ -15,9 +15,14 @@ const LINK = "#4A6FA5";
 /* ── Types ── */
 type TxApprovalStatus = "Approved" | "Pending" | "Rejected";
 
+/** Deposit / non-giftcard transaction detail layout (switch in `TX_DATA.depositDetailVariant`). */
+type DepositDetailVariant = "crypto" | "tv" | "utility_electricity" | "utility_betting";
+
 /* ── Mock data: use channel "Giftcard" (+ optional status Pending/Rejected) for giftcard tables & image placeholders. ── */
 const TX_DATA = {
   channel: "Giftcard" as "Deposit" | "Giftcard",
+  /** When `channel` is `"Deposit"`, pick TV / Utility / crypto layout. */
+  depositDetailVariant: "tv" as DepositDetailVariant,
   transactionId: "12324235334252526",
   customerName: "Naomi Salisu",
   typeDeposit: "Sell Deposit",
@@ -47,6 +52,24 @@ const RECIPIENT_DATA = {
   network: "Tron",
   networkFee: "$2.10",
 };
+
+const RECIPIENT_TV = {
+  smartcardNo: "472242353543",
+  accountName: "Okunola Roscoly",
+};
+
+const RECIPIENT_UTILITY_ELECTRICITY = {
+  address: "10, Olajolo Stree, Ajah, Lagos",
+  meterNumber: "472242353543",
+  accountName: "Okunola Roscoly",
+};
+
+const RECIPIENT_UTILITY_BETTING = {
+  bettingId: "472242353543",
+  accountName: "Okunola Roscoly",
+};
+
+const TX_TIMESTAMP = "Jan 6, 2026 | 9:32AM";
 
 const DEVICE_DATA = {
   device: "Iphone 15pro",
@@ -227,6 +250,296 @@ function StatusBanner({ status }: { status: TxApprovalStatus }) {
   );
 }
 
+function TimeStampCell({ value }: { value: string }) {
+  const parts = value.split(" | ");
+  return (
+    <span className="text-sm" style={{ color: TEXT }}>
+      <span style={{ color: LINK }}>{parts[0]}</span>
+      {parts.length > 1 ? ` | ${parts.slice(1).join(" | ")}` : ""}
+    </span>
+  );
+}
+
+function TransactionIdLink({ id }: { id: string }) {
+  return (
+    <Link
+      href="#"
+      className="underline underline-offset-2 hover:opacity-80"
+      style={{ color: LINK }}
+      onClick={(e) => e.preventDefault()}
+    >
+      {id}
+    </Link>
+  );
+}
+
+function DepositDeviceSection() {
+  return (
+    <section className="mt-8">
+      <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+        Device Information
+      </h2>
+      <TxDataBlockTable
+        headers={["Device", "Device ID", "Location", "Location Coordinate"]}
+        row={[DEVICE_DATA.device, DEVICE_DATA.deviceId, DEVICE_DATA.location, DEVICE_DATA.locationCoordinate]}
+      />
+    </section>
+  );
+}
+
+function DepositTransactionDetailsContent() {
+  const v = TX_DATA.depositDetailVariant;
+
+  if (v === "crypto") {
+    const currencyParts = TX_DATA.currency.split(" | ");
+    const c0 = currencyParts[0] ?? "";
+    const cRest = currencyParts.length > 1 ? ` | ${currencyParts.slice(1).join(" | ")}` : "";
+    const initiatedParts = TX_DATA.datedInitiated.split(" | ");
+    const completedParts = TX_DATA.dateCompleted.split(" | ");
+
+    return (
+      <>
+        <section className="mt-6">
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Transaction Details
+          </h2>
+          <TxDataBlockTable
+            headers={[
+              "Transaction ID",
+              "Customer Names",
+              "Channnel",
+              "Type",
+              "Currency",
+              "Amount (USD)",
+            ]}
+            row={[
+              <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
+              TX_DATA.customerName,
+              TX_DATA.channel,
+              TX_DATA.typeDeposit,
+              <span key="cur" className="text-sm" style={{ color: TEXT }}>
+                <span style={{ color: LINK }}>{c0}</span>
+                {cRest}
+              </span>,
+              TX_DATA.amountUsd,
+            ]}
+          />
+          <TxDataBlockTable
+            className="mt-6"
+            headers={[
+              "Amount Equivalent",
+              "Dated Initiated",
+              "Date Completed",
+              "Rate Given",
+              "Provider",
+              "Our Fee",
+            ]}
+            row={[
+              TX_DATA.amountEquivalent,
+              <span key="di" className="text-sm" style={{ color: TEXT }}>
+                <span style={{ color: LINK }}>{initiatedParts[0]}</span>
+                {initiatedParts.length > 1 ? ` | ${initiatedParts.slice(1).join(" | ")}` : ""}
+              </span>,
+              <span key="dc" className="text-sm" style={{ color: TEXT }}>
+                <span style={{ color: LINK }}>{completedParts[0]}</span>
+                {completedParts.length > 1 ? ` | ${completedParts.slice(1).join(" | ")}` : ""}
+              </span>,
+              TX_DATA.rateGiven,
+              TX_DATA.provider,
+              TX_DATA.ourFee,
+            ]}
+          />
+          <TxDataBlockTable className="mt-6" headers={["Balance After"]} row={[TX_DATA.balanceAfter]} />
+        </section>
+
+        <section className="mt-8">
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Recipient Details
+          </h2>
+          <TxDataBlockTable
+            headers={["Wallet Addresss", "Network", "Network Fee"]}
+            row={[
+              <Link
+                key="w"
+                href="#"
+                className="underline underline-offset-2 hover:opacity-80"
+                style={{ color: LINK }}
+                onClick={(e) => e.preventDefault()}
+              >
+                {RECIPIENT_DATA.walletAddress}
+              </Link>,
+              RECIPIENT_DATA.network,
+              RECIPIENT_DATA.networkFee,
+            ]}
+          />
+        </section>
+
+        <DepositDeviceSection />
+      </>
+    );
+  }
+
+  if (v === "tv") {
+    return (
+      <>
+        <section className="mt-6">
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Transaction Details
+          </h2>
+          <TxDataBlockTable
+            headers={[
+              "Transaction ID",
+              "Customer Names",
+              "Channnel",
+              "Type",
+              "Product",
+              "Plan",
+            ]}
+            row={[
+              <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
+              TX_DATA.customerName,
+              "Utility",
+              "TV",
+              "DSTV",
+              "DSTV Compact plus",
+            ]}
+          />
+          <TxDataBlockTable
+            className="mt-6"
+            headers={["Timestamp", "Amount", "Fee", "Provider", "Balance After"]}
+            row={[
+              <TimeStampCell key="ts" value={TX_TIMESTAMP} />,
+              "₦20,000.00",
+              "₦30.00",
+              "Ringo",
+              "₦30,000.00",
+            ]}
+          />
+        </section>
+
+        <section className="mt-8">
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Recipient Details
+          </h2>
+          <TxDataBlockTable
+            headers={["Smartcard No", "Account Name"]}
+            row={[RECIPIENT_TV.smartcardNo, RECIPIENT_TV.accountName]}
+          />
+        </section>
+
+        <DepositDeviceSection />
+      </>
+    );
+  }
+
+  if (v === "utility_electricity") {
+    return (
+      <>
+        <section className="mt-6">
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Transaction Details
+          </h2>
+          <TxDataBlockTable
+            headers={[
+              "Transaction ID",
+              "Customer Names",
+              "Channel",
+              "Type",
+              "Product",
+              "Amount",
+            ]}
+            row={[
+              <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
+              TX_DATA.customerName,
+              "Utility",
+              "Electricity",
+              "EKEDC",
+              "₦30,000.00",
+            ]}
+          />
+          <TxDataBlockTable
+            className="mt-6"
+            headers={["Timestamp", "Fee", "Provider", "Balance after"]}
+            row={[
+              <TimeStampCell key="ts" value={TX_TIMESTAMP} />,
+              "₦30.00",
+              "Ringo",
+              "₦30,000.00",
+            ]}
+          />
+        </section>
+
+        <section className="mt-8">
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Recipient Details
+          </h2>
+          <TxDataBlockTable
+            headers={["Address", "Meter Number", "Account Name"]}
+            row={[
+              RECIPIENT_UTILITY_ELECTRICITY.address,
+              RECIPIENT_UTILITY_ELECTRICITY.meterNumber,
+              RECIPIENT_UTILITY_ELECTRICITY.accountName,
+            ]}
+          />
+        </section>
+
+        <DepositDeviceSection />
+      </>
+    );
+  }
+
+  /* utility_betting */
+  return (
+    <>
+      <section className="mt-6">
+        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+          Transaction Details
+        </h2>
+        <TxDataBlockTable
+          headers={[
+            "Transaction ID",
+            "Customer Names",
+            "Channel",
+            "Type",
+            "Product",
+            "Amount",
+          ]}
+          row={[
+            <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
+            TX_DATA.customerName,
+            "Utility",
+            "Betting",
+            "Sporty bet",
+            "₦30,000.00",
+          ]}
+        />
+        <TxDataBlockTable
+          className="mt-6"
+          headers={["Timestamp", "Fee", "Provider", "Balance After"]}
+          row={[
+            <TimeStampCell key="ts" value={TX_TIMESTAMP} />,
+            "₦30.00",
+            "Ringo",
+            "₦30,000.00",
+          ]}
+        />
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+          Recipient Details
+        </h2>
+        <TxDataBlockTable
+          headers={["Betting ID", "Account Name"]}
+          row={[RECIPIENT_UTILITY_BETTING.bettingId, RECIPIENT_UTILITY_BETTING.accountName]}
+        />
+      </section>
+
+      <DepositDeviceSection />
+    </>
+  );
+}
+
 /* ── Transaction Details Tab ── */
 function TransactionDetailsTab() {
   const isGiftcard = TX_DATA.channel === "Giftcard";
@@ -332,114 +645,7 @@ function TransactionDetailsTab() {
     );
   }
 
-  const currencyParts = TX_DATA.currency.split(" | ");
-  const c0 = currencyParts[0] ?? "";
-  const cRest = currencyParts.length > 1 ? ` | ${currencyParts.slice(1).join(" | ")}` : "";
-
-  const initiatedParts = TX_DATA.datedInitiated.split(" | ");
-  const completedParts = TX_DATA.dateCompleted.split(" | ");
-
-  return (
-    <>
-      <section className="mt-6">
-        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-          Transaction Details
-        </h2>
-        <TxDataBlockTable
-          headers={[
-            "Transaction ID",
-            "Customer Names",
-            "Channnel",
-            "Type",
-            "Currency",
-            "Amount (USD)",
-          ]}
-          row={[
-            <Link
-              key="txid"
-              href="#"
-              className="underline underline-offset-2 hover:opacity-80"
-              style={{ color: LINK }}
-              onClick={(e) => e.preventDefault()}
-            >
-              {TX_DATA.transactionId}
-            </Link>,
-            TX_DATA.customerName,
-            TX_DATA.channel,
-            TX_DATA.typeDeposit,
-            <span key="cur" className="text-sm" style={{ color: TEXT }}>
-              <span style={{ color: LINK }}>{c0}</span>
-              {cRest}
-            </span>,
-            TX_DATA.amountUsd,
-          ]}
-        />
-        <TxDataBlockTable
-          className="mt-6"
-          headers={[
-            "Amount Equivalent",
-            "Dated Initiated",
-            "Date Completed",
-            "Rate Given",
-            "Provider",
-            "Our Fee",
-          ]}
-          row={[
-            TX_DATA.amountEquivalent,
-            <span key="di" className="text-sm" style={{ color: TEXT }}>
-              <span style={{ color: LINK }}>{initiatedParts[0]}</span>
-              {initiatedParts.length > 1 ? ` | ${initiatedParts.slice(1).join(" | ")}` : ""}
-            </span>,
-            <span key="dc" className="text-sm" style={{ color: TEXT }}>
-              <span style={{ color: LINK }}>{completedParts[0]}</span>
-              {completedParts.length > 1 ? ` | ${completedParts.slice(1).join(" | ")}` : ""}
-            </span>,
-            TX_DATA.rateGiven,
-            TX_DATA.provider,
-            TX_DATA.ourFee,
-          ]}
-        />
-        <TxDataBlockTable className="mt-6" headers={["Balance After"]} row={[TX_DATA.balanceAfter]} />
-      </section>
-
-      <section className="mt-8">
-        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-          Recipient Details
-        </h2>
-        <TxDataBlockTable
-          headers={["Wallet Addresss", "Network", "Network Fee"]}
-          row={[
-            <Link
-              key="w"
-              href="#"
-              className="underline underline-offset-2 hover:opacity-80"
-              style={{ color: LINK }}
-              onClick={(e) => e.preventDefault()}
-            >
-              {RECIPIENT_DATA.walletAddress}
-            </Link>,
-            RECIPIENT_DATA.network,
-            RECIPIENT_DATA.networkFee,
-          ]}
-        />
-      </section>
-
-      <section className="mt-8">
-        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-          Device Information
-        </h2>
-        <TxDataBlockTable
-          headers={["Device", "Device ID", "Location", "Location Coordinate"]}
-          row={[
-            DEVICE_DATA.device,
-            DEVICE_DATA.deviceId,
-            DEVICE_DATA.location,
-            DEVICE_DATA.locationCoordinate,
-          ]}
-        />
-      </section>
-    </>
-  );
+  return <DepositTransactionDetailsContent />;
 }
 
 function TxDataBlockTable({
