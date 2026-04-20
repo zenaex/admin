@@ -3,7 +3,13 @@
 import { Notification, Setting2 } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 
-export function ProviderHeader({ title = "Provider" }: { title?: string }) {
+export function ProviderHeader({
+  title = "Provider",
+  notificationCount = 3,
+}: {
+  title?: string;
+  notificationCount?: number;
+}) {
   return (
     <header className="flex flex-wrap items-center gap-4">
       <h1 className="text-primary-text shrink-0 text-[20px] font-semibold tracking-tight">
@@ -24,7 +30,7 @@ export function ProviderHeader({ title = "Provider" }: { title?: string }) {
         >
           <Notification size={22} variant="Outline" color="currentColor" />
           <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[10px] font-semibold text-white">
-            3
+            {notificationCount}
           </span>
         </button>
         <button

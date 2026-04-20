@@ -1,8 +1,11 @@
+import { Suspense } from "react";
+
+import { EtradeView } from "@/components/e-trades/etrade-view";
+
 export default function ETradesPage() {
   return (
-    <>
-      <h1 className="text-primary-text text-[20px] font-semibold">E-trades</h1>
-      <p className="mt-2 text-zinc-600">E-trades (mock).</p>
-    </>
+    <Suspense fallback={<div className="text-sm text-zinc-500">Loading…</div>}>
+      <EtradeView />
+    </Suspense>
   );
 }
