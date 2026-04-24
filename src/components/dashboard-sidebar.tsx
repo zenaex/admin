@@ -35,16 +35,14 @@ function SidebarItem({
   trailing,
   collapsed = false,
 }: SidebarItemProps) {
-  return (
-    <Link
-      href={href}
-      className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
-        active
-          ? "bg-secondary-green text-white"
-          : "text-input-disabled-text hover:bg-secondary-green hover:text-white"
-      } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
-      aria-label={label}
-    >
+  const className = `relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
+    active
+      ? "bg-secondary-green text-white"
+      : "text-input-disabled-text hover:bg-secondary-green hover:text-white"
+  } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`;
+
+  const content = (
+    <>
       {active ? (
         <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-primary-green" />
       ) : null}
@@ -53,6 +51,24 @@ function SidebarItem({
       {!collapsed && trailing ? (
         <span className="ml-auto text-input-disabled-text">{trailing}</span>
       ) : null}
+    </>
+  );
+
+  if (active) {
+    return (
+      <div className={className} aria-label={label} aria-current="page">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className={className}
+      aria-label={label}
+    >
+      {content}
     </Link>
   );
 }
@@ -64,10 +80,19 @@ type DashboardSidebarProps = {
 export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
   const pathname = usePathname() ?? "";
 
-  const isActive = (href: string) =>
-    href === "/dashboard"
+  const [activeOverrideHref, setActiveOverrideHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Clear manual highlight when route changes (a real nav occurred).
+    setActiveOverrideHref(null);
+  }, [pathname]);
+
+  const isActive = (href: string) => {
+    if (activeOverrideHref) return href === activeOverrideHref;
+    return href === "/dashboard"
       ? pathname === "/dashboard"
       : pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   const isUserMgtRoute = isActive("/dashboard/user-mgt");
   const activeUserMgtItem = pathname.startsWith("/dashboard/user-mgt/admin-management")
@@ -153,32 +178,49 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             active={isActive("/dashboard/transactions")}
             collapsed={collapsed}
           />
-          <Link
-            href="/dashboard/user-mgt"
-            className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
-              isUserMgtRoute
-                ? "bg-secondary-green text-white"
-                : "text-input-disabled-text hover:bg-secondary-green hover:text-white"
-            } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
-            aria-label="User Mgt"
-            onClick={() => {
-              if (!collapsed) setIsUserMgtOpen((prev) => !prev);
-            }}
-          >
-            {isUserMgtOpen ? (
-              <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-primary-green" />
-            ) : null}
-            <span className={isUserMgtOpen ? "text-white" : "text-input-disabled-text"}>
-              <People
-                size="24px"
-                color="currentColor"
-                variant={isUserMgtOpen ? "Bold" : "Outline"}
-              />
-            </span>
-            {!collapsed ? (
+          {collapsed ? (
+            <SidebarItem
+              href="/dashboard/user-mgt"
+              label="User Mgt"
+              icon={
+                <People
+                  size="24px"
+                  color="currentColor"
+                  variant={isActive("/dashboard/user-mgt") ? "Bold" : "Outline"}
+                />
+              }
+              active={isActive("/dashboard/user-mgt")}
+              collapsed={collapsed}
+            />
+          ) : (
+            <button
+              type="button"
+              className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
+                isUserMgtRoute
+                  ? "bg-secondary-green text-white"
+                  : "text-input-disabled-text hover:bg-secondary-green hover:text-white"
+              } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
+              aria-label="User Mgt"
+              aria-expanded={isUserMgtOpen}
+              onClick={() => {
+                setIsUserMgtOpen((prev) => {
+                  const next = !prev;
+                  setActiveOverrideHref(next ? "/dashboard/user-mgt" : null);
+                  return next;
+                });
+              }}
+            >
+              {isUserMgtOpen ? (
+                <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-primary-green" />
+              ) : null}
+              <span className={isUserMgtOpen ? "text-white" : "text-input-disabled-text"}>
+                <People
+                  size="24px"
+                  color="currentColor"
+                  variant={isUserMgtOpen ? "Bold" : "Outline"}
+                />
+              </span>
               <span className="text-[14px] font-medium">User Mgt</span>
-            ) : null}
-            {!collapsed ? (
               <span
                 className={`ml-auto text-input-disabled-text transition-transform ${
                   isUserMgtOpen ? "rotate-180" : ""
@@ -186,8 +228,8 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
               >
                 <ArrowDown2 size="24" color="currentColor" variant="Outline" />
               </span>
-            ) : null}
-          </Link>
+            </button>
+          )}
 
           {!collapsed && isUserMgtOpen ? (
             <div className="relative mt-1 ml-5 pl-3 rounded-[6px] w-[96px]">
@@ -203,6 +245,9 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                       : "text-input-disabled-text hover:text-white"
                   }`}
                   aria-label="Customers"
+                  onClick={(e) => {
+                    if (activeUserMgtItem === "customers") e.preventDefault();
+                  }}
                 >
                   <span
                     className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
@@ -222,6 +267,9 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                       : "text-input-disabled-text hover:text-white"
                   }`}
                   aria-label="Admin Mgt"
+                  onClick={(e) => {
+                    if (activeUserMgtItem === "admin-management") e.preventDefault();
+                  }}
                 >
                   <span
                     className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
@@ -241,6 +289,9 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                       : "text-input-disabled-text hover:text-white"
                   }`}
                   aria-label="Referral"
+                  onClick={(e) => {
+                    if (activeUserMgtItem === "referral") e.preventDefault();
+                  }}
                 >
                   <span
                     className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${

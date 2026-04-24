@@ -99,12 +99,14 @@ export function DashboardView() {
       <ProviderHeader title="Dashboard" />
 
       {/* Greeting + toolbar */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-outline bg-white px-5 py-4 w-full">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-outline bg-white px-[30px] pt-[18px] pb-4 w-full">
         <div>
-          <h2 className="text-[16px] font-semibold text-primary-text">
+          <h2 className="text-[24px] font-semibold text-primary-text">
             Good Morning, Shakur 👋
           </h2>
-          <p className="mt-0.5 text-xs text-zinc-400">Here are your activities for the day</p>
+          <p className="mt-0.5 text-[16px]" style={{ color: "#494A53" }}>
+            Here are your activities for the day
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -148,7 +150,7 @@ export function DashboardView() {
       {/* Total transaction hero card */}
       <div className="mt-4 rounded-xl border border-outline bg-white px-5 py-5 w-full">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-primary-text m-0">
+          <p className="m-0 text-[20px] font-medium text-primary-text">
             Total Transaction{" "}
             <span className="font-semibold text-success">in NGN</span>
           </p>
@@ -159,7 +161,7 @@ export function DashboardView() {
         <p className="mt-2 text-[40px] font-semibold text-primary-text">
           ₦140,813,000.00
         </p>
-        <p className="mt-1 text-[18px] text-zinc-400">
+        <p className="mt-1 text-[18px]" style={{ color: "#777F89" }}>
           Yeay! transactions have surged by{" "}
           <span className="font-semibold text-primary-text">$1,000,000</span> from Last month!
         </p>

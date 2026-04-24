@@ -19,7 +19,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const collapseTimerRef = useRef<number | null>(null);
 
   return (
-    <div className="box-border flex h-dvh max-h-dvh min-h-0 gap-4 overflow-hidden bg-background p-2">
+    <div className="box-border flex h-dvh max-h-dvh min-h-0 gap-4 overflow-hidden bg-background p-4">
       <div
         className="flex h-full min-h-0 shrink-0"
         onMouseEnter={() => {
@@ -39,7 +39,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <main
           className={[
-            "min-h-0 w-full flex-1 rounded-[22px] bg-background px-8 pb-8 pt-4",
+            "min-h-0 w-full flex-1 rounded-[22px] bg-background px-4 pb-8 pt-4",
             isEtradeChatroom || isEtradeTransactionDetail
               ? "flex flex-col overflow-hidden"
               : "overflow-y-auto overscroll-y-contain",
