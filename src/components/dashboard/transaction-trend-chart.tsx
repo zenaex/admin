@@ -100,10 +100,10 @@ export function TransactionTrendChart() {
             key={tf}
             type="button"
             onClick={() => setTimeFrame(tf)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-full px-3 py-1 text-[16px] font-medium transition-colors ${
               timeFrame === tf
-                ? "bg-white text-primary-text"
-                : "text-zinc-400 hover:text-zinc-600"
+                ? "bg-[#F7F7F7] text-primary-text"
+                : "text-[#494A53] hover:opacity-90"
             }`}
           >
             {tf}
@@ -114,11 +114,11 @@ export function TransactionTrendChart() {
       {/* Legend */}
       <div className="flex items-center gap-4">
         <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
-          <span className="h-2.5 w-4.5 rounded-sm bg-secondary-green" />
+          <span className="h-2.5 w-4.5 rounded-sm" style={{ backgroundColor: "#2E7D32" }} />
           Inflows
         </span>
         <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
-          <span className="h-2.5 w-4.5 rounded-sm bg-coral-red" />
+          <span className="h-2.5 w-4.5 rounded-sm" style={{ backgroundColor: "#F5222D" }} />
           Outflows
         </span>
       </div>
@@ -140,22 +140,22 @@ export function TransactionTrendChart() {
               axisLine={false}
               tickLine={false}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#013220", strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#2E7D32", strokeWidth: 1, strokeDasharray: "4 4" }} />
             <Line
               type="monotone"
               dataKey="inflows"
-              stroke="#013220"
+              stroke="#2E7D32"
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 5, fill: "#013220", strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: "#2E7D32", strokeWidth: 0 }}
             />
             <Line
               type="monotone"
               dataKey="outflows"
-              stroke="#FF6A6C"
+              stroke="#F5222D"
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 5, fill: "#FF6A6C", strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: "#F5222D", strokeWidth: 0 }}
             />
           </LineChart>
         </ResponsiveContainer>
