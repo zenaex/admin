@@ -16,25 +16,25 @@ const PAYMENTS: PaymentItem[] = [
     label: "Deposit",
     amount: "₦100,000,000",
     trend: "up",
-    icon: <Cards size={20} variant="Outline" color="currentColor" />,
+    icon: <Cards size={24} variant="Outline" color="currentColor" />,
   },
   {
     label: "Crypto",
     amount: "₦100,000,000",
     trend: "down",
-    icon: <BitcoinConvert size={20} variant="Outline" color="currentColor" />,
+    icon: <BitcoinConvert size={24} variant="Outline" color="currentColor" />,
   },
   {
     label: "Giftcard",
     amount: "₦100,000,000",
     trend: "up",
-    icon: <Gift size={20} variant="Outline" color="currentColor" />,
+    icon: <Gift size={24} variant="Outline" color="currentColor" />,
   },
   {
     label: "Utility/ VAS",
     amount: "₦100,000,000",
     trend: "down",
-    icon: <Electricity size={20} variant="Outline" color="currentColor" />,
+    icon: <Electricity size={24} variant="Outline" color="currentColor" />,
   },
 ];
 
@@ -50,16 +50,18 @@ function PaymentProcessed() {
             className="flex items-center gap-3 rounded-[10px] bg-surface-subtle px-3.5 py-3"
           >
             {/* Icon box */}
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-500 shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FAFAFA] text-primary-text shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
               {item.icon}
             </span>
 
             {/* Label */}
-            <span className="flex-1 text-[13px] text-zinc-400">{item.label}</span>
+            <span className="flex-1 text-[18px]" style={{ color: "#777F89" }}>
+              {item.label}
+            </span>
 
             {/* Amount + trend */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[13px] font-semibold text-primary-text">{item.amount}</span>
+              <span className="text-[20px] font-semibold text-primary-text">{item.amount}</span>
               <span
                 className={`flex h-5 w-5 items-center justify-center rounded-full ${
                   item.trend === "up" ? "bg-[#E8F5E9]" : "bg-[#FFEBEE]"

@@ -87,9 +87,9 @@ export function TransactionTrendChart() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-[16px] font-semibold text-primary-text">Transaction Trend</h3>
-        <button type="button" className="inline-flex underline items-center gap-1 text-xs font-medium text-primary-text transition-colors">
+        <button type="button" className="inline-flex underline items-center gap-1 text-xs font-medium text-brand-navy transition-colors">
           Explore data
-          <ExportSquare size={12} variant="Outline" color="currentColor" className="text-primary-text" />
+          <ExportSquare size={12} variant="Outline" color="currentColor" className="text-brand-navy" />
         </button>
       </div>
 
@@ -102,7 +102,7 @@ export function TransactionTrendChart() {
             onClick={() => setTimeFrame(tf)}
             className={`rounded-full px-3 py-1 text-[16px] font-medium transition-colors ${
               timeFrame === tf
-                ? "bg-[#F7F7F7] text-primary-text"
+                ? "bg-[#F7F7F7] text-brand-navy"
                 : "text-[#494A53] hover:opacity-90"
             }`}
           >
