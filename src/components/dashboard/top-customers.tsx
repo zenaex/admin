@@ -27,14 +27,12 @@ const CUSTOMERS: Customer[] = [
     name: "Samochino Tunde", 
     handle: "@Sammooooooo", 
     initials: "ST", 
-    avatarColor: "#E8F4FF", 
     badgePath: "/image 1.svg" 
   },
   { 
     name: "Okunola Eleniyan", 
     handle: "@Okunmoneyyy", 
     initials: "OE", 
-    avatarColor: "#EEF0F4", 
     badgePath: "/Image.svg" 
   },
   { 
@@ -53,7 +51,7 @@ function Avatar({ customer }: { customer: Customer }) {
   if (customer.initials) {
     return (
       <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold text-primary-text"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold text-black"
         style={{ backgroundColor: customer.avatarColor ?? "#F7F7F7" }}
       >
         {customer.initials}
@@ -62,7 +60,7 @@ function Avatar({ customer }: { customer: Customer }) {
   }
   /* Placeholder circle for customers without a real image */
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F7F7F7] text-[11px] font-semibold text-zinc-500">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F7F7F7] text-[11px] font-semibold text-black">
       {customer.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
     </div>
   );
