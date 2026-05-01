@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ExportSquare } from "iconsax-react";
 
 type Customer = {
@@ -7,24 +8,51 @@ type Customer = {
   handle: string;
   initials?: string;
   avatarColor?: string;
-  badge: string;
+  badge?: string;
+  badgePath?: string;
 };
 
 const CUSTOMERS: Customer[] = [
-  { name: "Roscoly Jibola",    handle: "@roscolyla",      badge: "🥇" },
-  { name: "Adunni Salu",       handle: "@adunnidollars",  badge: "🥈" },
-  { name: "Samochino Tunde",   handle: "@Sammooooooo",    initials: "ST", avatarColor: "#E8F4FF", badge: "⭐" },
-  { name: "Okunola Eleniyan",  handle: "@Okunmoneyyy",    initials: "OE", avatarColor: "#EEF0F4", badge: "💎" },
-  { name: "Adesubomi Fetuga",  handle: "@oloweeko",       badge: "🔮" },
-  { name: "Wonuola Fetuga",    handle: "@swankyyyyyyy",   badge: "🌙" },
+  { 
+    name: "Roscoly Jibola", 
+    handle: "@roscolyla", 
+    badgePath: "/1F3C6_Trophy_01_01.svg" 
+  },
+  { 
+    name: "Adunni Salu", 
+    handle: "@adunnidollars", 
+    badgePath: "/1F3C5_SportsMedal_01_02.svg" 
+  },
+  { 
+    name: "Samochino Tunde", 
+    handle: "@Sammooooooo", 
+    initials: "ST", 
+    badgePath: "/image 1.svg" 
+  },
+  { 
+    name: "Okunola Eleniyan", 
+    handle: "@Okunmoneyyy", 
+    initials: "OE", 
+    badgePath: "/Image.svg" 
+  },
+  { 
+    name: "Adesubomi Fetuga", 
+    handle: "@oloweeko", 
+    badgePath: "/Image.svg" 
+  },
+  { 
+    name: "Wonuola Fetuga", 
+    handle: "@swankyyyyyyy", 
+    badgePath: "/Image.svg" 
+  },
 ];
 
 function Avatar({ customer }: { customer: Customer }) {
   if (customer.initials) {
     return (
       <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold text-primary-text"
-        style={{ backgroundColor: customer.avatarColor ?? "#E8EBEE" }}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold text-black"
+        style={{ backgroundColor: customer.avatarColor ?? "#F7F7F7" }}
       >
         {customer.initials}
       </div>
@@ -32,7 +60,7 @@ function Avatar({ customer }: { customer: Customer }) {
   }
   /* Placeholder circle for customers without a real image */
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E8EBEE] text-[11px] font-semibold text-zinc-500">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F7F7F7] text-[11px] font-semibold text-black">
       {customer.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
     </div>
   );
@@ -66,7 +94,19 @@ export function TopCustomers() {
                 <p className="truncate text-[11px] text-zinc-400 mt-0.5">{customer.handle}</p>
               </div>
             </div>
-            <span className="text-[20px] leading-none shrink-0">{customer.badge}</span>
+            {customer.badgePath ? (
+              <div className="shrink-0">
+                <Image 
+                  src={customer.badgePath} 
+                  alt="rank badge" 
+                  width={24} 
+                  height={24} 
+                  className="object-contain"
+                />
+              </div>
+            ) : (
+              <span className="text-[20px] leading-none shrink-0">{customer.badge}</span>
+            )}
           </li>
         ))}
       </ul>
