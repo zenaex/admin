@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, ArrowDown, Cards, BitcoinConvert, Gift, Electricity } from "iconsax-react";
+import { ArrowUp, ArrowDown, Cards, BitcoinConvert, TicketStar } from "iconsax-react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
 /* ── Payment Processed ── */
@@ -22,19 +22,19 @@ const PAYMENTS: PaymentItem[] = [
     label: "Crypto",
     amount: "₦100,000,000",
     trend: "down",
-    icon: <BitcoinConvert size={24} variant="Outline" color="currentColor" />,
+    icon: <TicketStar size={24} variant="Outline" color="currentColor" />,
   },
   {
     label: "Giftcard",
     amount: "₦100,000,000",
     trend: "up",
-    icon: <Gift size={24} variant="Outline" color="currentColor" />,
+    icon: <TicketStar size={24} variant="Outline" color="currentColor" />,
   },
   {
     label: "Utility/ VAS",
     amount: "₦100,000,000",
     trend: "down",
-    icon: <Electricity size={24} variant="Outline" color="currentColor" />,
+    icon: <BitcoinConvert size={24} variant="Outline" color="currentColor" />,
   },
 ];
 
