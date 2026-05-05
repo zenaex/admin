@@ -68,7 +68,10 @@ function Avatar({ customer }: { customer: Customer }) {
 
 export function TopCustomers() {
   return (
-    <div className="flex flex-col gap-4 rounded-[12px] border border-outline bg-primary-green/5  p-5 w-full min-w-0 h-full">
+    <div 
+      className="flex flex-col gap-4 rounded-[20px] border border-outline bg-white p-5 w-full min-w-0 h-full bg-no-repeat bg-cover bg-center"
+      style={{ backgroundImage: "url('/Leaderboard.svg')" }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-[16px] font-semibold text-primary-text">Top Customers</h3>
