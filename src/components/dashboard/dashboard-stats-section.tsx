@@ -48,7 +48,7 @@ function PaymentProcessed({
   return (
     <div
       className={`flex flex-col gap-4 rounded-xl border border-outline bg-white p-5 h-full ${className}`}
-      style={{ ...style, width: "535px" }}
+      style={style}
     >
       <h3 className="text-[18px] font-semibold text-primary-text">Payment Processed</h3>
 
@@ -56,8 +56,7 @@ function PaymentProcessed({
         {PAYMENTS.map((item) => (
           <li
             key={item.label}
-            className="flex items-center gap-[10px] rounded-[20px] bg-surface-subtle px-[24px] py-[20px] h-[80px]"
-            style={{ width: "495px" }}
+            className="flex items-center gap-[10px] rounded-[20px] bg-surface-subtle px-[24px] py-[20px] h-[80px] w-full"
           >
             {/* Icon box */}
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-primary-text shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
@@ -73,7 +72,7 @@ function PaymentProcessed({
             <div className="flex items-center gap-3">
               <span className="text-[20px] font-bold text-primary-text">{item.amount}</span>
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                className={`flex h-[32px] w-[44px] items-center justify-center rounded-[20px] px-[10px] py-[4px] ${
                   item.trend === "up" ? "bg-[#E8F5E9]" : "bg-[#FFEBEE]"
                 }`}
               >
@@ -178,10 +177,10 @@ export function DashboardStatsSection() {
   };
 
   return (
-    <div className="mt-4 flex gap-4 items-stretch">
-      <PaymentProcessed style={cardStyle} />
-      <SimpleTable title="Top Selling Giftcards" items={GIFTCARDS} style={tableStyle} />
-      <SimpleTable title="Top Utility Product" items={UTILITY} style={tableStyle} />
+    <div className="mt-4 flex flex-wrap gap-4 items-stretch">
+      <PaymentProcessed className="flex-1 min-w-[320px]" style={cardStyle} />
+      <SimpleTable title="Top Selling Giftcards" className="flex-1 min-w-[292px] max-w-[400px]" items={GIFTCARDS} style={tableStyle} />
+      <SimpleTable title="Top Utility Product" className="flex-1 min-w-[292px] max-w-[400px]" items={UTILITY} style={tableStyle} />
     </div>
   );
 }
