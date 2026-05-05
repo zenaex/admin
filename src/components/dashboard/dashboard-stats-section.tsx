@@ -38,39 +38,49 @@ const PAYMENTS: PaymentItem[] = [
   },
 ];
 
-function PaymentProcessed() {
+function PaymentProcessed({
+  className = "",
+  style,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-outline bg-white p-5">
-      <h3 className="text-[16px] font-semibold text-primary-text">Payment Processed</h3>
+    <div
+      className={`flex flex-col gap-4 rounded-xl border border-outline bg-white p-5 h-full ${className}`}
+      style={{ ...style, width: "535px" }}
+    >
+      <h3 className="text-[18px] font-semibold text-primary-text">Payment Processed</h3>
 
-      <ul className="flex flex-col gap-2.5">
+      <ul className="flex flex-col gap-[10px] flex-1">
         {PAYMENTS.map((item) => (
           <li
             key={item.label}
-            className="flex items-center gap-3 rounded-[10px] bg-surface-subtle px-3.5 py-3"
+            className="flex items-center gap-[10px] rounded-[20px] bg-surface-subtle px-[24px] py-[20px] h-[80px]"
+            style={{ width: "495px" }}
           >
             {/* Icon box */}
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FAFAFA] text-primary-text shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-primary-text shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
               {item.icon}
             </span>
 
             {/* Label */}
-            <span className="flex-1 text-[18px]" style={{ color: "#777F89" }}>
+            <span className="flex-1 text-[18px] font-medium" style={{ color: "#777F89" }}>
               {item.label}
             </span>
 
             {/* Amount + trend */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[20px] font-semibold text-primary-text">{item.amount}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[20px] font-bold text-primary-text">{item.amount}</span>
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${
                   item.trend === "up" ? "bg-[#E8F5E9]" : "bg-[#FFEBEE]"
                 }`}
               >
                 {item.trend === "up" ? (
-                  <TrendingUp size={19} color="#2E7D32" />
+                  <TrendingUp size={20} color="#2E7D32" />
                 ) : (
-                  <TrendingDown size={19} color="#C62828" />
+                  <TrendingDown size={20} color="#C62828" />
                 )}
               </span>
             </div>
@@ -84,27 +94,54 @@ function PaymentProcessed() {
 /* ── Reusable ranked table ── */
 type TableItem = { name: string; quantity: number };
 
-function SimpleTable({ title, items }: { title: string; items: TableItem[] }) {
+function SimpleTable({
+  title,
+  items,
+  style,
+  className = "",
+}: {
+  title: string;
+  items: TableItem[];
+  style?: React.CSSProperties;
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col rounded-xl border border-outline bg-white p-5">
-      <h3 className="text-[16px] font-semibold text-primary-text">{title}</h3>
-
-      {/* Column headers */}
-      <div className="mt-3 flex items-center justify-between border-b border-outline pb-2">
-        <span className="text-[12px] font-medium text-zinc-400">Name</span>
-        <span className="text-[12px] font-medium text-zinc-400">Quantity</span>
+    <div
+      className={`flex flex-col rounded-[12px] border border-outline bg-white overflow-hidden h-full ${className}`}
+      style={style}
+    >
+      {/* Card Title */}
+      <div className="px-5 pt-[22px] pb-[18px]">
+        <h3 className="text-[18px] font-semibold text-primary-text leading-tight">{title}</h3>
       </div>
 
-      <ul className="flex flex-col divide-y divide-outline">
+      {/* Full-width Header Row */}
+      <div className="flex items-center justify-between bg-surface-subtle px-5 py-2.5 border-y border-outline">
+        <span className="text-[13px] font-medium text-zinc-400">Name</span>
+        <span className="text-[13px] font-medium text-zinc-400">Quantity</span>
+      </div>
+
+      {/* List Content */}
+      <ul className="flex flex-col flex-1">
         {items.map((item, i) => (
-          <li key={item.name} className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-subtle text-[11px] font-semibold text-zinc-400">
-                {i + 1}
-              </span>
-              <span className="text-[13px] text-primary-text">{item.name}</span>
-            </div>
-            <span className="text-[13px] font-medium text-primary-text">{item.quantity.toLocaleString()}</span>
+          <li
+            key={item.name}
+            className={`flex items-center justify-between px-5 py-5 border-b border-outline ${
+              i === items.length - 1 ? "border-b-0" : ""
+            }`}
+          >
+            <span
+              className="text-[15px] font-semibold text-primary-text"
+              style={{ fontFamily: "Gilmer, sans-serif", lineHeight: "150%" }}
+            >
+              {item.name}
+            </span>
+            <span
+              className="text-[15px] font-semibold text-primary-text"
+              style={{ fontFamily: "Gilmer, sans-serif", lineHeight: "150%" }}
+            >
+              {item.quantity.toLocaleString()}
+            </span>
           </li>
         ))}
       </ul>
@@ -130,11 +167,21 @@ const UTILITY: TableItem[] = [
 
 /* ── Exported section ── */
 export function DashboardStatsSection() {
+  const cardStyle: React.CSSProperties = {
+    height: "450px",
+    opacity: 1,
+  };
+
+  const tableStyle: React.CSSProperties = {
+    ...cardStyle,
+    width: "292px",
+  };
+
   return (
-    <div className="mt-4 grid gap-4" style={{ gridTemplateColumns: "5fr 2fr 2fr" }}>
-      <PaymentProcessed />
-      <SimpleTable title="Top Selling Giftcards" items={GIFTCARDS} />
-      <SimpleTable title="Top Utility Product" items={UTILITY} />
+    <div className="mt-4 flex gap-4 items-stretch">
+      <PaymentProcessed style={cardStyle} />
+      <SimpleTable title="Top Selling Giftcards" items={GIFTCARDS} style={tableStyle} />
+      <SimpleTable title="Top Utility Product" items={UTILITY} style={tableStyle} />
     </div>
   );
 }

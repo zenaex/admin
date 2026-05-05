@@ -65,22 +65,41 @@ function SmallStatCard({
   icon,
 }: SmallCardProps) {
   return (
-    <div className="relative flex flex-1 flex-col gap-3 overflow-hidden rounded-[8px] border border-outline bg-white px-5 py-4">
-      <div className={`absolute bottom-0 left-0 top-0 w-[5px] ${accentClass}`} />
-      <div className="flex items-start justify-between">
-        <span className="text-xs text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-surface-subtle text-zinc-400">
-          {icon}
-        </span>
+    <div className="relative w-[360px] h-[176px] flex flex-col justify-between overflow-hidden rounded-[8px] border border-outline bg-white">
+      <div className={`absolute bottom-0 left-0 top-0 w-[11px] ${accentClass}`} />
+
+      {/* Top Section */}
+      <div className="h-[136px] flex flex-col justify-center px-[24px] bg-[#F7F7F7]">
+        <div className="flex items-start justify-between">
+          <span className="text-[18px] font-medium text-zinc-400">{label}</span>
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#F7F7F7] text-primary-text">
+            {icon}
+          </span>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-[36px] font-bold leading-none text-primary-text">{value}</p>
+          <div
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[13px] font-semibold ${
+              trendVariant === "up" ? "bg-green-100/50 text-green-600" : "bg-red-100/50 text-red-600"
+            }`}
+          >
+            {trendVariant === "up" ? (
+              <TrendingUp size={16} strokeWidth={2.5} />
+            ) : (
+              <TrendingUp size={16} strokeWidth={2.5} className="rotate-180" />
+            )}
+            {trend}
+          </div>
+        </div>
       </div>
-      <div className="flex items-end gap-3">
-        <p className="text-[22px] font-bold leading-none text-primary-text">{value}</p>
-        <Trend value={trend} variant={trendVariant} />
+
+      {/* Footer Section */}
+      <div className="h-[40px] px-[24px] flex items-center border-t border-outline bg-white">
+        <p className="flex items-center gap-[10px] text-[14px] text-zinc-400 m-0">
+          <InfoCircle size={22} variant="Outline" color="currentColor" />
+          {subtext}
+        </p>
       </div>
-      <p className="flex items-center gap-1 text-[11px] text-zinc-400">
-        <InfoCircle size={12} variant="Outline" color="currentColor" />
-        {subtext}
-      </p>
     </div>
   );
 }
@@ -167,78 +186,34 @@ export function DashboardView() {
         </p>
 
         {/* Small stat cards row */}
-        <div className="mt-4 flex gap-3">
-          <div className="flex-1">
-            <div className="relative h-[176px] flex flex-col justify-between rounded-[8px] border border-outline bg-white overflow-hidden">
-              <div className="absolute bottom-0 left-0 top-0 w-[5px] bg-primary-green" />
-              {/* Main content */}
-              <div className="flex-1 flex flex-col gap-3 px-5 pt-4 pb-0 bg-background">
-                <div className="flex items-start justify-between">
-                  <span className="text-xs text-body">Transaction Count</span>
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-surface-subtle text-zinc-400">
-                    <ChartSquare size={24} variant="Outline" color="currentColor" className="text-primary-text" />
-                  </span>
-                </div>
-                <div className="flex items-end gap-3">
-                  <p className="text-[30px] font-semibold leading-none text-text-heading">50,000</p>
-                  <Trend value="3.7%" variant="up" />
-                </div>
-              </div>
-              {/* Bottom subtext bar */}
-              <div className="h-[40px] px-5 flex items-center border-t border-outline bg-white">
-                <p className="flex items-center gap-1 text-[11px] text-zinc-400 m-0">
-                  <InfoCircle size={12} variant="Outline" color="currentColor" />
-                  +1.01% within {`{5days}`}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1">
-            <div className="relative h-[176px] flex flex-col justify-between rounded-[8px] border border-outline bg-background overflow-hidden">
-              <div className="absolute bottom-0 left-0 top-0 w-[5px] bg-vivid-azure" />
-              <div className="flex-1 flex flex-col gap-3 px-5 pt-4 pb-0">
-                <div className="flex items-start justify-between">
-                  <span className="text-xs text-body">Active Users</span>
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-surface-subtle text-zinc-400">
-                    <ProfileAdd size={24} variant="Outline" color="currentColor" className="text-primary-text" />
-                  </span>
-                </div>
-                <div className="flex items-end gap-3">
-                  <p className="text-[30px] font-semibold leading-none text-text-heading">50,000</p>
-                  <Trend value="3.7%" variant="down" />
-                </div>
-              </div>
-              <div className="h-[40px] px-5 flex items-center border-t border-outline bg-white">
-                <p className="flex items-center gap-1 text-[11px] text-zinc-400 m-0">
-                  <InfoCircle size={12} variant="Outline" color="currentColor" />
-                  +1.01% within {`{5days}`}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1">
-              <div className="relative h-[176px] flex flex-col justify-between rounded-[8px] border border-outline bg-background overflow-hidden">
-              <div className="absolute bottom-0 left-0 top-0 w-[5px] bg-coral-red" />
-              <div className="flex-1 flex flex-col gap-3 px-5 pt-4 pb-0">
-                <div className="flex items-start justify-between">
-                  <span className="text-xs text-body">New Signups</span>
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-surface-subtle text-zinc-400">
-                    <ProfileAdd size={24} variant="Outline" color="currentColor" className="text-primary-text" />
-                  </span>
-                </div>
-                <div className="flex items-end gap-3">
-                  <p className="text-[30px] font-semibold leading-none text-text-heading">50,000</p>
-                  <Trend value="3.7%" variant="up" />
-                </div>
-              </div>
-              <div className="h-[40px] px-5 flex items-center border-t border-outline bg-white">
-                <p className="flex items-center gap-1 text-[11px] text-zinc-400 m-0">
-                  <InfoCircle size={12} variant="Outline" color="currentColor" />
-                  +1.01% within {`{5days}`}
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
+          <SmallStatCard
+            label="Transaction Count"
+            value="50,000"
+            trend="3.7%"
+            trendVariant="up"
+            subtext="+1.01% within {5days}"
+            accentClass="bg-primary-green"
+            icon={<ChartSquare size={24} variant="Outline" color="currentColor" className="text-primary-text" />}
+          />
+          <SmallStatCard
+            label="Active Users"
+            value="50,000"
+            trend="3.7%"
+            trendVariant="down"
+            subtext="+1.01% within {5days}"
+            accentClass="bg-vivid-azure"
+            icon={<ProfileAdd size={24} variant="Outline" color="currentColor" className="text-primary-text" />}
+          />
+          <SmallStatCard
+            label="New Signups"
+            value="50,000"
+            trend="3.7%"
+            trendVariant="up"
+            subtext="+1.01% within {5days}"
+            accentClass="bg-coral-red"
+            icon={<ProfileAdd size={24} variant="Outline" color="currentColor" className="text-primary-text" />}
+          />
         </div>
       </div>
 
