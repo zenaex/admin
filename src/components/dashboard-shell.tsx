@@ -39,10 +39,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <main
           className={[
-            "min-h-0 w-full flex-1 rounded-[22px] bg-background px-4 pb-8 pt-4",
+            "min-h-0 w-full flex-1 rounded-[22px] bg-background pb-8 pt-4",
             isEtradeChatroom || isEtradeTransactionDetail
-              ? "flex flex-col overflow-hidden"
-              : "overflow-y-auto overscroll-y-contain",
+              ? "flex flex-col overflow-hidden no-scrollbar"
+              : "overflow-y-auto overscroll-y-contain no-scrollbar",
           ].join(" ")}
         >
           {children}

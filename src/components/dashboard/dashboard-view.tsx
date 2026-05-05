@@ -12,7 +12,7 @@ import {
   ChartSquare,
   ProfileAdd,
 } from "iconsax-react";
-import { Download, ListFilter, TrendingUp } from "lucide-react";
+import { ListFilter, TrendingUp } from "lucide-react";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { TransactionTrendChart } from "@/components/dashboard/transaction-trend-chart";
 import { ProductCategoryChart } from "@/components/dashboard/product-category-chart";
@@ -44,6 +44,27 @@ function Trend({
   );
 }
 
+function ExportIcon({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`lucide lucide-square-arrow-out-up-right ${className}`}
+    >
+      <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
+      <path d="m21 3-9 9" />
+      <path d="M15 3h6v6" />
+    </svg>
+  );
+}
+
 /* ── Small stat card (Transaction Count, Active Users, New Signups) ── */
 type SmallCardProps = {
   label: string;
@@ -65,8 +86,8 @@ function SmallStatCard({
   icon,
 }: SmallCardProps) {
   return (
-    <div className="relative w-[360px] h-[176px] flex flex-col justify-between overflow-hidden rounded-[8px] border border-outline bg-white">
-      <div className={`absolute bottom-0 left-0 top-0 w-[11px] ${accentClass}`} />
+    <div className="relative w-full h-[176px] flex flex-col justify-between overflow-hidden rounded-[8px] border border-outline bg-white">
+      <div className={`absolute bottom-0 left-0 top-0 w-[8px] ${accentClass}`} />
 
       {/* Top Section */}
       <div className="h-[136px] flex flex-col justify-center px-[24px] bg-[#F7F7F7]">
@@ -95,7 +116,7 @@ function SmallStatCard({
 
       {/* Footer Section */}
       <div className="h-[40px] px-[24px] flex items-center border-t border-outline bg-white">
-        <p className="flex items-center gap-[10px] text-[14px] text-zinc-400 m-0">
+        <p className="flex items-center gap-[10px] text-[14px] text-[#667085] m-0">
           <InfoCircle size={22} variant="Outline" color="currentColor" />
           {subtext}
         </p>
@@ -142,7 +163,7 @@ export function DashboardView() {
               onClick={() => setExportOpen((o) => !o)}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors"
             >
-              <Download size={16} strokeWidth={2} color="currentColor" />
+              <ExportIcon size={16} />
               Export
             </button>
             {exportOpen && (
@@ -186,7 +207,7 @@ export function DashboardView() {
         </p>
 
         {/* Small stat cards row */}
-        <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <SmallStatCard
             label="Transaction Count"
             value="50,000"
