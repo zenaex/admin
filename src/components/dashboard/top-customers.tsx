@@ -69,7 +69,7 @@ function Avatar({ customer }: { customer: Customer }) {
 export function TopCustomers() {
   return (
     <div 
-      className="flex flex-col gap-4 rounded-[20px] border border-outline bg-white p-5 w-full min-w-0 h-full bg-no-repeat bg-cover bg-center"
+      className="flex flex-col gap-4 rounded-[20px] bg-white p-5 w-full min-w-0 h-full bg-no-repeat bg-cover bg-center"
       style={{ backgroundImage: "url('/Leaderboard.svg')" }}
     >
       {/* Header */}

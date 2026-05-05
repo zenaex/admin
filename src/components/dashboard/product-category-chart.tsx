@@ -23,7 +23,7 @@ function CustomTooltip({ active, payload }: any) {
 
 export function ProductCategoryChart() {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-outline bg-white p-5 w-full min-w-0">
+    <div className="flex flex-col gap-4 rounded-xl bg-white p-5 w-full min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[16px] font-semibold text-primary-text whitespace-nowrap">Product Category</h3>

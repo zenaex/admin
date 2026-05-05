@@ -83,7 +83,7 @@ export function TransactionTrendChart() {
   const data = DATA_MAP[timeFrame];
 
   return (
-    <div className="flex flex-col gap-4 rounded-[12px] border border-outline bg-white p-5 w-full min-w-0">
+    <div className="flex flex-col gap-4 rounded-[12px] bg-white p-5 w-full min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-[16px] font-semibold text-primary-text">Transaction Trend</h3>

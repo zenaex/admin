@@ -86,7 +86,7 @@ function SmallStatCard({
   icon,
 }: SmallCardProps) {
   return (
-    <div className="relative w-full h-[176px] flex flex-col justify-between overflow-hidden rounded-[8px] border border-outline bg-white">
+    <div className="relative w-full h-[176px] flex flex-col justify-between overflow-hidden rounded-[8px] bg-white">
       <div className={`absolute bottom-0 left-0 top-0 w-[8px] ${accentClass}`} />
 
       {/* Top Section */}
@@ -115,7 +115,7 @@ function SmallStatCard({
       </div>
 
       {/* Footer Section */}
-      <div className="h-[40px] px-[24px] flex items-center border-t border-outline bg-white">
+      <div className="h-[40px] px-[24px] flex items-center bg-white">
         <p className="flex items-center gap-[10px] text-[14px] text-[#667085] m-0">
           <InfoCircle size={22} variant="Outline" color="currentColor" />
           {subtext}
@@ -139,7 +139,7 @@ export function DashboardView() {
       <ProviderHeader title="Dashboard" />
 
       {/* Greeting + toolbar */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-outline bg-white px-[30px] pt-[18px] pb-4 w-full">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white px-[30px] pt-[18px] pb-4 w-full">
         <div>
           <h2 className="text-[24px] font-semibold text-primary-text">
             Good Morning, Shakur 👋
@@ -188,7 +188,7 @@ export function DashboardView() {
       </div>
 
       {/* Total transaction hero card */}
-      <div className="mt-4 rounded-xl border border-outline bg-white px-5 py-5 w-full">
+      <div className="mt-4 rounded-xl bg-white px-5 py-5 w-full">
         <div className="flex items-center gap-2">
           <p className="m-0 text-[20px] font-medium text-primary-text">
             Total Transaction{" "}

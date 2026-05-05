@@ -41,7 +41,7 @@ function CustomTooltip({ active, payload, label }: any) {
 
 export function CryptoExchangeChart() {
   return (
-    <div className="flex flex-1 flex-col gap-4 rounded-xl border border-outline bg-white p-5 w-full min-w-0">
+    <div className="flex flex-1 flex-col gap-4 rounded-xl bg-white p-5 w-full min-w-0">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>

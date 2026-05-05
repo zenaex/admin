@@ -47,7 +47,7 @@ function PaymentProcessed({
 }) {
   return (
     <div
-      className={`flex flex-col gap-4 rounded-xl border border-outline bg-white p-5 h-full ${className}`}
+      className={`flex flex-col gap-4 rounded-xl bg-white p-5 h-full ${className}`}
       style={style}
     >
       <h3 className="text-[18px] font-semibold text-primary-text">Payment Processed</h3>
@@ -106,7 +106,7 @@ function SimpleTable({
 }) {
   return (
     <div
-      className={`flex flex-col rounded-[12px] border border-outline bg-white overflow-hidden h-full ${className}`}
+      className={`flex flex-col rounded-[12px] bg-white overflow-hidden h-full ${className}`}
       style={style}
     >
       {/* Card Title */}
@@ -115,7 +115,7 @@ function SimpleTable({
       </div>
 
       {/* Full-width Header Row */}
-      <div className="flex items-center justify-between bg-surface-subtle px-5 py-2.5 border-y border-outline">
+      <div className="flex items-center justify-between bg-surface-subtle px-5 py-2.5 border-b border-outline">
         <span className="text-[13px] font-medium text-zinc-400">Name</span>
         <span className="text-[13px] font-medium text-zinc-400">Quantity</span>
       </div>
