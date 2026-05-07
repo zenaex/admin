@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, DocumentUpload } from "iconsax-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, DocumentUpload, DocumentDownload } from "iconsax-react";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 
@@ -110,6 +110,7 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
   const [approvalStatus, setApprovalStatus] = useState<TxApprovalStatus>(() =>
     TX_DATA.channel === "Giftcard" ? "Rejected" : "Approved",
   );
+  const [actionOpen, setActionOpen] = useState(false);
 
   const isGiftcard = TX_DATA.channel === "Giftcard";
 
@@ -145,13 +146,34 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
           <span className="text-primary-text">Transaction Details</span>
         </div>
 
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-primary-text shadow-sm hover:bg-surface-subtle"
-        >
-          Action
-          <ArrowDown2 size={14} variant="Outline" color="currentColor" />
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setActionOpen((o) => !o)}
+            className="inline-flex h-9 items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-primary-text shadow-sm hover:bg-surface-subtle"
+            aria-expanded={actionOpen}
+            aria-label="Action"
+          >
+            Action
+            <ArrowDown2 size={14} variant="Outline" color="currentColor" />
+          </button>
+
+          {actionOpen ? (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setActionOpen(false)} />
+              <div className="absolute right-0 top-full z-50 mt-2 w-[200px] overflow-hidden rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-50"
+                  onClick={() => setActionOpen(false)}
+                >
+                  <DocumentDownload size={16} variant="Outline" color="currentColor" />
+                  Download Receipt
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
       </div>
 
       <StatusBanner status={approvalStatus} />
