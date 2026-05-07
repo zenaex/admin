@@ -9,9 +9,10 @@ import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-
 type AuditTrailToolbarProps = {
   tableSearch: string;
   onTableSearchChange: (value: string) => void;
+  onFilterClick?: () => void;
 };
 
-export function AuditTrailToolbar({ tableSearch, onTableSearchChange }: AuditTrailToolbarProps) {
+export function AuditTrailToolbar({ tableSearch, onTableSearchChange, onFilterClick }: AuditTrailToolbarProps) {
   const [exportOpen, setExportOpen] = useState(false);
 
   return (
@@ -30,6 +31,7 @@ export function AuditTrailToolbar({ tableSearch, onTableSearchChange }: AuditTra
           type="button"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
           aria-label="Filter"
+          onClick={onFilterClick}
         >
           <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
         </button>

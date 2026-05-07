@@ -7,7 +7,7 @@ import {
   ArrowUp,
   InfoCircle,
   People,
-  Profile2User,
+  ProfileTick,
   RefreshCircle,
   ChartSquare,
   ProfileAdd,
@@ -31,9 +31,8 @@ function Trend({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
-        variant === "up" ? "text-green-600" : "text-red-500"
-      }`}
+      className={`inline-flex items-center gap-0.5 text-xs font-semibold ${variant === "up" ? "text-green-600" : "text-red-500"
+        }`}
     >
       <TrendingUp
         size={19}
@@ -100,9 +99,8 @@ function SmallStatCard({
         <div className="flex items-center justify-between mt-1">
           <p className="text-[36px] font-bold leading-none text-primary-text">{value}</p>
           <div
-            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[13px] font-semibold ${
-              trendVariant === "up" ? "bg-green-100/50 text-green-600" : "bg-red-100/50 text-red-600"
-            }`}
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[13px] font-semibold ${trendVariant === "up" ? "bg-green-100/50 text-green-600" : "bg-red-100/50 text-red-600"
+              }`}
           >
             {trendVariant === "up" ? (
               <TrendingUp size={16} strokeWidth={2.5} />
@@ -224,7 +222,7 @@ export function DashboardView() {
             trendVariant="down"
             subtext="+1.01% within {5days}"
             accentClass="bg-vivid-azure"
-            icon={<ProfileAdd size={24} variant="Outline" color="currentColor" className="text-primary-text" />}
+            icon={<ProfileTick size={24} variant="Outline" color="currentColor" className="text-primary-text" />}
           />
           <SmallStatCard
             label="New Signups"

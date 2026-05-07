@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, ArrowDown, Cards, BitcoinConvert, TicketStar } from "iconsax-react";
+import { ArrowUp, ArrowDown, Cards, BitcoinConvert, TicketStar, ReceiptItem } from "iconsax-react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
 /* ── Payment Processed ── */
@@ -22,7 +22,7 @@ const PAYMENTS: PaymentItem[] = [
     label: "Crypto",
     amount: "₦100,000,000",
     trend: "down",
-    icon: <TicketStar size={24} variant="Outline" color="currentColor" />,
+    icon: <BitcoinConvert size={24} variant="Outline" color="currentColor" />,
   },
   {
     label: "Giftcard",
@@ -34,7 +34,7 @@ const PAYMENTS: PaymentItem[] = [
     label: "Utility/ VAS",
     amount: "₦100,000,000",
     trend: "down",
-    icon: <BitcoinConvert size={24} variant="Outline" color="currentColor" />,
+    icon: <ReceiptItem size={24} variant="Outline" color="currentColor" />,
   },
 ];
 
@@ -72,9 +72,8 @@ function PaymentProcessed({
             <div className="flex items-center gap-3">
               <span className="text-[20px] font-bold text-primary-text">{item.amount}</span>
               <span
-                className={`flex h-[32px] w-[44px] items-center justify-center rounded-[20px] px-[10px] py-[4px] ${
-                  item.trend === "up" ? "bg-[#E8F5E9]" : "bg-[#FFEBEE]"
-                }`}
+                className={`flex h-[32px] w-[44px] items-center justify-center rounded-[20px] px-[10px] py-[4px] ${item.trend === "up" ? "bg-[#E8F5E9]" : "bg-[#FFEBEE]"
+                  }`}
               >
                 {item.trend === "up" ? (
                   <TrendingUp size={20} color="#2E7D32" />
@@ -125,9 +124,8 @@ function SimpleTable({
         {items.map((item, i) => (
           <li
             key={item.name}
-            className={`flex items-center justify-between px-5 py-5 border-b border-outline ${
-              i === items.length - 1 ? "border-b-0" : ""
-            }`}
+            className={`flex items-center justify-between px-5 py-5 border-b border-outline ${i === items.length - 1 ? "border-b-0" : ""
+              }`}
           >
             <span
               className="text-[15px] font-semibold text-primary-text"
@@ -149,18 +147,18 @@ function SimpleTable({
 }
 
 const GIFTCARDS: TableItem[] = [
-  { name: "Amazon",      quantity: 1200 },
-  { name: "Apple",       quantity: 1200 },
-  { name: "Walmart",     quantity: 1200 },
-  { name: "Googleplay",  quantity: 1200 },
-  { name: "Xbox",        quantity: 1200 },
+  { name: "Amazon", quantity: 1200 },
+  { name: "Apple", quantity: 1200 },
+  { name: "Walmart", quantity: 1200 },
+  { name: "Googleplay", quantity: 1200 },
+  { name: "Xbox", quantity: 1200 },
 ];
 
 const UTILITY: TableItem[] = [
-  { name: "MTN",        quantity: 1200 },
-  { name: "EKEDC",      quantity: 1200 },
-  { name: "Airtel",     quantity: 1200 },
-  { name: "IKEDC",      quantity: 1200 },
+  { name: "MTN", quantity: 1200 },
+  { name: "EKEDC", quantity: 1200 },
+  { name: "Airtel", quantity: 1200 },
+  { name: "IKEDC", quantity: 1200 },
   { name: "Sporty Bet", quantity: 1200 },
 ];
 

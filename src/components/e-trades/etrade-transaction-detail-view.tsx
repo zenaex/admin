@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { ArrowDown2 } from "iconsax-react";
+import { ArrowDown2, DocumentDownload } from "iconsax-react";
 
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { getEtradeTransactionDetail } from "@/components/e-trades/etrade-mock-transactions";
@@ -62,20 +62,14 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
             {actionOpen ? (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setActionOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-50 mt-2 w-[200px] overflow-hidden rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg">
                   <button
                     type="button"
-                    className="flex w-full px-4 py-2.5 text-left text-sm text-primary-text hover:bg-zinc-50"
+                    className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-50"
                     onClick={() => setActionOpen(false)}
                   >
-                    Export PDF
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full px-4 py-2.5 text-left text-sm text-primary-text hover:bg-zinc-50"
-                    onClick={() => setActionOpen(false)}
-                  >
-                    Print
+                    <DocumentDownload size={16} variant="Outline" color="currentColor" />
+                    Download Receipt
                   </button>
                 </div>
               </>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { WalletMoney, CardReceive, CardSend, Profile2User } from "iconsax-react";
+import { WalletMoney, CardReceive, CardSend, Profile2User, ChartSquare, ProfileTick } from "iconsax-react";
+import { X, ChevronDown, CalendarDays } from "lucide-react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
@@ -22,6 +23,8 @@ type TxRow = {
   status: TxStatus;
   date: string;
 };
+
+type AmountFilter = "Less than ₦20,000" | "Less than ₦100,000" | "Greater than ₦100,000";
 
 /* ── Mock data ── */
 const CHANNELS = ["Crypto", "Deposit", "Withdrawal", "Giftcard", "Esim", "Etrade", "Buy Crypto", "Sell Crypto", "Giftcard", "Deposit"];
@@ -57,19 +60,32 @@ type StatCardProps = {
 };
 
 function StatCard({ label, value, accentColor, icon }: StatCardProps) {
+  const labelWords = label.trim().split(/\s+/);
+  const labelPrefix = labelWords.slice(0, -1).join(" ");
+  const labelLastWord = labelWords.at(-1) ?? "";
+
   return (
-    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-zinc-100 bg-white px-5 py-4 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+    <div className="relative flex min-w-[283px] flex-1 flex-col justify-between gap-[10px] overflow-hidden rounded-t-[8px] border border-zinc-100 bg-white px-6 py-[18px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] h-[129px]">
       <div
         className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full"
         style={{ backgroundColor: accentColor }}
       />
-      <div className="flex items-start justify-between">
-        <span className="text-[13px] font-medium text-zinc-400">{label}</span>
+      <div className="flex h-[44px] items-start justify-between">
+        <span className="text-[14px] font-medium" style={{ color: "#667085" }}>
+          {labelPrefix ? (
+            <>
+              {labelPrefix}
+              <span className="block">{labelLastWord}</span>
+            </>
+          ) : (
+            labelLastWord
+          )}
+        </span>
         <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-zinc-50 text-zinc-600 border border-zinc-100">
           {icon}
         </span>
       </div>
-      <p className="mt-3 text-[28px] font-bold text-primary-text">{value}</p>
+      <p className="flex h-[72px] items-center text-[28px] font-bold text-primary-text">{value}</p>
     </div>
   );
 }
@@ -104,8 +120,79 @@ const TX_TABS: { id: string; label: string }[] = [
 export function TransactionsView() {
   const [activeTab, setActiveTab] = useState("All");
   const [search, setSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
+
+  const filterBarRef = useRef<HTMLDivElement | null>(null);
+  const filterScrollRef = useRef<HTMLDivElement | null>(null);
+  const datePillRef = useRef<HTMLButtonElement | null>(null);
+  const amountPillRef = useRef<HTMLButtonElement | null>(null);
+  const statusPillRef = useRef<HTMLButtonElement | null>(null);
+  const [dropdownLeft, setDropdownLeft] = useState<number>(0);
+
+  const [openFilter, setOpenFilter] = useState<null | "date" | "amount" | "status">(null);
+
+  const [draftAmount, setDraftAmount] = useState<AmountFilter>("Less than ₦20,000");
+  const [draftStatus, setDraftStatus] = useState<TxStatus>("Successful");
+  const [draftDateLabel, setDraftDateLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+
+  const [appliedAmount, setAppliedAmount] = useState<AmountFilter | null>(null);
+  const [appliedStatus, setAppliedStatus] = useState<TxStatus | null>(null);
+  const [appliedDateLabel, setAppliedDateLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const syncDropdownLeft = (nextOpen: typeof openFilter) => {
+    const bar = filterBarRef.current;
+    if (!bar || !nextOpen) return;
+    const target =
+      nextOpen === "date"
+        ? datePillRef.current
+        : nextOpen === "amount"
+          ? amountPillRef.current
+          : statusPillRef.current;
+    if (!target) return;
+    const barRect = bar.getBoundingClientRect();
+    const pillRect = target.getBoundingClientRect();
+    setDropdownLeft(Math.max(0, pillRect.left - barRect.left));
+  };
+
+  useEffect(() => {
+    syncDropdownLeft(openFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openFilter]);
+
+  useEffect(() => {
+    if (!openFilter) return;
+    const onResize = () => syncDropdownLeft(openFilter);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [openFilter]);
+
+  const parseAmount = (amount: string) => {
+    const numeric = amount.replace(/[^\d]/g, "");
+    const n = Number(numeric);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const matchesAmountFilter = (row: TxRow) => {
+    if (!appliedAmount) return true;
+    const amt = parseAmount(row.amount);
+    if (appliedAmount === "Less than ₦20,000") return amt < 20000;
+    if (appliedAmount === "Less than ₦100,000") return amt < 100000;
+    return amt > 100000;
+  };
 
   const filtered = useMemo(() => {
     return ALL_ROWS.filter((row) => {
@@ -116,9 +203,12 @@ export function TransactionsView() {
         row.refNo.toLowerCase().includes(q) ||
         row.customerName.toLowerCase().includes(q) ||
         row.channel.toLowerCase().includes(q);
-      return matchTab && matchSearch;
+      const matchStatus = !appliedStatus || row.status === appliedStatus;
+      const matchAmount = matchesAmountFilter(row);
+      const matchDate = !appliedDateLabel || row.date.includes("Jan 6, 2026");
+      return matchTab && matchSearch && matchStatus && matchAmount && matchDate;
     });
-  }, [activeTab, search]);
+  }, [activeTab, search, appliedStatus, appliedAmount, appliedDateLabel]);
 
   const paginated = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -141,25 +231,25 @@ export function TransactionsView() {
           label="Total Amount Deposited"
           value="₦ 100,000,000"
           accentColor="#BCEB0F"
-          icon={<CardReceive size={18} variant="Outline" color="currentColor" />}
+          icon={<CardReceive size={24} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Total Amount Withdrawn"
           value="₦ 100,000,000"
           accentColor="#3B82F6"
-          icon={<CardSend size={18} variant="Outline" color="currentColor" />}
+          icon={<CardSend size={24} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Total Number of Transactions"
           value="250,000"
           accentColor="#EF4444"
-          icon={<WalletMoney size={18} variant="Outline" color="currentColor" />}
+          icon={<ChartSquare size={24} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Total Number of Users"
           value="100,000"
           accentColor="#013220"
-          icon={<Profile2User size={18} variant="Outline" color="currentColor" />}
+          icon={<ProfileTick size={24} variant="Outline" color="currentColor" />}
         />
       </div>
 
@@ -169,7 +259,197 @@ export function TransactionsView() {
       </div>
 
       {/* Toolbar */}
-      <AuditTrailToolbar tableSearch={search} onTableSearchChange={setSearch} />
+      {filterMode ? (
+        <div ref={filterBarRef} className="relative mt-6 flex h-14.5 items-center gap-2 rounded-xl bg-white px-3 sm:px-4 overflow-visible">
+          {openFilter ? <div className="fixed inset-0 z-40" onClick={() => setOpenFilter(null)} /> : null}
+
+          <div
+            ref={filterScrollRef}
+            className="relative z-50 min-w-0 flex-1 overflow-x-auto"
+            onScroll={() => {
+              if (openFilter) syncDropdownLeft(openFilter);
+            }}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+            <button
+              ref={datePillRef}
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#E8EBEE] bg-[#F7F7F7] px-3 py-2 text-[12px] text-primary-text"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "date" ? null : "date";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <X size={14} />
+              <span className="text-[12px]" style={{ color: "#667085" }}>Date</span>
+              <span className="text-[12px]" style={{ color: "#667085" }}>{draftDateLabel}</span>
+              <ChevronDown size={14} className="ml-0.5" />
+            </button>
+
+            <button
+              ref={amountPillRef}
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#E8EBEE] bg-[#F7F7F7] px-3 py-2 text-[12px]"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "amount" ? null : "amount";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <X size={14} />
+              <span className="text-[12px]" style={{ color: "#667085" }}>Amount</span>
+              <span className="text-[12px]" style={{ color: "#667085" }}>{draftAmount}</span>
+              <ChevronDown size={14} className="ml-0.5" />
+            </button>
+
+            <button
+              ref={statusPillRef}
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#E8EBEE] bg-[#F7F7F7] px-3 py-2 text-[12px]"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "status" ? null : "status";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <X size={14} />
+              <span className="text-[12px]" style={{ color: "#667085" }}>Status</span>
+              <span className="text-[12px]" style={{ color: "#667085" }}>{draftStatus}</span>
+              <ChevronDown size={14} className="ml-0.5" />
+            </button>
+
+            <button
+              type="button"
+              className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#E8EBEE] bg-[#F7F7F7] px-3 py-2 text-[12px]"
+              aria-label="Calendar"
+              onClick={() => setOpenFilter((v) => (v === "date" ? null : "date"))}
+            >
+              <CalendarDays size={14} />
+            </button>
+          </div>
+          </div>
+
+          {openFilter === "date" ? (
+            <div
+              className="absolute top-full z-[60] mt-2 w-[220px] rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg"
+              style={{ left: dropdownLeft }}
+            >
+              <p className="text-[12px] font-medium" style={{ color: "#667085" }}>Filter</p>
+              <button
+                type="button"
+                className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                onClick={() => {
+                  setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                  setOpenFilter(null);
+                }}
+              >
+                Jan 6, 2026 - Jan 6, 2026
+                <CalendarDays size={16} />
+              </button>
+            </div>
+          ) : null}
+
+          {openFilter === "amount" ? (
+            <div
+              className="absolute top-full z-[60] mt-2 w-[220px] rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg"
+              style={{ left: dropdownLeft }}
+            >
+              <p className="text-[12px] font-medium" style={{ color: "#667085" }}>Filter</p>
+              <div className="mt-2 overflow-hidden rounded-[10px]">
+                {(["Less than ₦100,000", "Greater than ₦100,000"] as AmountFilter[]).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    className="flex w-full items-center px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftAmount(opt);
+                      setOpenFilter(null);
+                    }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {openFilter === "status" ? (
+            <div
+              className="absolute top-full z-[60] mt-2 w-[160px] rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg"
+              style={{ left: dropdownLeft }}
+            >
+              <p className="text-[12px] font-medium" style={{ color: "#667085" }}>Filter</p>
+              <div className="mt-2 overflow-hidden rounded-[10px]">
+                {(["Successful", "Pending", "Failed"] as TxStatus[]).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    className="flex w-full items-center px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftStatus(opt);
+                      setOpenFilter(null);
+                    }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="ml-auto flex items-center gap-3 shrink-0 z-50">
+            <button
+              type="button"
+              className="inline-flex h-9 items-center rounded-full bg-[#BCEB0F] px-5 text-[12px] font-semibold text-primary-text"
+              onClick={() => {
+                setAppliedAmount(draftAmount);
+                setAppliedStatus(draftStatus);
+                setAppliedDateLabel(draftDateLabel);
+                setOpenFilter(null);
+                setPage(1);
+              }}
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 text-[12px]"
+              style={{ color: "#667085" }}
+              onClick={() => {
+                setSearch("");
+                setAppliedAmount(null);
+                setAppliedStatus(null);
+                setAppliedDateLabel(null);
+                setDraftAmount("Less than ₦20,000");
+                setDraftStatus("Successful");
+                setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+              }}
+            >
+              <X size={14} />
+              Clear Filter
+            </button>
+          </div>
+        </div>
+      ) : (
+        <AuditTrailToolbar
+          tableSearch={search}
+          onTableSearchChange={setSearch}
+          onFilterClick={() => {
+            setSearch("");
+            setFilterMode(true);
+          }}
+        />
+      )}
 
       {/* Table border boundary box */}
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
@@ -209,7 +489,17 @@ export function TransactionsView() {
                 <td className="h-16 px-4 py-0 align-middle">
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="h-16 px-4 py-0 text-[13px] text-zinc-500 align-middle">{row.date}</td>
+                <td className="h-16 px-4 py-0 text-[13px] align-middle">
+                  {(() => {
+                    const [datePart, timePart] = row.date.split(" | ");
+                    return (
+                      <>
+                        <span style={{ color: "#7A7A7A" }}>{datePart}</span>
+                        {timePart ? <span style={{ color: "#9E9E9E" }}> | {timePart}</span> : null}
+                      </>
+                    );
+                  })()}
+                </td>
               </tr>
             ))}
           </tbody>
