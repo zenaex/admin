@@ -1,13 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { People, UserAdd, UserRemove, UserTick, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
-import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
+import { Profile2User, UserAdd } from "iconsax-react";
+import { CalendarDays } from "lucide-react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 import { ProviderHeader } from "@/components/provider/provider-header";
+import { StatCard } from "@/components/ui/stat-card";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 /* ── Tab config ── */
 type CustomerTab = "All" | "Active" | "Blocked" | "PND" | "Lien";
@@ -50,6 +61,19 @@ const ALL_CUSTOMERS: Customer[] = Array.from({ length: 180 }, (_, i) => ({
       : `${BASE_CUSTOMERS[i % BASE_CUSTOMERS.length].name} (${i + 1})`,
 }));
 
+const CUSTOMER_STATUS_FILTER_OPTIONS: CustomerStatus[] = Array.from(
+  new Set(BASE_CUSTOMERS.map((c) => c.status)),
+);
+
+function matchesCustomerTab(c: Customer, tab: CustomerTab): boolean {
+  if (tab === "All") return true;
+  if (tab === "Active") return c.status === "Active";
+  if (tab === "Blocked") return c.status.includes("Blocked");
+  if (tab === "PND") return c.status.includes("PND");
+  if (tab === "Lien") return c.status.includes("Lien");
+  return true;
+}
+
 /* ── Avatar initials ── */
 function Avatar({ name }: { name: string }) {
   const initials = name
@@ -84,40 +108,56 @@ function StatusBadge({ status }: { status: CustomerStatus }) {
   );
 }
 
-/* ── Stat card ── */
-function StatCard({ label, value, accentColor, icon }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
-  return (
-    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-zinc-100 bg-white px-5 py-4">
-      <div className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full" style={{ backgroundColor: accentColor }} />
-      <div className="flex items-start justify-between">
-        <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-zinc-100 text-zinc-400">{icon}</span>
-      </div>
-      <p className="mt-3 text-[28px] font-bold text-primary-text">{value}</p>
-    </div>
-  );
-}
-
 /* ── Main view ── */
 export function CustomersView() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<CustomerTab>("All");
   const [search, setSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "status" | "date">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"status" | "date">(openFilter, filterMode);
+
+  const [draftStatus, setDraftStatus] = useState<CustomerStatus>(CUSTOMER_STATUS_FILTER_OPTIONS[0] ?? "Active");
+  const [draftDateLabel, setDraftDateLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedStatus, setAppliedStatus] = useState<CustomerStatus | null>(null);
+  const [appliedDateLabel, setAppliedDateLabel] = useState<string | null>(null);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [exportOpen, setExportOpen] = useState(false);
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return ALL_CUSTOMERS;
-    return ALL_CUSTOMERS.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.id.toLowerCase().includes(q),
-    );
-  }, [search]);
+    return ALL_CUSTOMERS.filter((c) => {
+      if (!matchesCustomerTab(c, activeTab)) return false;
+      if (appliedStatus && c.status !== appliedStatus) return false;
+      if (appliedDateLabel && !c.dateOnboarded.includes("Jan 6, 2026")) return false;
+      if (
+        q &&
+        !(
+          c.name.toLowerCase().includes(q) ||
+          c.email.toLowerCase().includes(q) ||
+          c.id.toLowerCase().includes(q)
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [search, activeTab, appliedStatus, appliedDateLabel]);
 
   const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
   const paginatedRows = useMemo(
@@ -146,11 +186,11 @@ export function CustomersView() {
       <ProviderHeader title="Customers" />
 
       {/* Stat cards */}
-      <div className="mt-6 flex gap-3">
-        <StatCard label="Total Customers"    value="₦ 150,000" accentColor="#BCEB0F" icon={<People      size={20} variant="Outline" color="currentColor" />} />
-        <StatCard label="Active Customers"   value="100,000"   accentColor="#3B82F6" icon={<UserTick    size={20} variant="Outline" color="currentColor" />} />
-        <StatCard label="Inactive Customers" value="50,000"    accentColor="#EF4444" icon={<UserRemove  size={20} variant="Outline" color="currentColor" />} />
-        <StatCard label="New Sign ups"       value="50,000"    accentColor="#013220" icon={<UserAdd     size={20} variant="Outline" color="currentColor" />} />
+      <div className="mt-6 flex min-w-0 gap-3">
+        <StatCard label="Total Customers"    value="₦ 150,000" accentColor="#BCEB0F" icon={<Profile2User size={20} variant="Outline" color="#0B294F" />} />
+        <StatCard label="Active Customers"   value="100,000"   accentColor="#3B82F6" icon={<img src="/metrics/green.svg" alt="Active customers" className="h-5 w-5 object-contain" width={20} height={20} />} />
+        <StatCard label="Inactive Customers" value="50,000"    accentColor="#EF4444" icon={<img src="/metrics/red.svg" alt="Inactive customers" className="h-5 w-5 object-contain" width={20} height={20} />} />
+        <StatCard label="New Sign ups"       value="50,000"    accentColor="#013220" icon={<UserAdd size={20} variant="Outline" color="#0B294F" />} />
       </div>
 
       {/* Tab bar */}
@@ -162,49 +202,120 @@ export function CustomersView() {
         />
       </div>
 
-      {/* Toolbar */}
-      <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-        <div className="w-[280px] shrink-0">
-          <AuditTrailIconSearch
-            variant="toolbar"
-            placeholder="Search by name or ID"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-zinc-50" aria-label="Filter">
-            <ListFilter size={18} strokeWidth={2} color="#17375E" />
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-[#17375E] transition-colors hover:bg-zinc-50"
+      {filterMode ? (
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Status"
+                summary={draftStatus}
+                pillRef={registerPillRef("status")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "status" ? null : "status";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Date onboarded"
+                summary={draftDateLabel}
+                pillRef={registerPillRef("date")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "date" ? null : "date";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "date" ? null : "date";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
             >
-              <Download size={18} strokeWidth={2} color="#17375E" />
-              Export
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "status" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[220px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={CUSTOMER_STATUS_FILTER_OPTIONS}
+                    onSelect={(opt) => {
+                      setDraftStatus(opt as CustomerStatus);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "date" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Jan 6, 2026 - Jan 6, 2026
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedStatus(draftStatus);
+                setAppliedDateLabel(draftDateLabel);
+                setOpenFilter(null);
+                setPage(1);
+              }}
+              onClear={() => {
+                setSearch("");
+                setAppliedStatus(null);
+                setAppliedDateLabel(null);
+                setDraftStatus(CUSTOMER_STATUS_FILTER_OPTIONS[0] ?? "Active");
+                setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+              }}
+            />
+          }
+        />
+      ) : (
+        <AuditTrailToolbar
+          tableSearch={search}
+          onTableSearchChange={setSearch}
+          onFilterClick={() => {
+            setSearch("");
+            setFilterMode(true);
+          }}
+        />
+      )}
 
       {/* Table */}
       <div className="mt-4 overflow-x-auto rounded-[8px]">

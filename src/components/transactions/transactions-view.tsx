@@ -1,94 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { WalletMoney, CardReceive, CardSend, Profile2User, ChartSquare, ProfileTick } from "iconsax-react";
-import { X, ChevronDown, CalendarDays } from "lucide-react";
+import { CardReceive, CardSend, ChartSquare, ProfileTick } from "iconsax-react";
+import { CalendarDays } from "lucide-react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 import { ProviderHeader } from "@/components/provider/provider-header";
-
-/* ── Types ── */
-type TxStatus = "Successful" | "Pending" | "Failed";
-type TxTab = "All" | "Deposit" | "Crypto" | "Giftcard" | "Utility" | "E-sim" | "E-trade" | "Withdrawal";
-
-type TxRow = {
-  id: string;
-  refNo: string;
-  customerName: string;
-  channel: string;
-  amount: string;
-  provider: string;
-  status: TxStatus;
-  date: string;
-};
+import { StatCard } from "@/components/ui/stat-card";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
+import {
+  type TxRow,
+  type TxStatus,
+  TRANSACTION_DEMO_TABLE_ROWS,
+  buildFillerTransactionRows,
+} from "@/components/transactions/transaction-mocks";
 
 type AmountFilter = "Less than ₦20,000" | "Less than ₦100,000" | "Greater than ₦100,000";
 
-/* ── Mock data ── */
-const CHANNELS = ["Crypto", "Deposit", "Withdrawal", "Giftcard", "Esim", "Etrade", "Buy Crypto", "Sell Crypto", "Giftcard", "Deposit"];
-const PROVIDERS = ["BAXI", "BAXI", "XPRESS_PAYMENT", "XPRESS_PAYMENT", "XPRESS_PAYMENT", "XPRESS_PAYMENT", "CRIBD", "WELLA_HEALTH", "NTEL VTU PURC...", "NTEL VTU PURC..."];
-const NAMES = [
-  "Naomi Salisu", "Job Awolowo", "Martha Kalio", "Victoria Salisu",
-  "Mary Kalio", "Joseph Anunobi", "Sarah Ibe", "Elizabeth Kanu",
-  "Elizabeth Amlesi", "Margaret Idris", "Mary Olowookere",
+/* Demo/QA rows first; filler for pagination. Detail view falls back for unknown ids. */
+const ALL_ROWS: TxRow[] = [
+  ...TRANSACTION_DEMO_TABLE_ROWS,
+  ...buildFillerTransactionRows(120, 0),
 ];
-const STATUSES: TxStatus[] = ["Successful", "Successful", "Pending", "Pending", "Successful", "Successful", "Failed", "Successful", "Pending", "Failed", "Failed"];
-
-const BASE_ROWS: Omit<TxRow, "id">[] = Array.from({ length: 11 }, (_, i) => ({
-  refNo: "Zenx.WVA.S373QQOPN",
-  customerName: NAMES[i % NAMES.length],
-  channel: CHANNELS[i % CHANNELS.length],
-  amount: "₦ 20,000",
-  provider: PROVIDERS[i % PROVIDERS.length],
-  status: STATUSES[i % STATUSES.length],
-  date: "Jan 6, 2026 | 9:32AM",
-}));
-
-const ALL_ROWS: TxRow[] = Array.from({ length: 180 }, (_, i) => ({
-  ...BASE_ROWS[i % BASE_ROWS.length],
-  id: `tx-${i}`,
-}));
-
-/* ── Stat card ── */
-type StatCardProps = {
-  label: string;
-  value: string;
-  accentColor: string;
-  icon: React.ReactNode;
-};
-
-function StatCard({ label, value, accentColor, icon }: StatCardProps) {
-  const labelWords = label.trim().split(/\s+/);
-  const labelPrefix = labelWords.slice(0, -1).join(" ");
-  const labelLastWord = labelWords.at(-1) ?? "";
-
-  return (
-    <div className="relative flex min-w-[283px] flex-1 flex-col justify-between gap-[10px] overflow-hidden rounded-t-[8px] border border-zinc-100 bg-white px-6 py-[18px] shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] h-[129px]">
-      <div
-        className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full"
-        style={{ backgroundColor: accentColor }}
-      />
-      <div className="flex h-[44px] items-start justify-between">
-        <span className="text-[14px] font-medium" style={{ color: "#667085" }}>
-          {labelPrefix ? (
-            <>
-              {labelPrefix}
-              <span className="block">{labelLastWord}</span>
-            </>
-          ) : (
-            labelLastWord
-          )}
-        </span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-zinc-50 text-zinc-600 border border-zinc-100">
-          {icon}
-        </span>
-      </div>
-      <p className="flex h-[72px] items-center text-[28px] font-bold text-primary-text">{value}</p>
-    </div>
-  );
-}
 
 /* ── Status badge ── */
 function StatusBadge({ status }: { status: TxStatus }) {
@@ -124,14 +68,10 @@ export function TransactionsView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
 
-  const filterBarRef = useRef<HTMLDivElement | null>(null);
-  const filterScrollRef = useRef<HTMLDivElement | null>(null);
-  const datePillRef = useRef<HTMLButtonElement | null>(null);
-  const amountPillRef = useRef<HTMLButtonElement | null>(null);
-  const statusPillRef = useRef<HTMLButtonElement | null>(null);
-  const [dropdownLeft, setDropdownLeft] = useState<number>(0);
-
   const [openFilter, setOpenFilter] = useState<null | "date" | "amount" | "status">(null);
+
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"date" | "amount" | "status">(openFilter, filterMode);
 
   const [draftAmount, setDraftAmount] = useState<AmountFilter>("Less than ₦20,000");
   const [draftStatus, setDraftStatus] = useState<TxStatus>("Successful");
@@ -152,33 +92,6 @@ export function TransactionsView() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
-
-  const syncDropdownLeft = (nextOpen: typeof openFilter) => {
-    const bar = filterBarRef.current;
-    if (!bar || !nextOpen) return;
-    const target =
-      nextOpen === "date"
-        ? datePillRef.current
-        : nextOpen === "amount"
-          ? amountPillRef.current
-          : statusPillRef.current;
-    if (!target) return;
-    const barRect = bar.getBoundingClientRect();
-    const pillRect = target.getBoundingClientRect();
-    setDropdownLeft(Math.max(0, pillRect.left - barRect.left));
-  };
-
-  useEffect(() => {
-    syncDropdownLeft(openFilter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openFilter]);
-
-  useEffect(() => {
-    if (!openFilter) return;
-    const onResize = () => syncDropdownLeft(openFilter);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [openFilter]);
 
   const parseAmount = (amount: string) => {
     const numeric = amount.replace(/[^\d]/g, "");
@@ -226,30 +139,30 @@ export function TransactionsView() {
       <ProviderHeader title="Transactions" />
 
       {/* Stat cards */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="mt-6 flex min-w-0 gap-3">
         <StatCard
           label="Total Amount Deposited"
           value="₦ 100,000,000"
           accentColor="#BCEB0F"
-          icon={<CardReceive size={24} variant="Outline" color="currentColor" />}
+          icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Amount Withdrawn"
           value="₦ 100,000,000"
           accentColor="#3B82F6"
-          icon={<CardSend size={24} variant="Outline" color="currentColor" />}
+          icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Number of Transactions"
           value="250,000"
           accentColor="#EF4444"
-          icon={<ChartSquare size={24} variant="Outline" color="currentColor" />}
+          icon={<ChartSquare size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Number of Users"
           value="100,000"
           accentColor="#013220"
-          icon={<ProfileTick size={24} variant="Outline" color="currentColor" />}
+          icon={<ProfileTick size={20} variant="Outline" color="#0B294F" />}
         />
       </div>
 
@@ -260,21 +173,57 @@ export function TransactionsView() {
 
       {/* Toolbar */}
       {filterMode ? (
-        <div ref={filterBarRef} className="relative mt-6 flex h-14.5 items-center gap-2 rounded-xl bg-white px-3 sm:px-4 overflow-visible">
-          {openFilter ? <div className="fixed inset-0 z-40" onClick={() => setOpenFilter(null)} /> : null}
-
-          <div
-            ref={filterScrollRef}
-            className="relative z-50 min-w-0 flex-1 overflow-x-auto"
-            onScroll={() => {
-              if (openFilter) syncDropdownLeft(openFilter);
-            }}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-            <button
-              ref={datePillRef}
-              type="button"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#E8EBEE] bg-[#F7F7F7] px-3 py-2 text-[12px] text-primary-text"
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Date"
+                summary={draftDateLabel}
+                pillRef={registerPillRef("date")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "date" ? null : "date";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Amount"
+                summary={draftAmount}
+                pillRef={registerPillRef("amount")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "amount" ? null : "amount";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Status"
+                summary={draftStatus}
+                pillRef={registerPillRef("status")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "status" ? null : "status";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
               onClick={() =>
                 setOpenFilter((v) => {
                   const next = v === "date" ? null : "date";
@@ -283,146 +232,63 @@ export function TransactionsView() {
                 })
               }
             >
-              <X size={14} />
-              <span className="text-[12px]" style={{ color: "#667085" }}>Date</span>
-              <span className="text-[12px]" style={{ color: "#667085" }}>{draftDateLabel}</span>
-              <ChevronDown size={14} className="ml-0.5" />
-            </button>
-
-            <button
-              ref={amountPillRef}
-              type="button"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#E8EBEE] bg-[#F7F7F7] px-3 py-2 text-[12px]"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "amount" ? null : "amount";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
-              <X size={14} />
-              <span className="text-[12px]" style={{ color: "#667085" }}>Amount</span>
-              <span className="text-[12px]" style={{ color: "#667085" }}>{draftAmount}</span>
-              <ChevronDown size={14} className="ml-0.5" />
-            </button>
-
-            <button
-              ref={statusPillRef}
-              type="button"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#E8EBEE] bg-[#F7F7F7] px-3 py-2 text-[12px]"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "status" ? null : "status";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
-              <X size={14} />
-              <span className="text-[12px]" style={{ color: "#667085" }}>Status</span>
-              <span className="text-[12px]" style={{ color: "#667085" }}>{draftStatus}</span>
-              <ChevronDown size={14} className="ml-0.5" />
-            </button>
-
-            <button
-              type="button"
-              className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#E8EBEE] bg-[#F7F7F7] px-3 py-2 text-[12px]"
-              aria-label="Calendar"
-              onClick={() => setOpenFilter((v) => (v === "date" ? null : "date"))}
-            >
               <CalendarDays size={14} />
-            </button>
-          </div>
-          </div>
-
-          {openFilter === "date" ? (
-            <div
-              className="absolute top-full z-[60] mt-2 w-[220px] rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg"
-              style={{ left: dropdownLeft }}
-            >
-              <p className="text-[12px] font-medium" style={{ color: "#667085" }}>Filter</p>
-              <button
-                type="button"
-                className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                onClick={() => {
-                  setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
-                  setOpenFilter(null);
-                }}
-              >
-                Jan 6, 2026 - Jan 6, 2026
-                <CalendarDays size={16} />
-              </button>
-            </div>
-          ) : null}
-
-          {openFilter === "amount" ? (
-            <div
-              className="absolute top-full z-[60] mt-2 w-[220px] rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg"
-              style={{ left: dropdownLeft }}
-            >
-              <p className="text-[12px] font-medium" style={{ color: "#667085" }}>Filter</p>
-              <div className="mt-2 overflow-hidden rounded-[10px]">
-                {(["Less than ₦100,000", "Greater than ₦100,000"] as AmountFilter[]).map((opt) => (
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "date" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
                   <button
-                    key={opt}
                     type="button"
-                    className="flex w-full items-center px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-50"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
                     onClick={() => {
+                      setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Jan 6, 2026 - Jan 6, 2026
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "amount" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={["Less than ₦100,000", "Greater than ₦100,000"] as AmountFilter[]}
+                    onSelect={(opt) => {
                       setDraftAmount(opt);
                       setOpenFilter(null);
                     }}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {openFilter === "status" ? (
-            <div
-              className="absolute top-full z-[60] mt-2 w-[160px] rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg"
-              style={{ left: dropdownLeft }}
-            >
-              <p className="text-[12px] font-medium" style={{ color: "#667085" }}>Filter</p>
-              <div className="mt-2 overflow-hidden rounded-[10px]">
-                {(["Successful", "Pending", "Failed"] as TxStatus[]).map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    className="flex w-full items-center px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftStatus(opt);
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "status" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[160px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={["Successful", "Pending", "Failed"] as TxStatus[]}
+                    onSelect={(opt) => {
+                      setDraftStatus(opt as TxStatus);
                       setOpenFilter(null);
                     }}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="ml-auto flex items-center gap-3 shrink-0 z-50">
-            <button
-              type="button"
-              className="inline-flex h-9 items-center rounded-full bg-[#BCEB0F] px-5 text-[12px] font-semibold text-primary-text"
-              onClick={() => {
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
                 setAppliedAmount(draftAmount);
                 setAppliedStatus(draftStatus);
                 setAppliedDateLabel(draftDateLabel);
                 setOpenFilter(null);
                 setPage(1);
               }}
-            >
-              Apply
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 text-[12px]"
-              style={{ color: "#667085" }}
-              onClick={() => {
+              onClear={() => {
                 setSearch("");
                 setAppliedAmount(null);
                 setAppliedStatus(null);
@@ -434,12 +300,9 @@ export function TransactionsView() {
                 setFilterMode(false);
                 setPage(1);
               }}
-            >
-              <X size={14} />
-              Clear Filter
-            </button>
-          </div>
-        </div>
+            />
+          }
+        />
       ) : (
         <AuditTrailToolbar
           tableSearch={search}

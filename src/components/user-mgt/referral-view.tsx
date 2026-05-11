@@ -1,13 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CloseCircle, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
+import { CalendarDays, Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { SuccessModal } from "@/components/provider/provider-modals";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 /* ── Types ── */
 type Referral = {
@@ -43,6 +53,9 @@ const ALL_REFERRALS: Referral[] = Array.from({ length: 180 }, (_, i) => ({
       ? BASE_REFERRALS[i].name
       : `${BASE_REFERRALS[i % BASE_REFERRALS.length].name} (${i + 1})`,
 }));
+
+const REFERRAL_MADE_OPTIONS = ["All", "40", "50"] as const;
+const REWARD_OPTIONS = ["All", ...Array.from(new Set(BASE_REFERRALS.map((r) => r.totalRewardsEarned)))];
 
 /* ── Avatar ── */
 function Avatar({ name }: { name: string }) {
@@ -151,22 +164,55 @@ function ConfigureEarningsModal({ onClose, onSave }: { onClose: () => void; onSa
 /* ── Main view ── */
 export function ReferralView() {
   const [search, setSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "made" | "rewards" | "period">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"made" | "rewards" | "period">(openFilter, filterMode);
+
+  const [draftMade, setDraftMade] = useState<string>("All");
+  const [draftRewards, setDraftRewards] = useState<string>("All");
+  const [draftPeriod, setDraftPeriod] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedMade, setAppliedMade] = useState<string | null>(null);
+  const [appliedRewards, setAppliedRewards] = useState<string | null>(null);
+  const [appliedPeriod, setAppliedPeriod] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showConfigSuccess, setShowConfigSuccess] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return ALL_REFERRALS;
-    return ALL_REFERRALS.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.email.toLowerCase().includes(q) ||
-        r.referralCode.toLowerCase().includes(q),
-    );
-  }, [search]);
+    return ALL_REFERRALS.filter((r) => {
+      if (appliedMade && appliedMade !== "All" && String(r.referralMade) !== appliedMade) return false;
+      if (appliedRewards && appliedRewards !== "All" && r.totalRewardsEarned !== appliedRewards)
+        return false;
+      if (
+        q &&
+        !(
+          r.name.toLowerCase().includes(q) ||
+          r.email.toLowerCase().includes(q) ||
+          r.referralCode.toLowerCase().includes(q)
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [search, appliedMade, appliedRewards]);
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -180,7 +226,138 @@ export function ReferralView() {
     <div>
       <ProviderHeader title="Referrals" />
 
-      {/* Toolbar */}
+      {filterMode ? (
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Referrals made"
+                summary={draftMade}
+                pillRef={registerPillRef("made")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "made" ? null : "made";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Total rewards"
+                summary={draftRewards}
+                pillRef={registerPillRef("rewards")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "rewards" ? null : "rewards";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Period"
+                summary={draftPeriod}
+                pillRef={registerPillRef("period")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "period" ? null : "period";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "period" ? null : "period";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "made" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[160px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={[...REFERRAL_MADE_OPTIONS]}
+                    onSelect={(opt) => {
+                      setDraftMade(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "rewards" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={REWARD_OPTIONS}
+                    onSelect={(opt) => {
+                      setDraftRewards(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "period" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftPeriod("From Jan 6, 2026 - To Jan 6, 2026");
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Jan 6, 2026 - Jan 6, 2026
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedMade(draftMade === "All" ? null : draftMade);
+                setAppliedRewards(draftRewards === "All" ? null : draftRewards);
+                setAppliedPeriod(draftPeriod);
+                setOpenFilter(null);
+                setPage(1);
+              }}
+              onClear={() => {
+                setSearch("");
+                setAppliedMade(null);
+                setAppliedRewards(null);
+                setAppliedPeriod(null);
+                setDraftMade("All");
+                setDraftRewards("All");
+                setDraftPeriod("From Jan 6, 2026 - To Jan 6, 2026");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+              }}
+            />
+          }
+        />
+      ) : (
       <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
         <span className="shrink-0 text-[15px] font-semibold text-primary-text">
           Referral List
@@ -198,6 +375,10 @@ export function ReferralView() {
             type="button"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
             aria-label="Filter"
+            onClick={() => {
+              setSearch("");
+              setFilterMode(true);
+            }}
           >
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
@@ -237,6 +418,7 @@ export function ReferralView() {
           </button>
         </div>
       </div>
+      )}
 
       {/* Table */}
       <div className="mt-4 overflow-x-auto rounded-[8px]">

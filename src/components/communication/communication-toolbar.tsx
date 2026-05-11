@@ -9,11 +9,13 @@ import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-
 type CommunicationToolbarProps = {
   tableSearch: string;
   onTableSearchChange: (value: string) => void;
+  onFilterClick?: () => void;
 };
 
 export function CommunicationToolbar({
   tableSearch,
   onTableSearchChange,
+  onFilterClick,
 }: CommunicationToolbarProps) {
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -33,6 +35,7 @@ export function CommunicationToolbar({
           type="button"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
           aria-label="Filter"
+          onClick={onFilterClick}
         >
           <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
         </button>

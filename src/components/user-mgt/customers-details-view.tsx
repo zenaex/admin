@@ -1,13 +1,23 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, WalletMoney, CardReceive, CardSend, Copy, DocumentDownload, Warning2, Forbidden2, CloseCircle, Forbidden, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
+import { CalendarDays, Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 /* ── Tab config ── */
 type CustomerDetailTab = "Customer Details" | "Transaction History" | "KYC Details" | "Wallet" | "Audit Log";
@@ -214,23 +224,59 @@ const ALL_TRANSACTIONS: TransactionRow[] = Array.from({ length: 180 }, (_, i) =>
   id: `tx-${i}`,
 }));
 
+const TX_CHANNEL_FILTER = ["All channels", ...Array.from(new Set(BASE_TRANSACTIONS.map((t) => t.channel)))];
+const TX_STATUS_FILTER = ["All statuses", "Successful", "Pending", "Failed"] as const;
+
 function TransactionHistoryTab() {
   const [search, setSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "channel" | "status" | "date">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"channel" | "status" | "date">(openFilter, filterMode);
+
+  const [draftChannel, setDraftChannel] = useState("All channels");
+  const [draftStatus, setDraftStatus] = useState<string>("All statuses");
+  const [draftDate, setDraftDate] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedChannel, setAppliedChannel] = useState<string | null>(null);
+  const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
+  const [appliedDate, setAppliedDate] = useState<string | null>(null);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [exportOpen, setExportOpen] = useState(false);
 
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return ALL_TRANSACTIONS;
-    return ALL_TRANSACTIONS.filter(
-      (t) =>
-        t.referenceNo.toLowerCase().includes(q) ||
-        t.customerName.toLowerCase().includes(q) ||
-        t.biller.toLowerCase().includes(q),
-    );
-  }, [search]);
+    return ALL_TRANSACTIONS.filter((t) => {
+      if (appliedChannel && appliedChannel !== "All channels" && t.channel !== appliedChannel) return false;
+      if (appliedStatus && appliedStatus !== "All statuses" && t.status !== appliedStatus) return false;
+      if (appliedDate && !t.date.includes("Jan 6, 2026")) return false;
+      if (
+        q &&
+        !(
+          t.referenceNo.toLowerCase().includes(q) ||
+          t.customerName.toLowerCase().includes(q) ||
+          t.biller.toLowerCase().includes(q)
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [search, appliedChannel, appliedStatus, appliedDate]);
 
   const totalItems = filtered.length;
   const safePage = Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)));
@@ -261,7 +307,138 @@ function TransactionHistoryTab() {
         <TxStatCard label="Total Amount Outflow" value="50,000" accentColor="var(--color-failed)" icon={<CardSend size={20} variant="Outline" color="currentColor" />} />
       </div>
 
-      {/* Toolbar */}
+      {filterMode ? (
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Channel"
+                summary={draftChannel}
+                pillRef={registerPillRef("channel")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "channel" ? null : "channel";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Status"
+                summary={draftStatus}
+                pillRef={registerPillRef("status")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "status" ? null : "status";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Date"
+                summary={draftDate}
+                pillRef={registerPillRef("date")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "date" ? null : "date";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "date" ? null : "date";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "channel" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="min-w-[200px] max-w-[min(92vw,280px)]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={TX_CHANNEL_FILTER}
+                    onSelect={(opt) => {
+                      setDraftChannel(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "status" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[180px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={[...TX_STATUS_FILTER]}
+                    onSelect={(opt) => {
+                      setDraftStatus(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "date" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Jan 6, 2026 - Jan 6, 2026
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedChannel(draftChannel === "All channels" ? null : draftChannel);
+                setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
+                setAppliedDate(draftDate);
+                setOpenFilter(null);
+                setPage(1);
+              }}
+              onClear={() => {
+                setSearch("");
+                setAppliedChannel(null);
+                setAppliedStatus(null);
+                setAppliedDate(null);
+                setDraftChannel("All channels");
+                setDraftStatus("All statuses");
+                setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+              }}
+            />
+          }
+        />
+      ) : (
       <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
         <span className="shrink-0 text-[15px] font-semibold text-primary-text">
           All Transactions ({totalItems.toLocaleString()})
@@ -275,7 +452,15 @@ function TransactionHistoryTab() {
           />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
+            aria-label="Filter"
+            onClick={() => {
+              setSearch("");
+              setFilterMode(true);
+            }}
+          >
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
           <div className="relative">
@@ -307,6 +492,7 @@ function TransactionHistoryTab() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Table */}
       <div className="mt-4 overflow-x-auto rounded-[8px]">

@@ -6,5 +6,5 @@ type Props = {
 
 export default async function TransactionDetailsPage({ params }: Props) {
   const { id } = await params;
-  return <TransactionDetailsView id={id} />;
+  return <TransactionDetailsView key={id} id={id} />;
 }

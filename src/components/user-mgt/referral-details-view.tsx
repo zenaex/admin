@@ -1,11 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, People, UserTick, UserRemove, WalletMoney, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
+import { CalendarDays, Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 /* ── Types ── */
 type ReferredStatus = "Reward Pending" | "Onboarded" | "Invite Pending" | "Pending" | "Reward Earned" | "Successful";
@@ -48,6 +58,8 @@ const ALL_REFERRED: ReferredUser[] = Array.from({ length: 180 }, (_, i) => ({
       : `${BASE_REFERRED[i % BASE_REFERRED.length].name} (${i + 1})`,
 }));
 
+const REFERRED_STATUS_FILTER = ["All statuses", ...STATUSES];
+
 /* ── Stat card ── */
 function StatCard({ label, value, accentColor, icon }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
   return (
@@ -86,20 +98,50 @@ type ReferralDetailsViewProps = {
 
 export function ReferralDetailsView({ id: _id }: ReferralDetailsViewProps) {
   const [search, setSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "status" | "date">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"status" | "date">(openFilter, filterMode);
+
+  const [draftStatus, setDraftStatus] = useState("All statuses");
+  const [draftDate, setDraftDate] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
+  const [appliedDate, setAppliedDate] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [exportOpen, setExportOpen] = useState(false);
 
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return ALL_REFERRED;
-    return ALL_REFERRED.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.email.toLowerCase().includes(q) ||
-        r.referralCode.toLowerCase().includes(q),
-    );
-  }, [search]);
+    return ALL_REFERRED.filter((r) => {
+      if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus) return false;
+      if (appliedDate && !r.date.includes("Jan 6, 2026")) return false;
+      if (
+        q &&
+        !(
+          r.name.toLowerCase().includes(q) ||
+          r.email.toLowerCase().includes(q) ||
+          r.referralCode.toLowerCase().includes(q)
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [search, appliedStatus, appliedDate]);
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -166,6 +208,111 @@ export function ReferralDetailsView({ id: _id }: ReferralDetailsViewProps) {
 
       {/* Referred Users */}
       <section className="mt-8">
+        {filterMode ? (
+          <TableFilterModeBar
+            filterBarRef={filterBarRef}
+            filterScrollRef={filterScrollRef}
+            showBackdrop={Boolean(openFilter)}
+            onBackdropClick={() => setOpenFilter(null)}
+            onPillsScroll={() => {
+              if (openFilter) syncDropdownLeft(openFilter);
+            }}
+            pills={
+              <>
+                <TableFilterPill
+                  label="Status"
+                  summary={draftStatus}
+                  pillRef={registerPillRef("status")}
+                  onClick={() =>
+                    setOpenFilter((v) => {
+                      const next = v === "status" ? null : "status";
+                      syncDropdownLeft(next);
+                      return next;
+                    })
+                  }
+                />
+                <TableFilterPill
+                  label="Date"
+                  summary={draftDate}
+                  pillRef={registerPillRef("date")}
+                  onClick={() =>
+                    setOpenFilter((v) => {
+                      const next = v === "date" ? null : "date";
+                      syncDropdownLeft(next);
+                      return next;
+                    })
+                  }
+                />
+              </>
+            }
+            pillsTrailing={
+              <TableFilterTrailingIconButton
+                ariaLabel="Calendar"
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "date" ? null : "date";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              >
+                <CalendarDays size={14} />
+              </TableFilterTrailingIconButton>
+            }
+            dropdownLayer={
+              <>
+                {openFilter === "status" ? (
+                  <TableFilterDropdownCard left={dropdownLeft} widthClass="min-w-[220px] max-w-[min(92vw,320px)]">
+                    <TableFilterPanelTitle />
+                    <TableFilterOptionsList
+                      options={REFERRED_STATUS_FILTER}
+                      onSelect={(opt) => {
+                        setDraftStatus(opt);
+                        setOpenFilter(null);
+                      }}
+                    />
+                  </TableFilterDropdownCard>
+                ) : null}
+                {openFilter === "date" ? (
+                  <TableFilterDropdownCard left={dropdownLeft}>
+                    <TableFilterPanelTitle />
+                    <button
+                      type="button"
+                      className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                      onClick={() => {
+                        setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
+                        setOpenFilter(null);
+                      }}
+                    >
+                      Jan 6, 2026 - Jan 6, 2026
+                      <CalendarDays size={16} />
+                    </button>
+                  </TableFilterDropdownCard>
+                ) : null}
+              </>
+            }
+            actions={
+              <TableFilterApplyClear
+                onApply={() => {
+                  setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
+                  setAppliedDate(draftDate);
+                  setOpenFilter(null);
+                  setPage(1);
+                }}
+                onClear={() => {
+                  setSearch("");
+                  setAppliedStatus(null);
+                  setAppliedDate(null);
+                  setDraftStatus("All statuses");
+                  setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
+                  setOpenFilter(null);
+                  setFilterMode(false);
+                  setPage(1);
+                }}
+              />
+            }
+          />
+        ) : (
         <div className="flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
           <span className="shrink-0 text-[15px] font-semibold text-primary-text">
             Referred Users
@@ -183,6 +330,10 @@ export function ReferralDetailsView({ id: _id }: ReferralDetailsViewProps) {
               type="button"
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
               aria-label="Filter"
+              onClick={() => {
+                setSearch("");
+                setFilterMode(true);
+              }}
             >
               <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             </button>
@@ -215,6 +366,7 @@ export function ReferralDetailsView({ id: _id }: ReferralDetailsViewProps) {
             </div>
           </div>
         </div>
+        )}
 
         {/* Table */}
         <div className="mt-4 overflow-x-auto rounded-[8px]">

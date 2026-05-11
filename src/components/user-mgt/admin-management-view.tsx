@@ -1,11 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Notification, Edit2, PasswordCheck, Forbidden, Trash, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
+import { CalendarDays, Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 /* ── Tab config ── */
 type AdminTab = "Team" | "Roles & Permission" | "Pending Invites";
@@ -48,6 +58,9 @@ const ALL_MEMBERS: TeamMember[] = Array.from({ length: 180 }, (_, i) => ({
       : `${BASE_MEMBERS[i % BASE_MEMBERS.length].name} (${i + 1})`,
 }));
 
+const TEAM_ROLE_FILTER = ["All roles", ...Array.from(new Set(BASE_MEMBERS.map((m) => m.role))).sort()];
+const TEAM_STATUS_FILTER = ["All statuses", "Successful", "Pending", "Failed"] as const;
+
 /* ── Avatar ── */
 function Avatar({ name }: { name: string }) {
   const initials = name
@@ -86,16 +99,49 @@ export function AdminManagementView() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [teamExportOpen, setTeamExportOpen] = useState(false);
 
+  const [teamFilterMode, setTeamFilterMode] = useState(false);
+  const [teamOpenFilter, setTeamOpenFilter] = useState<null | "role" | "status" | "date">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"role" | "status" | "date">(teamOpenFilter, teamFilterMode && activeTab === "Team");
+
+  const [draftTeamRole, setDraftTeamRole] = useState("All roles");
+  const [draftTeamStatus, setDraftTeamStatus] = useState<string>("All statuses");
+  const [draftTeamDate, setDraftTeamDate] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedTeamRole, setAppliedTeamRole] = useState<string | null>(null);
+  const [appliedTeamStatus, setAppliedTeamStatus] = useState<string | null>(null);
+  const [appliedTeamDate, setAppliedTeamDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== "Team") setTeamFilterMode(false);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!teamFilterMode) setTeamOpenFilter(null);
+  }, [teamFilterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTeamOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return ALL_MEMBERS;
-    return ALL_MEMBERS.filter(
-      (m) =>
+    return ALL_MEMBERS.filter((m) => {
+      if (appliedTeamRole && appliedTeamRole !== "All roles" && m.role !== appliedTeamRole) return false;
+      if (appliedTeamStatus && appliedTeamStatus !== "All statuses" && m.status !== appliedTeamStatus)
+        return false;
+      if (appliedTeamDate && !m.dateOnboarded.includes("Jan 6, 2026")) return false;
+      if (!q) return true;
+      return (
         m.name.toLowerCase().includes(q) ||
         m.email.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q),
-    );
-  }, [search]);
+        m.id.toLowerCase().includes(q)
+      );
+    });
+  }, [search, appliedTeamRole, appliedTeamStatus, appliedTeamDate]);
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -144,7 +190,138 @@ export function AdminManagementView() {
       {/* Tab content */}
       {activeTab === "Team" && (
         <>
-          {/* Toolbar */}
+          {teamFilterMode ? (
+            <TableFilterModeBar
+              filterBarRef={filterBarRef}
+              filterScrollRef={filterScrollRef}
+              showBackdrop={Boolean(teamOpenFilter)}
+              onBackdropClick={() => setTeamOpenFilter(null)}
+              onPillsScroll={() => {
+                if (teamOpenFilter) syncDropdownLeft(teamOpenFilter);
+              }}
+              pills={
+                <>
+                  <TableFilterPill
+                    label="Role"
+                    summary={draftTeamRole}
+                    pillRef={registerPillRef("role")}
+                    onClick={() =>
+                      setTeamOpenFilter((v) => {
+                        const next = v === "role" ? null : "role";
+                        syncDropdownLeft(next);
+                        return next;
+                      })
+                    }
+                  />
+                  <TableFilterPill
+                    label="Status"
+                    summary={draftTeamStatus}
+                    pillRef={registerPillRef("status")}
+                    onClick={() =>
+                      setTeamOpenFilter((v) => {
+                        const next = v === "status" ? null : "status";
+                        syncDropdownLeft(next);
+                        return next;
+                      })
+                    }
+                  />
+                  <TableFilterPill
+                    label="Date onboarded"
+                    summary={draftTeamDate}
+                    pillRef={registerPillRef("date")}
+                    onClick={() =>
+                      setTeamOpenFilter((v) => {
+                        const next = v === "date" ? null : "date";
+                        syncDropdownLeft(next);
+                        return next;
+                      })
+                    }
+                  />
+                </>
+              }
+              pillsTrailing={
+                <TableFilterTrailingIconButton
+                  ariaLabel="Calendar"
+                  onClick={() =>
+                    setTeamOpenFilter((v) => {
+                      const next = v === "date" ? null : "date";
+                      syncDropdownLeft(next);
+                      return next;
+                    })
+                  }
+                >
+                  <CalendarDays size={14} />
+                </TableFilterTrailingIconButton>
+              }
+              dropdownLayer={
+                <>
+                  {teamOpenFilter === "role" ? (
+                    <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                      <TableFilterPanelTitle />
+                      <TableFilterOptionsList
+                        options={TEAM_ROLE_FILTER}
+                        onSelect={(opt) => {
+                          setDraftTeamRole(opt);
+                          setTeamOpenFilter(null);
+                        }}
+                      />
+                    </TableFilterDropdownCard>
+                  ) : null}
+                  {teamOpenFilter === "status" ? (
+                    <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[180px]">
+                      <TableFilterPanelTitle />
+                      <TableFilterOptionsList
+                        options={[...TEAM_STATUS_FILTER]}
+                        onSelect={(opt) => {
+                          setDraftTeamStatus(opt);
+                          setTeamOpenFilter(null);
+                        }}
+                      />
+                    </TableFilterDropdownCard>
+                  ) : null}
+                  {teamOpenFilter === "date" ? (
+                    <TableFilterDropdownCard left={dropdownLeft}>
+                      <TableFilterPanelTitle />
+                      <button
+                        type="button"
+                        className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                        onClick={() => {
+                          setDraftTeamDate("From Jan 6, 2026 - To Jan 6, 2026");
+                          setTeamOpenFilter(null);
+                        }}
+                      >
+                        Jan 6, 2026 - Jan 6, 2026
+                        <CalendarDays size={16} />
+                      </button>
+                    </TableFilterDropdownCard>
+                  ) : null}
+                </>
+              }
+              actions={
+                <TableFilterApplyClear
+                  onApply={() => {
+                    setAppliedTeamRole(draftTeamRole === "All roles" ? null : draftTeamRole);
+                    setAppliedTeamStatus(draftTeamStatus === "All statuses" ? null : draftTeamStatus);
+                    setAppliedTeamDate(draftTeamDate);
+                    setTeamOpenFilter(null);
+                    setPage(1);
+                  }}
+                  onClear={() => {
+                    setSearch("");
+                    setAppliedTeamRole(null);
+                    setAppliedTeamStatus(null);
+                    setAppliedTeamDate(null);
+                    setDraftTeamRole("All roles");
+                    setDraftTeamStatus("All statuses");
+                    setDraftTeamDate("From Jan 6, 2026 - To Jan 6, 2026");
+                    setTeamOpenFilter(null);
+                    setTeamFilterMode(false);
+                    setPage(1);
+                  }}
+                />
+              }
+            />
+          ) : (
           <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
             <span className="shrink-0 text-[15px] font-semibold text-primary-text">
               Team Members ({totalItems.toLocaleString()})
@@ -162,6 +339,10 @@ export function AdminManagementView() {
                 type="button"
                 className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
                 aria-label="Filter"
+                onClick={() => {
+                  setSearch("");
+                  setTeamFilterMode(true);
+                }}
               >
                 <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
               </button>
@@ -201,6 +382,7 @@ export function AdminManagementView() {
               </button>
             </div>
           </div>
+          )}
 
           {/* Table */}
           <div className="mt-4 overflow-x-auto rounded-[8px]">
@@ -309,19 +491,97 @@ const ROLES = [
 
 const MEMBER_AVATARS = ["AT", "TA", "TA"];
 
+const ROLE_TEMPLATE_FILTER = ["All templates", ...ROLES.map((r) => r.name)];
+
 function RolesPermissionTab() {
   const [roleSearch, setRoleSearch] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "role">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"role">(openFilter, filterMode);
+
+  const [draftRoleTemplate, setDraftRoleTemplate] = useState("All templates");
+  const [appliedRoleTemplate, setAppliedRoleTemplate] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const filteredRoles = useMemo(() => {
     const q = roleSearch.trim().toLowerCase();
-    if (!q) return ROLES;
-    return ROLES.filter((r) => r.name.toLowerCase().includes(q));
-  }, [roleSearch]);
+    return ROLES.filter((r) => {
+      if (appliedRoleTemplate && appliedRoleTemplate !== "All templates" && r.name !== appliedRoleTemplate)
+        return false;
+      if (!q) return true;
+      return r.name.toLowerCase().includes(q);
+    });
+  }, [roleSearch, appliedRoleTemplate]);
 
   return (
     <>
-      {/* Toolbar */}
+      {filterMode ? (
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <TableFilterPill
+              label="Role template"
+              summary={draftRoleTemplate}
+              pillRef={registerPillRef("role")}
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "role" ? null : "role";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            />
+          }
+          dropdownLayer={
+            openFilter === "role" ? (
+              <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[220px]">
+                <TableFilterPanelTitle />
+                <TableFilterOptionsList
+                  options={ROLE_TEMPLATE_FILTER}
+                  onSelect={(opt) => {
+                    setDraftRoleTemplate(opt);
+                    setOpenFilter(null);
+                  }}
+                />
+              </TableFilterDropdownCard>
+            ) : null
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedRoleTemplate(draftRoleTemplate === "All templates" ? null : draftRoleTemplate);
+                setOpenFilter(null);
+              }}
+              onClear={() => {
+                setRoleSearch("");
+                setAppliedRoleTemplate(null);
+                setDraftRoleTemplate("All templates");
+                setOpenFilter(null);
+                setFilterMode(false);
+              }}
+            />
+          }
+        />
+      ) : (
       <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
         <span className="shrink-0 text-[15px] font-semibold text-primary-text">
           Roles &amp; Permission ({ROLES.length})
@@ -335,7 +595,15 @@ function RolesPermissionTab() {
           />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
+            aria-label="Filter"
+            onClick={() => {
+              setRoleSearch("");
+              setFilterMode(true);
+            }}
+          >
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
           <div className="relative">
@@ -371,6 +639,7 @@ function RolesPermissionTab() {
           </button>
         </div>
       </div>
+      )}
 
       {/* Role cards grid */}
       <div className="mt-6 grid grid-cols-2 gap-4">
@@ -425,16 +694,43 @@ function PendingInvitesTab() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [exportOpen, setExportOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "role" | "date">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"role" | "date">(openFilter, filterMode);
 
-  const pendingMembers = useMemo(() => ALL_MEMBERS.filter(m => m.status === "Pending"), []);
+  const [draftRole, setDraftRole] = useState("All roles");
+  const [draftDate, setDraftDate] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedRole, setAppliedRole] = useState<string | null>(null);
+  const [appliedDate, setAppliedDate] = useState<string | null>(null);
+
+  const pendingMembers = useMemo(() => ALL_MEMBERS.filter((m) => m.status === "Pending"), []);
+  const pendingRoleOptions = useMemo(
+    () => ["All roles", ...Array.from(new Set(pendingMembers.map((m) => m.role))).sort()],
+    [pendingMembers],
+  );
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return pendingMembers;
-    return pendingMembers.filter(
-      (m) => m.email.toLowerCase().includes(q) || m.id.toLowerCase().includes(q)
-    );
-  }, [search, pendingMembers]);
+    return pendingMembers.filter((m) => {
+      if (appliedRole && appliedRole !== "All roles" && m.role !== appliedRole) return false;
+      if (appliedDate && !m.dateOnboarded.includes("Jan 6, 2026")) return false;
+      if (!q) return true;
+      return m.email.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
+    });
+  }, [search, pendingMembers, appliedRole, appliedDate]);
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -447,7 +743,111 @@ function PendingInvitesTab() {
 
   return (
     <>
-      {/* Toolbar */}
+      {filterMode ? (
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Role"
+                summary={draftRole}
+                pillRef={registerPillRef("role")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "role" ? null : "role";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Date onboarded"
+                summary={draftDate}
+                pillRef={registerPillRef("date")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "date" ? null : "date";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "date" ? null : "date";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "role" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={pendingRoleOptions}
+                    onSelect={(opt) => {
+                      setDraftRole(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "date" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Jan 6, 2026 - Jan 6, 2026
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedRole(draftRole === "All roles" ? null : draftRole);
+                setAppliedDate(draftDate);
+                setOpenFilter(null);
+                setPage(1);
+              }}
+              onClear={() => {
+                setSearch("");
+                setAppliedRole(null);
+                setAppliedDate(null);
+                setDraftRole("All roles");
+                setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+              }}
+            />
+          }
+        />
+      ) : (
       <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
         <span className="shrink-0 text-[15px] font-semibold text-primary-text">
           Pending Invites ({totalItems.toLocaleString()})
@@ -461,7 +861,15 @@ function PendingInvitesTab() {
           />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
+            aria-label="Filter"
+            onClick={() => {
+              setSearch("");
+              setFilterMode(true);
+            }}
+          >
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
           <div className="relative">
@@ -493,6 +901,7 @@ function PendingInvitesTab() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Table */}
       <div className="mt-4 overflow-x-auto rounded-[8px]">

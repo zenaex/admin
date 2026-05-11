@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { DocumentText, Document } from "iconsax-react";
 import type { DateRange } from "react-day-picker";
 import {
@@ -184,6 +184,107 @@ export function DashboardView() {
           </div>
         </div>
       </div>
+
+      {filterMode ? (
+        <TableFilterModeBar
+          barClassName="!mt-4"
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Period"
+                summary={draftPeriodLabel}
+                pillRef={registerPillRef("period")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "period" ? null : "period";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Currency view"
+                summary={draftCurrency}
+                pillRef={registerPillRef("currency")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "currency" ? null : "currency";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "period" ? null : "period";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "period" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftPeriodLabel(formatDateRangeLabel(dateRange));
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Match date picker
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "currency" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={["NGN (default)", "USD view", "Crypto totals"]}
+                    onSelect={(opt) => {
+                      setDraftCurrency(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setDraftPeriodLabel(formatDateRangeLabel(dateRange));
+                setOpenFilter(null);
+              }}
+              onClear={() => {
+                setDraftCurrency("NGN (default)");
+                setDraftPeriodLabel(formatDateRangeLabel(dateRange));
+                setOpenFilter(null);
+                setFilterMode(false);
+              }}
+            />
+          }
+        />
+      ) : null}
 
       {/* Total transaction hero card */}
       <div className="mt-4 rounded-xl bg-white px-5 py-5 w-full">

@@ -1,14 +1,23 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { WalletMoney, CardReceive, CardSend, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { WalletMoney, CardReceive, CardSend } from "iconsax-react";
+import { CalendarDays } from "lucide-react";
 
-import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
+import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { ProviderRow, ProviderTable } from "@/components/provider/provider-table";
-
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 const BASE_ROWS: Omit<ProviderRow, "id">[] = [
   { name: "Monnify",    category: "Withdrawal",    dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 5,  status: "Active"   },
@@ -29,6 +38,9 @@ const ALL_ROWS: ProviderRow[] = Array.from({ length: 180 }, (_, i) => {
     name: i < BASE_ROWS.length ? base.name : `${base.name} (${i + 1})`,
   };
 });
+
+const CATEGORY_FILTER_OPTIONS = ["All categories", ...Array.from(new Set(BASE_ROWS.map((b) => b.category))).sort()];
+const STATUS_FILTER_OPTIONS = ["All statuses", "Active", "Inactive"] as const;
 
 const TOTAL = 100000;
 const ACTIVE = 100000;
@@ -61,20 +73,48 @@ function StatCard({ label, value, accentColor, icon }: StatCardProps) {
 
 export function ProviderView() {
   const [tableSearch, setTableSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "category" | "status" | "date">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"category" | "status" | "date">(openFilter, filterMode);
+
+  const [draftCategory, setDraftCategory] = useState("All categories");
+  const [draftStatus, setDraftStatus] = useState<string>("All statuses");
+  const [draftDateLabel, setDraftDateLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedCategory, setAppliedCategory] = useState<string | null>(null);
+  const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
+  const [appliedDateLabel, setAppliedDateLabel] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [exportOpen, setExportOpen] = useState(false);
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const filteredRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
-    if (!q) return ALL_ROWS;
-    return ALL_ROWS.filter(
-      (r) =>
+    return ALL_ROWS.filter((r) => {
+      if (appliedCategory && appliedCategory !== "All categories" && r.category !== appliedCategory)
+        return false;
+      if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus) return false;
+      if (appliedDateLabel && !r.dateAdded.includes("Jan 6, 2026")) return false;
+      if (!q) return true;
+      return (
         r.name.toLowerCase().includes(q) ||
         r.category.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q),
-    );
-  }, [tableSearch]);
+        r.id.toLowerCase().includes(q)
+      );
+    });
+  }, [tableSearch, appliedCategory, appliedStatus, appliedDateLabel]);
 
   const totalItems = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -96,54 +136,147 @@ export function ProviderView() {
         <StatCard label="Inactive Providers" value={INACTIVE.toLocaleString()} accentColor="var(--color-failed)" icon={<CardSend size="20" color="currentColor" variant="Outline" />} />
       </div>
 
-      {/* Toolbar */}
-      <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-        <div className="w-[325px] shrink-0">
-          <AuditTrailIconSearch
-            variant="toolbar"
-            placeholder="Search by name or ID"
-            aria-label="Search by name or ID"
-            value={tableSearch}
-            onChange={(e) => setTableSearch(e.target.value)}
-          />
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
-            aria-label="Filter"
-          >
-            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
+      {filterMode ? (
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Category"
+                summary={draftCategory}
+                pillRef={registerPillRef("category")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "category" ? null : "category";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Status"
+                summary={draftStatus}
+                pillRef={registerPillRef("status")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "status" ? null : "status";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Date added"
+                summary={draftDateLabel}
+                pillRef={registerPillRef("date")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "date" ? null : "date";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "date" ? null : "date";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
             >
-              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              Export
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "category" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[220px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={CATEGORY_FILTER_OPTIONS}
+                    onSelect={(opt) => {
+                      setDraftCategory(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "status" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[180px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={[...STATUS_FILTER_OPTIONS]}
+                    onSelect={(opt) => {
+                      setDraftStatus(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "date" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Jan 6, 2026 - Jan 6, 2026
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedCategory(draftCategory === "All categories" ? null : draftCategory);
+                setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
+                setAppliedDateLabel(draftDateLabel);
+                setOpenFilter(null);
+                setPage(1);
+              }}
+              onClear={() => {
+                setTableSearch("");
+                setAppliedCategory(null);
+                setAppliedStatus(null);
+                setAppliedDateLabel(null);
+                setDraftCategory("All categories");
+                setDraftStatus("All statuses");
+                setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+              }}
+            />
+          }
+        />
+      ) : (
+        <AuditTrailToolbar
+          tableSearch={tableSearch}
+          onTableSearchChange={setTableSearch}
+          onFilterClick={() => {
+            setTableSearch("");
+            setFilterMode(true);
+          }}
+        />
+      )}
 
       <ProviderTable rows={paginatedRows} />
 

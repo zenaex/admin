@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import {
   ArrowDown2,
@@ -78,14 +78,32 @@ type DashboardSidebarProps = {
   collapsed?: boolean;
 };
 
+function isCustomerMgtPath(path: string) {
+  return (
+    path.startsWith("/dashboard/user-mgt/customers") ||
+    path.startsWith("/dashboard/user-mgt/referral")
+  );
+}
+
 export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
 
   const [activeOverrideHref, setActiveOverrideHref] = useState<string | null>(null);
 
+  const isCustomerMgtRoute = isCustomerMgtPath(pathname);
+  const activeCustomerMgtItem = pathname.startsWith("/dashboard/user-mgt/referral") ? "referral" : "customers";
+
+  const [isCustomerMgtOpen, setIsCustomerMgtOpen] = useState(isCustomerMgtRoute);
+
   useEffect(() => {
-    // Clear manual highlight when route changes (a real nav occurred).
+    // Clear manual highlight and collapse expandable sections when the route changes.
     setActiveOverrideHref(null);
+    if (isCustomerMgtPath(pathname)) {
+      setIsCustomerMgtOpen(true);
+    } else {
+      setIsCustomerMgtOpen(false);
+    }
   }, [pathname]);
 
   const isActive = (href: string) => {
@@ -94,19 +112,6 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
       ? pathname === "/dashboard"
       : pathname === href || pathname.startsWith(`${href}/`);
   };
-
-  const isCustomerMgtRoute =
-    pathname.startsWith("/dashboard/user-mgt/customers") ||
-    pathname.startsWith("/dashboard/user-mgt/referral");
-  const activeCustomerMgtItem = pathname.startsWith("/dashboard/user-mgt/referral") ? "referral" : "customers";
-
-  const [isCustomerMgtOpen, setIsCustomerMgtOpen] = useState(isCustomerMgtRoute);
-  const [wasCustomerMgtRoute, setWasCustomerMgtRoute] = useState(isCustomerMgtRoute);
-
-  useEffect(() => {
-    if (isCustomerMgtRoute && !wasCustomerMgtRoute) setIsCustomerMgtOpen(true);
-    setWasCustomerMgtRoute(isCustomerMgtRoute);
-  }, [isCustomerMgtRoute, wasCustomerMgtRoute]);
 
   return (
     <aside
@@ -202,11 +207,15 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
               aria-label="Customer Mgt"
               aria-expanded={isCustomerMgtOpen}
               onClick={() => {
+                let nextOpen = false;
                 setIsCustomerMgtOpen((prev) => {
-                  const next = !prev;
-                  setActiveOverrideHref(next ? "/dashboard/user-mgt/customers" : null);
-                  return next;
+                  nextOpen = !prev;
+                  return nextOpen;
                 });
+                setActiveOverrideHref(nextOpen ? "/dashboard/user-mgt/customers" : null);
+                if (nextOpen && !isCustomerMgtPath(pathname)) {
+                  router.push("/dashboard/user-mgt/customers");
+                }
               }}
             >
               {isCustomerMgtOpen ? (

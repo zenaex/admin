@@ -10,13 +10,20 @@ type AuditTrailToolbarProps = {
   tableSearch: string;
   onTableSearchChange: (value: string) => void;
   onFilterClick?: () => void;
+  /** e.g. mt-4 when the table toolbar sits tighter under tabs */
+  className?: string;
 };
 
-export function AuditTrailToolbar({ tableSearch, onTableSearchChange, onFilterClick }: AuditTrailToolbarProps) {
+export function AuditTrailToolbar({
+  tableSearch,
+  onTableSearchChange,
+  onFilterClick,
+  className = "mt-6",
+}: AuditTrailToolbarProps) {
   const [exportOpen, setExportOpen] = useState(false);
 
   return (
-    <div className="mt-6 flex h-14.5 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
+    <div className={`${className} flex h-14.5 items-center gap-2 rounded-xl bg-white px-3 sm:px-4`}>
       <div className="w-[325px] shrink-0">
         <AuditTrailIconSearch
           variant="toolbar"
