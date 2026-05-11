@@ -5,15 +5,11 @@ import Link from "next/link";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, DocumentUpload, DocumentDownload } from "iconsax-react";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
-
-/* ── Table styling (aligned with E-trade detail tables) ── */
-const BORDER = "#EEEEEE";
-const HEADER_BG = "#F9F9F9";
-const TEXT = "#333333";
-const LINK = "#4A6FA5";
+import { GiftcardTransactionDetails } from "@/components/transactions/transaction-details/giftcard-details";
+import type { TxApprovalStatus } from "@/components/transactions/transaction-details/types";
+import { TxDataBlockTable, BORDER, HEADER_BG, TEXT, LINK } from "@/components/transactions/transaction-details/tx-data-block-table";
 
 /* ── Types ── */
-type TxApprovalStatus = "Approved" | "Pending" | "Rejected";
 
 /** E-sim / non-giftcard outcome for status banner (does not affect giftcard Pending/Approved/Rejected). */
 type EsimTransactionOutcome = "Successful" | "Pending" | "Failed";
@@ -78,6 +74,10 @@ const TX_DATA = {
   coinReceived: "Tether | BTC",
   sessionId: "12324235334262526",
   typeGift: "Physical Card",
+  /** Giftcard “Type” column in details (e.g. Ecode). */
+  giftcardType: "Ecode",
+  /** Giftcard row 2 “Provider” when not rejected. */
+  giftcardProvider: "Quidax",
   code: "14292920204637",
   country: "United States | USD",
   amount: "$1,000.00",
@@ -280,50 +280,12 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
           message={
             approvalStatus === "Rejected"
               ? "Giftcard transaction has been rejected"
-              : "Giftcard transaction has been approved successfully"
+              : "Giftcard transaction has been successfully approved"
           }
           confirmLabel="Done"
           onContinue={handleSuccessDone}
         />
       )}
-    </div>
-  );
-}
-
-function GiftcardImagePlaceholder() {
-  return (
-    <div
-      className="flex min-h-[220px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-10 text-center"
-      role="img"
-      aria-label="Image placeholder"
-    >
-      <div className="h-12 w-16 rounded-md border border-zinc-300 bg-zinc-200/80" aria-hidden />
-      <span className="text-xs font-medium text-zinc-500">Image preview placeholder</span>
-    </div>
-  );
-}
-
-function RejectionAttachmentPreview({ code }: { code: string }) {
-  return (
-    <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white">
-      <div className="flex min-h-[220px] items-center justify-center bg-zinc-100/80">
-        <div className="h-12 w-16 rounded-md border border-zinc-300 bg-zinc-200/80" aria-hidden />
-      </div>
-      <div className="space-y-2 px-4 py-4">
-        <div className="flex items-center gap-2 text-sm text-zinc-700">
-          <span className="font-semibold text-zinc-500">Code:</span>
-          <span className="font-semibold text-primary-text">{code}</span>
-        </div>
-        <p className="text-sm font-semibold text-red-600">This giftcard has been redeemed already</p>
-        <Link
-          href="#"
-          className="inline-flex text-sm font-semibold underline underline-offset-2"
-          style={{ color: LINK }}
-          onClick={(e) => e.preventDefault()}
-        >
-          Get more info
-        </Link>
-      </div>
     </div>
   );
 }
@@ -829,190 +791,39 @@ function DepositTransactionDetailsContent() {
 
 /* ── Transaction Details Tab ── */
 function TransactionDetailsTab({ approvalStatus }: { approvalStatus: TxApprovalStatus }) {
-  const isGiftcard = TX_DATA.channel === "Giftcard";
-
-  if (TX_DATA.channel === "Esim") {
-    return <EsimTransactionDetailsContent />;
+  switch (TX_DATA.channel) {
+    case "Esim":
+      return <EsimTransactionDetailsContent />;
+    case "Giftcard":
+      return (
+        <GiftcardTransactionDetails
+          approvalStatus={approvalStatus}
+          model={{
+            sessionId: TX_DATA.sessionId,
+            customerName: TX_DATA.customerName,
+            typeLabel: TX_DATA.giftcardType,
+            code: TX_DATA.code,
+            country: TX_DATA.country,
+            amount: TX_DATA.amount,
+            amountPaidOut: TX_DATA.amountPaidOut,
+            dateUploaded: TX_DATA.dateUploaded,
+            dateCompleted: TX_DATA.dateCompleted,
+            rateFeeGiven: TX_DATA.rateFeeGiven,
+            balanceAfterGift: TX_DATA.balanceAfterGift,
+            opsInCharge: TX_DATA.opsInCharge,
+            provider: TX_DATA.giftcardProvider,
+          }}
+          device={{
+            device: DEVICE_DATA_GIFT.device,
+            deviceId: DEVICE_DATA_GIFT.deviceId,
+            location: DEVICE_DATA_GIFT.location,
+            locationCoordinate: DEVICE_DATA_GIFT.locationCoordinate,
+          }}
+        />
+      );
+    default:
+      return <DepositTransactionDetailsContent />;
   }
-
-  if (isGiftcard) {
-    const countryParts = TX_DATA.country.split(" | ");
-    const countryLeft = countryParts[0] ?? "";
-    const countryRest = countryParts.length > 1 ? ` | ${countryParts.slice(1).join(" | ")}` : "";
-    const du = TX_DATA.dateUploaded.split(" | ");
-    const dc = TX_DATA.dateCompleted.split(" | ");
-    const showRejectionAttachment = approvalStatus === "Rejected";
-
-    return (
-      <>
-        <section className="mt-6">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Transaction Details
-          </h2>
-          <TxDataBlockTable
-            headers={[
-              "Session ID",
-              "Customer Names",
-              "Channel",
-              "Type",
-              "Country",
-              "Amount",
-            ]}
-            row={[
-              <Link
-                key="tid"
-                href="#"
-                className="underline underline-offset-2 hover:opacity-80"
-                style={{ color: LINK }}
-                onClick={(e) => e.preventDefault()}
-              >
-                {TX_DATA.sessionId}
-              </Link>,
-              TX_DATA.customerName,
-              "Giftcard",
-              TX_DATA.typeGift,
-              <span key="co" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{countryLeft}</span>
-                {countryRest}
-              </span>,
-              TX_DATA.amount,
-            ]}
-          />
-          <TxDataBlockTable
-            className="mt-6"
-            headers={[
-              "Amount Paid out",
-              "Date Uploaded",
-              "Date Completed",
-              "Rate / Fee Given",
-              "Balance after",
-              "Ops in charge",
-            ]}
-            row={[
-              TX_DATA.amountPaidOut,
-              <span key="du" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{du[0]}</span>
-                {du.length > 1 ? ` | ${du.slice(1).join(" | ")}` : ""}
-              </span>,
-              <span key="dc" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{dc[0]}</span>
-                {dc.length > 1 ? ` | ${dc.slice(1).join(" | ")}` : ""}
-              </span>,
-              TX_DATA.rateFeeGiven,
-              TX_DATA.balanceAfterGift,
-              TX_DATA.opsInCharge,
-            ]}
-          />
-        </section>
-
-        <section className="mt-8">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Device Information
-          </h2>
-          <TxDataBlockTable
-            headers={["Device", "Device ID", "Location", "Location Coordinate"]}
-            row={[
-              DEVICE_DATA_GIFT.device,
-              DEVICE_DATA_GIFT.deviceId,
-              DEVICE_DATA_GIFT.location,
-              DEVICE_DATA_GIFT.locationCoordinate,
-            ]}
-          />
-        </section>
-
-        {showRejectionAttachment ? (
-          <section className="mt-8">
-            <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-              Rejection Attachment
-            </h2>
-            <RejectionAttachmentPreview code={TX_DATA.code} />
-          </section>
-        ) : null}
-
-        <section className="mt-8">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Physical Card Image
-          </h2>
-          <GiftcardImagePlaceholder />
-        </section>
-      </>
-    );
-  }
-
-  return <DepositTransactionDetailsContent />;
-}
-
-function TxDataBlockTable({
-  headers,
-  row,
-  className = "",
-  collapseTopBorder = false,
-}: {
-  headers: string[];
-  row: ReactNode[];
-  className?: string;
-  collapseTopBorder?: boolean;
-}) {
-  const cellBorder = `1px solid ${BORDER}`;
-  const thBase = "px-4 py-3 text-left text-xs font-semibold align-middle";
-  const tdBase = "px-4 py-4 text-left text-sm font-normal align-top";
-  const n = headers.length;
-
-  return (
-    <div
-      className={["w-full overflow-hidden rounded-xl bg-white", className].filter(Boolean).join(" ")}
-    >
-      <table className="w-full border-collapse text-left">
-        <thead>
-          <tr style={{ backgroundColor: HEADER_BG }}>
-            {headers.map((h, i) => (
-              <th
-                key={h}
-                className={[
-                  thBase,
-                  !collapseTopBorder && i === 0 ? "rounded-tl-xl" : "",
-                  !collapseTopBorder && i === n - 1 ? "rounded-tr-xl" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  color: TEXT,
-                  borderBottom: cellBorder,
-                  borderRight: i < n - 1 ? cellBorder : "none",
-                  borderTop: collapseTopBorder ? "none" : cellBorder,
-                }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="bg-white">
-            {row.map((cell, i) => (
-              <td
-                key={i}
-                className={[
-                  tdBase,
-                  i === 0 ? "rounded-bl-xl" : "",
-                  i === n - 1 ? "rounded-br-xl" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  color: TEXT,
-                  borderBottom: cellBorder,
-                  borderRight: i < n - 1 ? cellBorder : "none",
-                }}
-              >
-                {cell}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 /* ── Transaction Log Tab ── */
