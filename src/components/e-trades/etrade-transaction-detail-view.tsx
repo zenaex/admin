@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, type ReactNode } from "react";
 import { ArrowDown2, DocumentDownload } from "iconsax-react";
 
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
-import { getEtradeTransactionDetail } from "@/components/e-trades/etrade-mock-transactions";
+import {
+  getEtradeTransactionDetail,
+  parseEtradeDetailOutcome,
+  type EtradeTransactionDetail,
+} from "@/components/e-trades/etrade-mock-transactions";
 
 const BORDER = "#EEEEEE";
 const HEADER_BG = "#F9F9F9";
@@ -24,16 +28,15 @@ type EtradeTransactionDetailViewProps = {
 
 export function EtradeTransactionDetailView({ transactionId }: EtradeTransactionDetailViewProps) {
   const router = useRouter();
-  const detail = getEtradeTransactionDetail(transactionId);
+  const searchParams = useSearchParams();
+  const outcomeOverride = parseEtradeDetailOutcome(searchParams?.get("outcome"));
+  const detail = useMemo(
+    () => getEtradeTransactionDetail(transactionId, outcomeOverride),
+    [transactionId, outcomeOverride],
+  );
   const [actionOpen, setActionOpen] = useState(false);
 
-  const countryParts = detail.country.split(" | ");
-  const countryLeft = countryParts[0] ?? detail.country;
-  const countryRight = countryParts.length > 1 ? ` | ${countryParts.slice(1).join(" | ")}` : "";
-
-  const dateParts = detail.dateCompleted.split(" | ");
-  const dateLeft = dateParts[0] ?? detail.dateCompleted;
-  const dateRight = dateParts.length > 1 ? ` | ${dateParts.slice(1).join(" | ")}` : "";
+  const banner = bannerForOutcome(detail.outcome);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -77,8 +80,10 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-center text-sm font-semibold text-green-800">
-          Approved!
+        <div
+          className={["mt-4 rounded-xl px-4 py-3 text-center text-sm font-semibold", banner.className].join(" ")}
+        >
+          {banner.label}
         </div>
 
         <div className="mt-6">
@@ -95,57 +100,207 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
       </header>
 
       <div className="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 [-webkit-overflow-scrolling:touch]">
-        <div>
-          {/* Session overview */}
-          <DataBlockTable
-            headers={["Session ID", "Customer Names", "Channel", "Type", "Country"]}
-            row={[
-              <Link
-                key="sid"
-                href="#"
-                className="underline underline-offset-2 hover:opacity-80"
-                style={{ color: LINK }}
-                onClick={(e) => e.preventDefault()}
-              >
-                {detail.sessionId}
-              </Link>,
-              detail.customerName,
-              detail.channel,
-              detail.type,
-              <span key="country" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{countryLeft}</span>
-                {countryRight}
-              </span>,
-            ]}
-          />
-
-          {/* Transaction row */}
-          <DataBlockTable
-            className="mt-6"
-            headers={["Trade Amount", "Date Completed", "Rate / Fee Given", "Provider"]}
-            row={[
-              detail.tradeAmount,
-              <span key="dt" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{dateLeft}</span>
-                {dateRight}
-              </span>,
-              detail.rateFee,
-              detail.provider,
-            ]}
-          />
-        </div>
+        <section>
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Transaction Details
+          </h2>
+          <TransactionDetailsGrid detail={detail} />
+        </section>
 
         <section className="mt-8">
           <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
             Device Information
           </h2>
           <DataBlockTable
-            headers={["Device", "Device ID", "Location", "Location Coordinate"]}
+            headers={["Device", "Device ID", "Location", "Coordinate"]}
             row={[detail.device, detail.deviceId, detail.location, detail.locationCoordinate]}
           />
         </section>
       </div>
     </div>
+  );
+}
+
+function bannerForOutcome(outcome: EtradeTransactionDetail["outcome"]): { label: string; className: string } {
+  switch (outcome) {
+    case "approved":
+      return { label: "Approved", className: "bg-green-50 text-green-800" };
+    case "pending":
+      return { label: "Pending!", className: "bg-orange-50 text-orange-800" };
+    case "failed":
+      return { label: "Failed!", className: "bg-red-50 text-red-800" };
+    default:
+      return { label: "Approved", className: "bg-green-50 text-green-800" };
+  }
+}
+
+function splitPipeHighlight(value: string) {
+  const parts = value.split(" | ");
+  const left = parts[0] ?? value;
+  const right = parts.length > 1 ? ` | ${parts.slice(1).join(" | ")}` : "";
+  return { left, right };
+}
+
+function PipeHighlightedCell({ value }: { value: string }) {
+  if (value === "—" || value.trim() === "") {
+    return (
+      <span className="text-sm" style={{ color: TEXT }}>
+        {value}
+      </span>
+    );
+  }
+  const { left, right } = splitPipeHighlight(value);
+  return (
+    <span className="text-sm" style={{ color: TEXT }}>
+      <span style={{ color: LINK }}>{left}</span>
+      {right}
+    </span>
+  );
+}
+
+function TransactionDetailsGrid({ detail }: { detail: EtradeTransactionDetail }) {
+  const cellBorder = `1px solid ${BORDER}`;
+  const thBase = "px-4 py-3 text-left text-xs font-semibold align-middle";
+  const tdBase = "px-4 py-4 text-left text-sm font-normal align-top";
+
+  const row1Headers = ["Session ID", "Customer Names", "Channel", "Request Details", "Country"];
+  const row1Cells: ReactNode[] = [
+    <Link
+      key="sid"
+      href="#"
+      className="underline underline-offset-2 hover:opacity-80"
+      style={{ color: LINK }}
+      onClick={(e) => e.preventDefault()}
+    >
+      {detail.sessionId}
+    </Link>,
+    detail.customerName,
+    detail.channel,
+    detail.requestDetails,
+    <PipeHighlightedCell key="country" value={detail.country} />,
+  ];
+
+  const row2Headers = ["Trade Amount", "Rate/Fee", "NGN Equivalent", "Date Initiated", "Date Completed"];
+  const row2Cells: ReactNode[] = [
+    detail.tradeAmount,
+    detail.rateFee,
+    detail.ngnEquivalent,
+    <PipeHighlightedCell key="di" value={detail.dateInitiated} />,
+    <PipeHighlightedCell key="dc" value={detail.dateCompleted} />,
+  ];
+
+  const row3Headers = ["Ops in Charge", "Approved By", "Date Approved", "\u00a0", "\u00a0"];
+  const row3Cells: ReactNode[] = [
+    detail.opsInCharge,
+    detail.approvedBy,
+    <PipeHighlightedCell key="da" value={detail.dateApproved} />,
+    "\u00a0",
+    "\u00a0",
+  ];
+
+  const rows: { headers: string[]; cells: ReactNode[] }[] = [
+    { headers: row1Headers, cells: row1Cells },
+    { headers: row2Headers, cells: row2Cells },
+    { headers: row3Headers, cells: row3Cells },
+  ];
+
+  return (
+    <div className="w-full overflow-hidden rounded-xl bg-white">
+      <table className="w-full border-collapse text-left">
+        <tbody>
+          {rows.map((block, blockIdx) => {
+            const isFirst = blockIdx === 0;
+            const isLast = blockIdx === rows.length - 1;
+            const nH = block.headers.length;
+            const nC = block.cells.length;
+            return (
+              <FragmentRows
+                key={blockIdx}
+                headers={block.headers}
+                cells={block.cells}
+                thBase={thBase}
+                tdBase={tdBase}
+                cellBorder={cellBorder}
+                isFirst={isFirst}
+                isLast={isLast}
+                nH={nH}
+                nC={nC}
+              />
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FragmentRows({
+  headers,
+  cells,
+  thBase,
+  tdBase,
+  cellBorder,
+  isFirst,
+  isLast,
+  nH,
+  nC,
+}: {
+  headers: string[];
+  cells: ReactNode[];
+  thBase: string;
+  tdBase: string;
+  cellBorder: string;
+  isFirst: boolean;
+  isLast: boolean;
+  nH: number;
+  nC: number;
+}) {
+  return (
+    <>
+      <tr style={{ backgroundColor: HEADER_BG }}>
+        {headers.map((h, i) => (
+          <th
+            key={`h-${h}-${i}`}
+            className={[
+              thBase,
+              isFirst && i === 0 ? "rounded-tl-xl" : "",
+              isFirst && i === nH - 1 ? "rounded-tr-xl" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={{
+              color: TEXT,
+              borderBottom: cellBorder,
+              borderRight: i < nH - 1 ? cellBorder : "none",
+              borderTop: isFirst ? cellBorder : "none",
+            }}
+          >
+            {h}
+          </th>
+        ))}
+      </tr>
+      <tr className="bg-white">
+        {cells.map((cell, i) => (
+          <td
+            key={`c-${i}`}
+            className={[
+              tdBase,
+              isLast && i === 0 ? "rounded-bl-xl" : "",
+              isLast && i === nC - 1 ? "rounded-br-xl" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={{
+              color: TEXT,
+              borderBottom: cellBorder,
+              borderRight: i < nC - 1 ? cellBorder : "none",
+            }}
+          >
+            {cell}
+          </td>
+        ))}
+      </tr>
+    </>
   );
 }
 

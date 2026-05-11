@@ -5,38 +5,79 @@ import Link from "next/link";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, DocumentUpload, DocumentDownload } from "iconsax-react";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
-
-/* ── Table styling (aligned with E-trade detail tables) ── */
-const BORDER = "#EEEEEE";
-const HEADER_BG = "#F9F9F9";
-const TEXT = "#333333";
-const LINK = "#4A6FA5";
+import { GiftcardTransactionDetails } from "@/components/transactions/transaction-details/giftcard-details";
+import type { TxApprovalStatus } from "@/components/transactions/transaction-details/types";
+import { TxDataBlockTable, BORDER, HEADER_BG, TEXT, LINK } from "@/components/transactions/transaction-details/tx-data-block-table";
 
 /* ── Types ── */
-type TxApprovalStatus = "Approved" | "Pending" | "Rejected";
 
-/** Deposit / non-giftcard transaction detail layout (switch in `TX_DATA.depositDetailVariant`). */
-type DepositDetailVariant = "crypto" | "tv" | "utility_electricity" | "utility_betting";
+/** E-sim / non-giftcard outcome for status banner (does not affect giftcard Pending/Approved/Rejected). */
+type EsimTransactionOutcome = "Successful" | "Pending" | "Failed";
+
+/** Deposit / non-giftcard transaction detail layout (switch in `TX_DATA.depositDetailVariant`). Ignored when `channel === "Esim"`. */
+type DepositDetailVariant = "crypto" | "utility" | "utility_betting";
+
+/** When `depositDetailVariant === "utility"`, pick Electricity / Data / TV layout. */
+type UtilityDetailVariant = "electricity" | "data" | "tv";
+
+/** When `depositDetailVariant === "crypto"`, pick Buy / Swap / Sell deposit layout. */
+type CryptoDetailVariant = "buy" | "swap" | "sell_deposit";
 
 /* ── Mock data: use channel "Giftcard" (+ optional status Pending/Rejected) for giftcard tables & image placeholders. ── */
 const TX_DATA = {
-  channel: "Giftcard" as "Deposit" | "Giftcard",
-  /** When `channel` is `"Deposit"`, pick TV / Utility / crypto layout. */
-  depositDetailVariant: "tv" as DepositDetailVariant,
+  channel: "Deposit" as "Deposit" | "Giftcard" | "Crypto" | "Esim",
+  /** When `channel` is `"Deposit"` or `"Crypto"`, pick utility / crypto / betting layout. */
+  depositDetailVariant: "utility" as DepositDetailVariant,
+  /**
+   * QA (e-sim): set `channel: "Esim"`, then toggle `esimOutcome`:
+   * `"Successful"` (green Approved!) · `"Pending"` (orange **Pending!**, timestamp Jan 5, 2025) · `"Failed"` (red **Failed!**).
+   */
+  esimOutcome: "Successful" as EsimTransactionOutcome,
+  /** Row “Channel” label; match transactions list tab spelling. */
+  esimChannelLabel: "E-sim",
+  esimCoverage: "Global",
+  esimDataAllowance: "5GB, Unlimited",
+  esimValidity: "30 days",
+  esimPriceUsd: "$30.00",
+  esimPriceNgn: "₦30,000.00",
+  esimProvider: "Airalo",
+  esimBalanceAfter: "₦30,000.00",
+  /**
+   * QA (utility): set `channel: "Deposit"`, `depositDetailVariant: "utility"`, then toggle:
+   * `utilityDetailVariant`: `"electricity"` | `"data"` | `"tv"`.
+   */
+  utilityDetailVariant: "electricity" as UtilityDetailVariant,
+  /**
+   * QA: set `depositDetailVariant: "crypto"` and `channel` to `"Crypto"` (buy/swap) or `"Deposit"` (sell deposit).
+   * Then toggle `cryptoDetailVariant`: `"buy"` | `"swap"` | `"sell_deposit"`.
+   * Swap: set `currency` to the pair string, `amountSent`, `amountEquivalent`, `rateGiven`, `coinReceived`.
+   */
+  cryptoDetailVariant: "buy" as CryptoDetailVariant,
   transactionId: "12324235334252526",
   customerName: "Naomi Salisu",
+  /** Unused for crypto when labels are derived from `cryptoDetailVariant`; kept for non-crypto deposit copy if needed. */
   typeDeposit: "Sell Deposit",
+  /** Buy/Sell: e.g. `Bitcoin | BTC`. Swap: e.g. `Bitcoin | BTC to Tether | USDT`. */
   currency: "Bitcoin | BTC",
-  amountUsd: "$30, 000.00",
-  amountEquivalent: "80.005 BTC",
+  /** Swap row 1 — Amount Sent (e.g. `B0.005 BTC`). */
+  amountSent: "B0.005 BTC",
+  amountUsd: "$30,000.00",
+  amountEquivalent: "₿0.005 BTC",
   datedInitiated: "Jan 6, 2026 | 9:32AM",
   dateCompleted: "Jan 6, 2026 | 9:32AM",
-  rateGiven: "B1=$96832.01",
+  /** Buy: `₿1=$96832.01` · Swap: `B1 - ₮69,646,93.01` · Sell deposit: `$1 = $96832.01` */
+  rateGiven: "₿1=$96832.01",
   provider: "Quidex",
   ourFee: "$2.01",
-  balanceAfter: "$30, 000.00",
+  balanceAfter: "$30,000.00",
+  /** Swap recipient — Coin Received (matches design typo `Tether | BTC`). */
+  coinReceived: "Tether | BTC",
   sessionId: "12324235334262526",
   typeGift: "Physical Card",
+  /** Giftcard “Type” column in details (e.g. Ecode). */
+  giftcardType: "Ecode",
+  /** Giftcard row 2 “Provider” when not rejected. */
+  giftcardProvider: "Quidax",
   code: "14292920204637",
   country: "United States | USD",
   amount: "$1,000.00",
@@ -56,6 +97,10 @@ const RECIPIENT_DATA = {
 const RECIPIENT_TV = {
   smartcardNo: "472242353543",
   accountName: "Okunola Roscoly",
+};
+
+const RECIPIENT_UTILITY_DATA = {
+  phoneNumber: "472242353543",
 };
 
 const RECIPIENT_UTILITY_ELECTRICITY = {
@@ -108,7 +153,7 @@ type TransactionDetailsViewProps = {
 export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps) {
   const [activeTab, setActiveTab] = useState<DetailTab>("Transaction Details");
   const [approvalStatus, setApprovalStatus] = useState<TxApprovalStatus>(() =>
-    TX_DATA.channel === "Giftcard" ? "Rejected" : "Approved",
+    TX_DATA.channel === "Giftcard" ? "Pending" : "Approved",
   );
   const [actionOpen, setActionOpen] = useState(false);
 
@@ -176,7 +221,13 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
         </div>
       </div>
 
-      <StatusBanner status={approvalStatus} />
+      <StatusBanner
+        {...(TX_DATA.channel === "Giftcard"
+          ? { variant: "giftcard" as const, status: approvalStatus }
+          : TX_DATA.channel === "Esim"
+            ? { variant: "esim" as const, outcome: TX_DATA.esimOutcome }
+            : { variant: "default" as const })}
+      />
 
       <div className="mt-6">
         <UnderlineTabs
@@ -186,7 +237,7 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
         />
       </div>
 
-      {activeTab === "Transaction Details" && <TransactionDetailsTab />}
+      {activeTab === "Transaction Details" && <TransactionDetailsTab approvalStatus={approvalStatus} />}
       {activeTab === "Transaction Log" && <TransactionLogTab />}
 
       {isGiftcard && approvalStatus === "Pending" && (
@@ -239,35 +290,57 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
   );
 }
 
-function GiftcardImagePlaceholder() {
-  return (
-    <div
-      className="flex min-h-[220px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-10 text-center"
-      role="img"
-      aria-label="Image placeholder"
-    >
-      <div className="h-12 w-16 rounded-md border border-zinc-300 bg-zinc-200/80" aria-hidden />
-      <span className="text-xs font-medium text-zinc-500">Image preview placeholder</span>
-    </div>
-  );
-}
+type StatusBannerProps =
+  | { variant: "giftcard"; status: TxApprovalStatus }
+  | { variant: "esim"; outcome: EsimTransactionOutcome }
+  | { variant: "default" };
 
-function StatusBanner({ status }: { status: TxApprovalStatus }) {
-  if (status === "Rejected") {
+function StatusBanner(props: StatusBannerProps) {
+  if (props.variant === "esim") {
+    const { outcome } = props;
+    if (outcome === "Failed") {
+      return (
+        <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <strong>Failed!</strong>
+        </div>
+      );
+    }
+    if (outcome === "Pending") {
+      return (
+        <div className="flex items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-600">
+          <strong>Pending!</strong>
+        </div>
+      );
+    }
     return (
-      <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-        Rejected!
+      <div className="flex items-center justify-center rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-[#166534]">
+        Approved!
       </div>
     );
   }
-  const isApproved = status === "Approved";
+  if (props.variant === "giftcard") {
+    const { status } = props;
+    if (status === "Rejected") {
+      return (
+        <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          Rejected!
+        </div>
+      );
+    }
+    const isApproved = status === "Approved";
+    return (
+      <div
+        className={`flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ${
+          isApproved ? "bg-green-50 text-[#166534]" : "border border-orange-200 bg-orange-50 text-orange-600"
+        }`}
+      >
+        {isApproved ? "Approved!" : "Pending Approval!"}
+      </div>
+    );
+  }
   return (
-    <div
-      className={`flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ${
-        isApproved ? "bg-green-50 text-[#166534]" : "border border-orange-200 bg-orange-50 text-orange-600"
-      }`}
-    >
-      {isApproved ? "Approved!" : "Pending Approval !"}
+    <div className="flex items-center justify-center rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-[#166534]">
+      Approved!
     </div>
   );
 }
@@ -295,6 +368,28 @@ function TransactionIdLink({ id }: { id: string }) {
   );
 }
 
+function CryptoCurrencyCell({ value }: { value: string }) {
+  if (value.includes(" to ")) {
+    const [left, right] = value.split(" to ");
+    return (
+      <span className="text-sm" style={{ color: TEXT }}>
+        <span style={{ color: LINK }}>{left}</span>
+        {" to "}
+        <span style={{ color: LINK }}>{right}</span>
+      </span>
+    );
+  }
+  const currencyParts = value.split(" | ");
+  const c0 = currencyParts[0] ?? "";
+  const cRest = currencyParts.length > 1 ? ` | ${currencyParts.slice(1).join(" | ")}` : "";
+  return (
+    <span className="text-sm" style={{ color: TEXT }}>
+      <span style={{ color: LINK }}>{c0}</span>
+      {cRest}
+    </span>
+  );
+}
+
 function DepositDeviceSection() {
   return (
     <section className="mt-8">
@@ -309,99 +404,294 @@ function DepositDeviceSection() {
   );
 }
 
+function cryptoTypeLabel(variant: CryptoDetailVariant): string {
+  switch (variant) {
+    case "buy":
+      return "Buy Crypto";
+    case "swap":
+      return "Swap Crypto";
+    case "sell_deposit":
+      return "Sell Deposit";
+  }
+}
+
+function CryptoTransactionDetailsContent() {
+  const variant = TX_DATA.cryptoDetailVariant;
+  const initiatedParts = TX_DATA.datedInitiated.split(" | ");
+  const completedParts = TX_DATA.dateCompleted.split(" | ");
+  const dateInitiatedCell = (
+    <span key="di" className="text-sm" style={{ color: TEXT }}>
+      <span style={{ color: LINK }}>{initiatedParts[0]}</span>
+      {initiatedParts.length > 1 ? ` | ${initiatedParts.slice(1).join(" | ")}` : ""}
+    </span>
+  );
+  const dateCompletedCell = (
+    <span key="dc" className="text-sm" style={{ color: TEXT }}>
+      <span style={{ color: LINK }}>{completedParts[0]}</span>
+      {completedParts.length > 1 ? ` | ${completedParts.slice(1).join(" | ")}` : ""}
+    </span>
+  );
+  const walletLink = (
+    <Link
+      key="w"
+      href="#"
+      className="underline underline-offset-2 hover:opacity-80"
+      style={{ color: LINK }}
+      onClick={(e) => e.preventDefault()}
+    >
+      {RECIPIENT_DATA.walletAddress}
+    </Link>
+  );
+
+  const customerHeader = variant === "swap" ? "Customer" : "Customer Names";
+  const channelLabel = TX_DATA.channel === "Deposit" || TX_DATA.channel === "Crypto" ? TX_DATA.channel : "Crypto";
+
+  const row1 =
+    variant === "swap"
+      ? {
+          headers: ["Transaction ID", customerHeader, "Channel", "Type", "Currency", "Amount Sent"] as const,
+          row: [
+            <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
+            TX_DATA.customerName,
+            channelLabel,
+            cryptoTypeLabel(variant),
+            <CryptoCurrencyCell key="cur" value={TX_DATA.currency} />,
+            TX_DATA.amountSent,
+          ] as ReactNode[],
+        }
+      : {
+          headers: ["Transaction ID", customerHeader, "Channel", "Type", "Currency", "Amount (USD)"] as const,
+          row: [
+            <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
+            TX_DATA.customerName,
+            channelLabel,
+            cryptoTypeLabel(variant),
+            <CryptoCurrencyCell key="cur" value={TX_DATA.currency} />,
+            TX_DATA.amountUsd,
+          ] as ReactNode[],
+        };
+
+  const row2 = {
+    headers: ["Amount Equivalent", "Date Initiated", "Date Completed", "Rate Given", "Provider", "Our Fee"] as const,
+    row: [
+      TX_DATA.amountEquivalent,
+      dateInitiatedCell,
+      dateCompletedCell,
+      TX_DATA.rateGiven,
+      TX_DATA.provider,
+      TX_DATA.ourFee,
+    ] as ReactNode[],
+  };
+
+  const recipient =
+    variant === "swap"
+      ? {
+          headers: ["Wallet Address", "Network", "Coin Received", "Network Fee"] as const,
+          row: [walletLink, RECIPIENT_DATA.network, TX_DATA.coinReceived, RECIPIENT_DATA.networkFee] as ReactNode[],
+        }
+      : {
+          headers: ["Wallet Address", "Network", "Network Fee"] as const,
+          row: [walletLink, RECIPIENT_DATA.network, RECIPIENT_DATA.networkFee] as ReactNode[],
+        };
+
+  return (
+    <>
+      <section className="mt-6">
+        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+          Transaction Details
+        </h2>
+        <TxDataBlockTable headers={[...row1.headers]} row={row1.row} />
+        <TxDataBlockTable className="mt-6" headers={[...row2.headers]} row={row2.row} />
+        {variant !== "swap" ? (
+          <TxDataBlockTable className="mt-6" headers={["Balance After"]} row={[TX_DATA.balanceAfter]} />
+        ) : null}
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+          Recipient Details
+        </h2>
+        <TxDataBlockTable headers={[...recipient.headers]} row={recipient.row} />
+      </section>
+
+      <DepositDeviceSection />
+    </>
+  );
+}
+
+function UtilityDataTransactionIdLink() {
+  return (
+    <Link
+      href="#"
+      className="underline underline-offset-2 hover:opacity-80"
+      style={{ color: LINK }}
+      onClick={(e) => e.preventDefault()}
+    >
+      ...52525
+    </Link>
+  );
+}
+
+function EsimTransactionDetailsContent() {
+  const timestamp =
+    TX_DATA.esimOutcome === "Pending" ? "Jan 5, 2025 | 9:32AM" : "Jan 6, 2026 | 9:32AM";
+
+  return (
+    <>
+      <section className="mt-6">
+        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+          Transaction Details
+        </h2>
+        <TxDataBlockTable
+          headers={[
+            "Transaction ID",
+            "Customer Names",
+            "Channel",
+            "Coverage",
+            "Data Allowance",
+            "Validity",
+          ]}
+          row={[
+            <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
+            TX_DATA.customerName,
+            TX_DATA.esimChannelLabel,
+            TX_DATA.esimCoverage,
+            TX_DATA.esimDataAllowance,
+            TX_DATA.esimValidity,
+          ]}
+        />
+        <TxDataBlockTable
+          className="mt-6"
+          headers={["Validity", "Price (USD)", "Price (NGN)", "Provider", "Timestamp", "Balance After"]}
+          row={[
+            TX_DATA.esimValidity,
+            TX_DATA.esimPriceUsd,
+            TX_DATA.esimPriceNgn,
+            TX_DATA.esimProvider,
+            <TimeStampCell key="ts" value={timestamp} />,
+            TX_DATA.esimBalanceAfter,
+          ]}
+        />
+      </section>
+
+      <DepositDeviceSection />
+    </>
+  );
+}
+
 function DepositTransactionDetailsContent() {
   const v = TX_DATA.depositDetailVariant;
 
   if (v === "crypto") {
-    const currencyParts = TX_DATA.currency.split(" | ");
-    const c0 = currencyParts[0] ?? "";
-    const cRest = currencyParts.length > 1 ? ` | ${currencyParts.slice(1).join(" | ")}` : "";
-    const initiatedParts = TX_DATA.datedInitiated.split(" | ");
-    const completedParts = TX_DATA.dateCompleted.split(" | ");
-
-    return (
-      <>
-        <section className="mt-6">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Transaction Details
-          </h2>
-          <TxDataBlockTable
-            headers={[
-              "Transaction ID",
-              "Customer Names",
-              "Channnel",
-              "Type",
-              "Currency",
-              "Amount (USD)",
-            ]}
-            row={[
-              <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
-              TX_DATA.customerName,
-              TX_DATA.channel,
-              TX_DATA.typeDeposit,
-              <span key="cur" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{c0}</span>
-                {cRest}
-              </span>,
-              TX_DATA.amountUsd,
-            ]}
-          />
-          <TxDataBlockTable
-            className="mt-6"
-            headers={[
-              "Amount Equivalent",
-              "Dated Initiated",
-              "Date Completed",
-              "Rate Given",
-              "Provider",
-              "Our Fee",
-            ]}
-            row={[
-              TX_DATA.amountEquivalent,
-              <span key="di" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{initiatedParts[0]}</span>
-                {initiatedParts.length > 1 ? ` | ${initiatedParts.slice(1).join(" | ")}` : ""}
-              </span>,
-              <span key="dc" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{completedParts[0]}</span>
-                {completedParts.length > 1 ? ` | ${completedParts.slice(1).join(" | ")}` : ""}
-              </span>,
-              TX_DATA.rateGiven,
-              TX_DATA.provider,
-              TX_DATA.ourFee,
-            ]}
-          />
-          <TxDataBlockTable className="mt-6" headers={["Balance After"]} row={[TX_DATA.balanceAfter]} />
-        </section>
-
-        <section className="mt-8">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Recipient Details
-          </h2>
-          <TxDataBlockTable
-            headers={["Wallet Addresss", "Network", "Network Fee"]}
-            row={[
-              <Link
-                key="w"
-                href="#"
-                className="underline underline-offset-2 hover:opacity-80"
-                style={{ color: LINK }}
-                onClick={(e) => e.preventDefault()}
-              >
-                {RECIPIENT_DATA.walletAddress}
-              </Link>,
-              RECIPIENT_DATA.network,
-              RECIPIENT_DATA.networkFee,
-            ]}
-          />
-        </section>
-
-        <DepositDeviceSection />
-      </>
-    );
+    return <CryptoTransactionDetailsContent />;
   }
 
-  if (v === "tv") {
+  if (v === "utility") {
+    const u = TX_DATA.utilityDetailVariant;
+    const tsElectricityData = "Jan 6, 2028 | 9:32AM";
+    const tsTv = "Jan 6, 2026 | 9:32AM";
+
+    if (u === "electricity") {
+      return (
+        <>
+          <section className="mt-6">
+            <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+              Transaction Details
+            </h2>
+            <TxDataBlockTable
+              headers={[
+                "Transaction ID",
+                "Customer Names",
+                "Channel",
+                "Type",
+                "Product",
+                "Amount",
+              ]}
+              row={[
+                <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
+                TX_DATA.customerName,
+                "Utility",
+                "Electricity",
+                "EKEDC",
+                "₦30,000.00",
+              ]}
+            />
+            <TxDataBlockTable
+              className="mt-6"
+              headers={["Timestamp", "Fee", "Provider", "Balance after"]}
+              row={[
+                <TimeStampCell key="ts" value={tsElectricityData} />,
+                "₦30.00",
+                "Ringo",
+                "₦50,000.00",
+              ]}
+            />
+          </section>
+
+          <section className="mt-8">
+            <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+              Recipient Details
+            </h2>
+            <TxDataBlockTable
+              headers={["Address", "Meter Number", "Account Name"]}
+              row={[
+                RECIPIENT_UTILITY_ELECTRICITY.address,
+                RECIPIENT_UTILITY_ELECTRICITY.meterNumber,
+                RECIPIENT_UTILITY_ELECTRICITY.accountName,
+              ]}
+            />
+          </section>
+
+          <DepositDeviceSection />
+        </>
+      );
+    }
+
+    if (u === "data") {
+      return (
+        <>
+          <section className="mt-6">
+            <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+              Transaction Details
+            </h2>
+            <TxDataBlockTable
+              headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Amount"]}
+              row={[
+                <UtilityDataTransactionIdLink key="txid" />,
+                TX_DATA.customerName,
+                "Utility",
+                "Data",
+                "MTN",
+                "₦30,000.00",
+              ]}
+            />
+            <TxDataBlockTable
+              className="mt-6"
+              headers={["Plan", "Timestamp", "Fee", "Cashback", "Provider", "Balance After"]}
+              row={[
+                "30gb",
+                <TimeStampCell key="ts" value={tsElectricityData} />,
+                "₦30.00",
+                "₦30.00",
+                "Ringo",
+                "₦30,000.00",
+              ]}
+            />
+          </section>
+
+          <section className="mt-8">
+            <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+              Recipient Details
+            </h2>
+            <TxDataBlockTable headers={["Phone Number"]} row={[RECIPIENT_UTILITY_DATA.phoneNumber]} />
+          </section>
+
+          <DepositDeviceSection />
+        </>
+      );
+    }
+
+    /* tv */
     return (
       <>
         <section className="mt-6">
@@ -409,14 +699,7 @@ function DepositTransactionDetailsContent() {
             Transaction Details
           </h2>
           <TxDataBlockTable
-            headers={[
-              "Transaction ID",
-              "Customer Names",
-              "Channnel",
-              "Type",
-              "Product",
-              "Plan",
-            ]}
+            headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Plan"]}
             row={[
               <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
               TX_DATA.customerName,
@@ -430,7 +713,7 @@ function DepositTransactionDetailsContent() {
             className="mt-6"
             headers={["Timestamp", "Amount", "Fee", "Provider", "Balance After"]}
             row={[
-              <TimeStampCell key="ts" value={TX_TIMESTAMP} />,
+              <TimeStampCell key="ts" value={tsTv} />,
               "₦20,000.00",
               "₦30.00",
               "Ringo",
@@ -446,62 +729,6 @@ function DepositTransactionDetailsContent() {
           <TxDataBlockTable
             headers={["Smartcard No", "Account Name"]}
             row={[RECIPIENT_TV.smartcardNo, RECIPIENT_TV.accountName]}
-          />
-        </section>
-
-        <DepositDeviceSection />
-      </>
-    );
-  }
-
-  if (v === "utility_electricity") {
-    return (
-      <>
-        <section className="mt-6">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Transaction Details
-          </h2>
-          <TxDataBlockTable
-            headers={[
-              "Transaction ID",
-              "Customer Names",
-              "Channel",
-              "Type",
-              "Product",
-              "Amount",
-            ]}
-            row={[
-              <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
-              TX_DATA.customerName,
-              "Utility",
-              "Electricity",
-              "EKEDC",
-              "₦30,000.00",
-            ]}
-          />
-          <TxDataBlockTable
-            className="mt-6"
-            headers={["Timestamp", "Fee", "Provider", "Balance after"]}
-            row={[
-              <TimeStampCell key="ts" value={TX_TIMESTAMP} />,
-              "₦30.00",
-              "Ringo",
-              "₦30,000.00",
-            ]}
-          />
-        </section>
-
-        <section className="mt-8">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Recipient Details
-          </h2>
-          <TxDataBlockTable
-            headers={["Address", "Meter Number", "Account Name"]}
-            row={[
-              RECIPIENT_UTILITY_ELECTRICITY.address,
-              RECIPIENT_UTILITY_ELECTRICITY.meterNumber,
-              RECIPIENT_UTILITY_ELECTRICITY.accountName,
-            ]}
           />
         </section>
 
@@ -563,184 +790,40 @@ function DepositTransactionDetailsContent() {
 }
 
 /* ── Transaction Details Tab ── */
-function TransactionDetailsTab() {
-  const isGiftcard = TX_DATA.channel === "Giftcard";
-
-  if (isGiftcard) {
-    const countryParts = TX_DATA.country.split(" | ");
-    const countryLeft = countryParts[0] ?? "";
-    const countryRest = countryParts.length > 1 ? ` | ${countryParts.slice(1).join(" | ")}` : "";
-    const du = TX_DATA.dateUploaded.split(" | ");
-    const dc = TX_DATA.dateCompleted.split(" | ");
-
-    return (
-      <>
-        <section className="mt-6">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Transaction Details
-          </h2>
-          <TxDataBlockTable
-            headers={[
-              "Session ID",
-              "Customer Names",
-              "Channel",
-              "Type",
-              "Country",
-              "Amount",
-            ]}
-            row={[
-              <Link
-                key="tid"
-                href="#"
-                className="underline underline-offset-2 hover:opacity-80"
-                style={{ color: LINK }}
-                onClick={(e) => e.preventDefault()}
-              >
-                {TX_DATA.sessionId}
-              </Link>,
-              TX_DATA.customerName,
-              "Giftcard",
-              TX_DATA.typeGift,
-              <span key="co" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{countryLeft}</span>
-                {countryRest}
-              </span>,
-              TX_DATA.amount,
-            ]}
-          />
-          <TxDataBlockTable
-            className="mt-6"
-            headers={[
-              "Amount Paid out",
-              "Date Uploaded",
-              "Date Completed",
-              "Rate / Fee Given",
-              "Balance after",
-              "Ops in charge",
-            ]}
-            row={[
-              TX_DATA.amountPaidOut,
-              <span key="du" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{du[0]}</span>
-                {du.length > 1 ? ` | ${du.slice(1).join(" | ")}` : ""}
-              </span>,
-              <span key="dc" className="text-sm" style={{ color: TEXT }}>
-                <span style={{ color: LINK }}>{dc[0]}</span>
-                {dc.length > 1 ? ` | ${dc.slice(1).join(" | ")}` : ""}
-              </span>,
-              TX_DATA.rateFeeGiven,
-              TX_DATA.balanceAfterGift,
-              TX_DATA.opsInCharge,
-            ]}
-          />
-        </section>
-
-        <section className="mt-8">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Device Information
-          </h2>
-          <TxDataBlockTable
-            headers={["Device", "Device ID", "Location", "Location Coordinate"]}
-            row={[
-              DEVICE_DATA_GIFT.device,
-              DEVICE_DATA_GIFT.deviceId,
-              DEVICE_DATA_GIFT.location,
-              DEVICE_DATA_GIFT.locationCoordinate,
-            ]}
-          />
-        </section>
-
-        <section className="mt-8">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Rejection Attachment
-          </h2>
-          <GiftcardImagePlaceholder />
-        </section>
-
-        <section className="mt-8">
-          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-            Physical Card Image
-          </h2>
-          <GiftcardImagePlaceholder />
-        </section>
-      </>
-    );
+function TransactionDetailsTab({ approvalStatus }: { approvalStatus: TxApprovalStatus }) {
+  switch (TX_DATA.channel) {
+    case "Esim":
+      return <EsimTransactionDetailsContent />;
+    case "Giftcard":
+      return (
+        <GiftcardTransactionDetails
+          approvalStatus={approvalStatus}
+          model={{
+            sessionId: TX_DATA.sessionId,
+            customerName: TX_DATA.customerName,
+            typeLabel: TX_DATA.giftcardType,
+            code: TX_DATA.code,
+            country: TX_DATA.country,
+            amount: TX_DATA.amount,
+            amountPaidOut: TX_DATA.amountPaidOut,
+            dateUploaded: TX_DATA.dateUploaded,
+            dateCompleted: TX_DATA.dateCompleted,
+            rateFeeGiven: TX_DATA.rateFeeGiven,
+            balanceAfterGift: TX_DATA.balanceAfterGift,
+            opsInCharge: TX_DATA.opsInCharge,
+            provider: TX_DATA.giftcardProvider,
+          }}
+          device={{
+            device: DEVICE_DATA_GIFT.device,
+            deviceId: DEVICE_DATA_GIFT.deviceId,
+            location: DEVICE_DATA_GIFT.location,
+            locationCoordinate: DEVICE_DATA_GIFT.locationCoordinate,
+          }}
+        />
+      );
+    default:
+      return <DepositTransactionDetailsContent />;
   }
-
-  return <DepositTransactionDetailsContent />;
-}
-
-function TxDataBlockTable({
-  headers,
-  row,
-  className = "",
-  collapseTopBorder = false,
-}: {
-  headers: string[];
-  row: ReactNode[];
-  className?: string;
-  collapseTopBorder?: boolean;
-}) {
-  const cellBorder = `1px solid ${BORDER}`;
-  const thBase = "px-4 py-3 text-left text-xs font-semibold align-middle";
-  const tdBase = "px-4 py-4 text-left text-sm font-normal align-top";
-  const n = headers.length;
-
-  return (
-    <div
-      className={["w-full overflow-hidden rounded-xl bg-white", className].filter(Boolean).join(" ")}
-    >
-      <table className="w-full border-collapse text-left">
-        <thead>
-          <tr style={{ backgroundColor: HEADER_BG }}>
-            {headers.map((h, i) => (
-              <th
-                key={h}
-                className={[
-                  thBase,
-                  !collapseTopBorder && i === 0 ? "rounded-tl-xl" : "",
-                  !collapseTopBorder && i === n - 1 ? "rounded-tr-xl" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  color: TEXT,
-                  borderBottom: cellBorder,
-                  borderRight: i < n - 1 ? cellBorder : "none",
-                  borderTop: collapseTopBorder ? "none" : cellBorder,
-                }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="bg-white">
-            {row.map((cell, i) => (
-              <td
-                key={i}
-                className={[
-                  tdBase,
-                  i === 0 ? "rounded-bl-xl" : "",
-                  i === n - 1 ? "rounded-br-xl" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  color: TEXT,
-                  borderBottom: cellBorder,
-                  borderRight: i < n - 1 ? cellBorder : "none",
-                }}
-              >
-                {cell}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 /* ── Transaction Log Tab ── */
