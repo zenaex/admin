@@ -15,7 +15,8 @@ import {
   Activity,
   Setting2,
   LogoutCurve,
-  MoneySend
+  MoneySend,
+  User,
 } from "iconsax-react";
 
 type SidebarItemProps = {
@@ -94,20 +95,18 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
       : pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const isUserMgtRoute = isActive("/dashboard/user-mgt");
-  const activeUserMgtItem = pathname.startsWith("/dashboard/user-mgt/admin-management")
-    ? "admin-management"
-    : pathname.startsWith("/dashboard/user-mgt/referral")
-      ? "referral"
-      : "customers";
+  const isCustomerMgtRoute =
+    pathname.startsWith("/dashboard/user-mgt/customers") ||
+    pathname.startsWith("/dashboard/user-mgt/referral");
+  const activeCustomerMgtItem = pathname.startsWith("/dashboard/user-mgt/referral") ? "referral" : "customers";
 
-  const [isUserMgtOpen, setIsUserMgtOpen] = useState(isUserMgtRoute);
-  const [wasUserMgtRoute, setWasUserMgtRoute] = useState(isUserMgtRoute);
+  const [isCustomerMgtOpen, setIsCustomerMgtOpen] = useState(isCustomerMgtRoute);
+  const [wasCustomerMgtRoute, setWasCustomerMgtRoute] = useState(isCustomerMgtRoute);
 
   useEffect(() => {
-    if (isUserMgtRoute && !wasUserMgtRoute) setIsUserMgtOpen(true);
-    setWasUserMgtRoute(isUserMgtRoute);
-  }, [isUserMgtRoute, wasUserMgtRoute]);
+    if (isCustomerMgtRoute && !wasCustomerMgtRoute) setIsCustomerMgtOpen(true);
+    setWasCustomerMgtRoute(isCustomerMgtRoute);
+  }, [isCustomerMgtRoute, wasCustomerMgtRoute]);
 
   return (
     <aside
@@ -180,50 +179,50 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           />
           {collapsed ? (
             <SidebarItem
-              href="/dashboard/user-mgt"
-              label="User Mgt"
+              href="/dashboard/user-mgt/customers"
+              label="Customer Mgt"
               icon={
                 <People
                   size="24px"
                   color="currentColor"
-                  variant={isActive("/dashboard/user-mgt") ? "Bold" : "Outline"}
+                  variant={isCustomerMgtRoute ? "Bold" : "Outline"}
                 />
               }
-              active={isActive("/dashboard/user-mgt")}
+              active={isCustomerMgtRoute}
               collapsed={collapsed}
             />
           ) : (
             <button
               type="button"
               className={`relative flex h-10 w-full items-center rounded-lg text-left transition-colors ${
-                isUserMgtRoute
+                isCustomerMgtRoute
                   ? "bg-secondary-green text-white"
                   : "text-input-disabled-text hover:bg-secondary-green hover:text-white"
               } ${collapsed ? "justify-center px-0" : "gap-2.5 px-2.5"}`}
-              aria-label="User Mgt"
-              aria-expanded={isUserMgtOpen}
+              aria-label="Customer Mgt"
+              aria-expanded={isCustomerMgtOpen}
               onClick={() => {
-                setIsUserMgtOpen((prev) => {
+                setIsCustomerMgtOpen((prev) => {
                   const next = !prev;
-                  setActiveOverrideHref(next ? "/dashboard/user-mgt" : null);
+                  setActiveOverrideHref(next ? "/dashboard/user-mgt/customers" : null);
                   return next;
                 });
               }}
             >
-              {isUserMgtOpen ? (
+              {isCustomerMgtOpen ? (
                 <span className="absolute -left-4 top-1/2 h-6 w-3 -translate-y-1/2 rounded-r-full bg-primary-green" />
               ) : null}
-              <span className={isUserMgtOpen ? "text-white" : "text-input-disabled-text"}>
+              <span className={isCustomerMgtOpen ? "text-white" : "text-input-disabled-text"}>
                 <People
                   size="24px"
                   color="currentColor"
-                  variant={isUserMgtOpen ? "Bold" : "Outline"}
+                  variant={isCustomerMgtOpen ? "Bold" : "Outline"}
                 />
               </span>
-              <span className="text-[14px] font-medium">User Mgt</span>
+              <span className="text-[14px] font-medium">Customer Mgt</span>
               <span
                 className={`ml-auto text-input-disabled-text transition-transform ${
-                  isUserMgtOpen ? "rotate-180" : ""
+                  isCustomerMgtOpen ? "rotate-180" : ""
                 }`}
               >
                 <ArrowDown2 size="24" color="currentColor" variant="Outline" />
@@ -231,7 +230,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
             </button>
           )}
 
-          {!collapsed && isUserMgtOpen ? (
+          {!collapsed && isCustomerMgtOpen ? (
             <div className="relative mt-1 ml-5 pl-3 rounded-[6px] w-[96px]">
               {/* Connector line that passes through the submenu dots */}
               <div className="absolute left-5 -top-2 bottom-4 w-px bg-input-disabled-text" />
@@ -240,18 +239,18 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                 <Link
                   href="/dashboard/user-mgt/customers"
                   className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
-                    activeUserMgtItem === "customers"
+                    activeCustomerMgtItem === "customers"
                       ? "text-white"
                       : "text-input-disabled-text hover:text-white"
                   }`}
                   aria-label="Customers"
                   onClick={(e) => {
-                    if (activeUserMgtItem === "customers") e.preventDefault();
+                    if (activeCustomerMgtItem === "customers") e.preventDefault();
                   }}
                 >
                   <span
                     className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
-                      activeUserMgtItem === "customers"
+                      activeCustomerMgtItem === "customers"
                         ? "bg-white"
                         : "bg-input-disabled-text"
                     } z-10`}
@@ -260,42 +259,20 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
                 </Link>
 
                 <Link
-                  href="/dashboard/user-mgt/admin-management"
-                  className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
-                    activeUserMgtItem === "admin-management"
-                      ? "text-white"
-                      : "text-input-disabled-text hover:text-white"
-                  }`}
-                  aria-label="Admin Mgt"
-                  onClick={(e) => {
-                    if (activeUserMgtItem === "admin-management") e.preventDefault();
-                  }}
-                >
-                  <span
-                    className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
-                      activeUserMgtItem === "admin-management"
-                        ? "bg-white"
-                        : "bg-input-disabled-text"
-                    } z-10`}
-                  />
-                  Admin Mgt
-                </Link>
-
-                <Link
                   href="/dashboard/user-mgt/referral"
                   className={`relative flex flex-nowrap items-center pl-6 whitespace-nowrap text-[14px] font-medium ${
-                    activeUserMgtItem === "referral"
+                    activeCustomerMgtItem === "referral"
                       ? "text-white"
                       : "text-input-disabled-text hover:text-white"
                   }`}
                   aria-label="Referral"
                   onClick={(e) => {
-                    if (activeUserMgtItem === "referral") e.preventDefault();
+                    if (activeCustomerMgtItem === "referral") e.preventDefault();
                   }}
                 >
                   <span
                     className={`absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ${
-                      activeUserMgtItem === "referral"
+                      activeCustomerMgtItem === "referral"
                         ? "bg-white"
                         : "bg-input-disabled-text"
                     } z-10`}
@@ -307,7 +284,7 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           ) : null}
           <SidebarItem
             href="/dashboard/product-mgt"
-            label="Product Mgt"
+            label="Product & Rate Mgt"
             icon={
               <I3Dcube
                 size="24"
@@ -376,6 +353,19 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
               />
             }
             active={isActive("/dashboard/communication")}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            href="/dashboard/user-mgt/admin-management"
+            label="User Management"
+            icon={
+              <User
+                size="24"
+                color="currentColor"
+                variant={isActive("/dashboard/user-mgt/admin-management") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/user-mgt/admin-management")}
             collapsed={collapsed}
           />
           <SidebarItem
