@@ -1,12 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays } from "lucide-react";
 
 import { AuditTrailHeader } from "@/components/audit-trail/audit-trail-header";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { AuditTrailRow, AuditTrailTable } from "@/components/audit-trail/audit-trail-table";
 import { AuditTrailTabId, AuditTrailTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 const INTERNAL_BASE_ROWS: Omit<AuditTrailRow, "id">[] = [
   {
@@ -163,22 +174,66 @@ const CUSTOMER_ROWS = buildMockRows(180, CUSTOMER_BASE_ROWS, "customer");
 export function AuditTrailView() {
   const [tab, setTab] = useState<AuditTrailTabId>("internal");
   const [tableSearch, setTableSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "role" | "action" | "session">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"role" | "action" | "session">(openFilter, filterMode);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
 
   const activeRows = tab === "customers" ? CUSTOMER_ROWS : INTERNAL_ROWS;
 
+  const roleOptions = useMemo(
+    () => Array.from(new Set(activeRows.map((r) => r.role))).sort(),
+    [activeRows],
+  );
+  const actionOptions = useMemo(
+    () => Array.from(new Set(activeRows.map((r) => r.action))).sort(),
+    [activeRows],
+  );
+  const roleFilterOptions = useMemo(() => ["All roles", ...roleOptions], [roleOptions]);
+  const actionFilterOptions = useMemo(() => ["All actions", ...actionOptions], [actionOptions]);
+
+  const [draftRole, setDraftRole] = useState("All roles");
+  const [draftAction, setDraftAction] = useState("All actions");
+  const [draftSessionLabel, setDraftSessionLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedRole, setAppliedRole] = useState<string | null>(null);
+  const [appliedAction, setAppliedAction] = useState<string | null>(null);
+  const [appliedSessionLabel, setAppliedSessionLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraftRole("All roles");
+    setDraftAction("All actions");
+  }, [tab]);
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const filteredRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
-    const source = activeRows;
-    if (!q) return source;
-    return source.filter(
-      (r) =>
+    return activeRows.filter((r) => {
+      if (appliedRole && appliedRole !== "All roles" && r.role !== appliedRole) return false;
+      if (appliedAction && appliedAction !== "All actions" && r.action !== appliedAction)
+        return false;
+      if (appliedSessionLabel && !r.sessionIn.includes("Jan 6, 2026")) return false;
+      if (!q) return true;
+      return (
         r.name.toLowerCase().includes(q) ||
         r.email.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q),
-    );
-  }, [tableSearch, activeRows]);
+        r.id.toLowerCase().includes(q)
+      );
+    });
+  }, [tableSearch, activeRows, appliedRole, appliedAction, appliedSessionLabel]);
 
   const totalItems = filteredRows.length;
 
@@ -200,7 +255,147 @@ export function AuditTrailView() {
           setPage(1);
         }}
       />
-      <AuditTrailToolbar tableSearch={tableSearch} onTableSearchChange={setTableSearch} />
+      {filterMode ? (
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Role"
+                summary={draftRole}
+                pillRef={registerPillRef("role")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "role" ? null : "role";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Action"
+                summary={draftAction}
+                pillRef={registerPillRef("action")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "action" ? null : "action";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Session In"
+                summary={draftSessionLabel}
+                pillRef={registerPillRef("session")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "session" ? null : "session";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "session" ? null : "session";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "role" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[220px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={roleFilterOptions}
+                    onSelect={(opt) => {
+                      setDraftRole(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "action" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="min-w-[240px] max-w-[min(90vw,360px)]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={actionFilterOptions}
+                    onSelect={(opt) => {
+                      setDraftAction(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "session" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftSessionLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Jan 6, 2026 - Jan 6, 2026
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedRole(draftRole);
+                setAppliedAction(draftAction);
+                setAppliedSessionLabel(draftSessionLabel);
+                setOpenFilter(null);
+                setPage(1);
+              }}
+              onClear={() => {
+                setTableSearch("");
+                setAppliedRole(null);
+                setAppliedAction(null);
+                setAppliedSessionLabel(null);
+                setDraftRole("All roles");
+                setDraftAction("All actions");
+                setDraftSessionLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+              }}
+            />
+          }
+        />
+      ) : (
+        <AuditTrailToolbar
+          tableSearch={tableSearch}
+          onTableSearchChange={setTableSearch}
+          onFilterClick={() => {
+            setTableSearch("");
+            setFilterMode(true);
+          }}
+        />
+      )}
       <AuditTrailTable rows={paginatedRows} />
       <AuditTrailPagination
         page={safePage}

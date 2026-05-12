@@ -2,12 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ListFilter } from "lucide-react";
+import { CalendarDays, ListFilter } from "lucide-react";
 
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
-import { EtradeFilterBar } from "@/components/e-trades/etrade-filter-bar";
 import {
   ALL_ETRADE_REQUESTS,
   ETRADE_TYPE_FILTER_OPTIONS,
@@ -17,11 +16,25 @@ import { EtradeRequestList } from "@/components/e-trades/etrade-request-list";
 import { EtradeTransactionList } from "@/components/e-trades/etrade-transaction-list";
 import type { EtradeTabId } from "@/components/e-trades/etrade-types";
 import { ProviderHeader } from "@/components/provider/provider-header";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 const TABS: { id: EtradeTabId; label: string }[] = [
   { id: "requests", label: "Requests" },
   { id: "transaction-details", label: "Transaction Details" },
 ];
+
+const TXN_TYPE_OPTIONS = ["All types", ...Array.from(new Set(ALL_ETRADE_TRANSACTION_ROWS.map((r) => r.title))).sort()];
+const REQ_STATUS_OPTIONS = ["All statuses", "Pending", "Successful", "Failed"] as const;
+const TXN_STATUS_OPTIONS = ["All statuses", "Successful", "Failed"] as const;
 
 export function EtradeView() {
   const router = useRouter();
@@ -33,9 +46,18 @@ export function EtradeView() {
   const [page, setPage] = useState(1);
   const [txnPage, setTxnPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [draftEtradeType, setDraftEtradeType] = useState(ETRADE_TYPE_FILTER_OPTIONS[0] ?? "");
-  const [appliedEtradeType, setAppliedEtradeType] = useState<string | null>(null);
+
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "type" | "status" | "date">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"type" | "status" | "date">(openFilter, filterMode);
+
+  const [draftType, setDraftType] = useState("All types");
+  const [draftStatus, setDraftStatus] = useState("All statuses");
+  const [draftDateLabel, setDraftDateLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [appliedType, setAppliedType] = useState<string | null>(null);
+  const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
+  const [appliedDateLabel, setAppliedDateLabel] = useState<string | null>(null);
 
   useEffect(() => {
     if (tabFromUrl === "transaction-details") {
@@ -45,6 +67,41 @@ export function EtradeView() {
     }
   }, [tabFromUrl]);
 
+  useEffect(() => {
+    setFilterMode(false);
+    setOpenFilter(null);
+    setDraftType("All types");
+    setDraftStatus("All statuses");
+    setAppliedType(null);
+    setAppliedStatus(null);
+    setAppliedDateLabel(null);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const typeOptions = useMemo(
+    () =>
+      activeTab === "requests"
+        ? (["All types", ...ETRADE_TYPE_FILTER_OPTIONS] as string[])
+        : TXN_TYPE_OPTIONS,
+    [activeTab],
+  );
+
+  const statusOptions = useMemo(
+    () => (activeTab === "requests" ? [...REQ_STATUS_OPTIONS] : [...TXN_STATUS_OPTIONS]),
+    [activeTab],
+  );
+
   const setTab = (id: EtradeTabId) => {
     setActiveTab(id);
     router.replace(`/dashboard/e-trades?tab=${id}`, { scroll: false });
@@ -53,29 +110,35 @@ export function EtradeView() {
   const filteredRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
     return ALL_ETRADE_REQUESTS.filter((r) => {
-      const matchType = !appliedEtradeType || r.etradeType === appliedEtradeType;
+      if (appliedType && appliedType !== "All types" && r.etradeType !== appliedType) return false;
+      if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus)
+        return false;
+      if (appliedDateLabel && !r.subtitle.includes("Jan")) return false;
       const matchSearch =
         !q ||
         r.title.toLowerCase().includes(q) ||
         r.id.toLowerCase().includes(q) ||
         r.etradeType.toLowerCase().includes(q);
-      return matchType && matchSearch;
+      return matchSearch;
     });
-  }, [tableSearch, appliedEtradeType]);
+  }, [tableSearch, appliedType, appliedStatus, appliedDateLabel]);
 
   const filteredTxnRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
     return ALL_ETRADE_TRANSACTION_ROWS.filter((r) => {
-      const matchType = !appliedEtradeType || r.title === appliedEtradeType;
+      if (appliedType && appliedType !== "All types" && r.title !== appliedType) return false;
+      if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus)
+        return false;
+      if (appliedDateLabel && !r.subtitle.includes("Jan")) return false;
       const matchSearch =
         !q ||
         r.title.toLowerCase().includes(q) ||
         r.id.toLowerCase().includes(q) ||
         r.amount.toLowerCase().includes(q) ||
         r.status.toLowerCase().includes(q);
-      return matchType && matchSearch;
+      return matchSearch;
     });
-  }, [tableSearch, appliedEtradeType]);
+  }, [tableSearch, appliedType, appliedStatus, appliedDateLabel]);
 
   const requestItems = filteredRows.length;
   const txnItems = filteredTxnRows.length;
@@ -95,18 +158,38 @@ export function EtradeView() {
     return filteredTxnRows.slice(start, start + pageSize);
   }, [filteredTxnRows, safePage, pageSize]);
 
-  const handleApplyFilter = () => {
-    setAppliedEtradeType(draftEtradeType);
-    setPage(1);
-    setTxnPage(1);
-  };
+  const tradeTypeLabel = activeTab === "requests" ? "Trade type" : "Trade name";
 
-  const handleClearFilter = () => {
-    setAppliedEtradeType(null);
-    setDraftEtradeType(ETRADE_TYPE_FILTER_OPTIONS[0] ?? "");
-    setPage(1);
-    setTxnPage(1);
-  };
+  const toolbarSearch = (
+    <div className="mt-6 flex h-14.5 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
+      <div className="w-full min-w-0 sm:w-[325px]">
+        <AuditTrailIconSearch
+          variant="toolbar"
+          placeholder="Search by Trade Name"
+          aria-label="Search by trade name"
+          value={tableSearch}
+          onChange={(e) => {
+            setTableSearch(e.target.value);
+            setPage(1);
+            setTxnPage(1);
+          }}
+        />
+      </div>
+      <div className="ml-auto flex items-center gap-2">
+        <button
+          type="button"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
+          aria-label="Filter"
+          onClick={() => {
+            setTableSearch("");
+            setFilterMode(true);
+          }}
+        >
+          <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div>
@@ -116,117 +199,160 @@ export function EtradeView() {
         <UnderlineTabs tabs={TABS} active={activeTab} onChange={(id) => setTab(id as EtradeTabId)} />
       </div>
 
-      {activeTab === "requests" ? (
-        <>
-          <div className="mt-6 flex h-14.5 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-            <div className="w-full min-w-0 sm:w-[325px]">
-              <AuditTrailIconSearch
-                variant="toolbar"
-                placeholder="Search by Trade Name"
-                aria-label="Search by trade name"
-                value={tableSearch}
-                onChange={(e) => {
-                  setTableSearch(e.target.value);
-                  setPage(1);
-                  setTxnPage(1);
-                }}
+      {filterMode ? (
+        <TableFilterModeBar
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label={tradeTypeLabel}
+                summary={draftType}
+                pillRef={registerPillRef("type")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "type" ? null : "type";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
               />
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFilterOpen((o) => !o)}
-                className={[
-                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white transition-colors",
-                  filterOpen ? "bg-surface-subtle text-brand-navy" : "text-zinc-600 hover:bg-surface-subtle",
-                ].join(" ")}
-                aria-label="Filter"
-                aria-expanded={filterOpen}
-              >
-                <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              </button>
-            </div>
-          </div>
-
-          {filterOpen ? (
-            <EtradeFilterBar
-              etradeType={draftEtradeType}
-              etradeTypeOptions={ETRADE_TYPE_FILTER_OPTIONS}
-              onEtradeTypeChange={setDraftEtradeType}
-              onApply={handleApplyFilter}
-              onClear={handleClearFilter}
+              <TableFilterPill
+                label="Status"
+                summary={draftStatus}
+                pillRef={registerPillRef("status")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "status" ? null : "status";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Date"
+                summary={draftDateLabel}
+                pillRef={registerPillRef("date")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "date" ? null : "date";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton
+              ariaLabel="Calendar"
+              onClick={() =>
+                setOpenFilter((v) => {
+                  const next = v === "date" ? null : "date";
+                  syncDropdownLeft(next);
+                  return next;
+                })
+              }
+            >
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "type" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="min-w-[220px] max-w-[min(92vw,340px)]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={typeOptions}
+                    onSelect={(opt) => {
+                      setDraftType(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "status" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={statusOptions}
+                    onSelect={(opt) => {
+                      setDraftStatus(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "date" ? (
+                <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterPanelTitle />
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
+                    onClick={() => {
+                      setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                      setOpenFilter(null);
+                    }}
+                  >
+                    Jan 6, 2026 - Jan 6, 2026
+                    <CalendarDays size={16} />
+                  </button>
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedType(draftType === "All types" ? null : draftType);
+                setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
+                setAppliedDateLabel(draftDateLabel);
+                setOpenFilter(null);
+                setPage(1);
+                setTxnPage(1);
+              }}
+              onClear={() => {
+                setTableSearch("");
+                setAppliedType(null);
+                setAppliedStatus(null);
+                setAppliedDateLabel(null);
+                setDraftType("All types");
+                setDraftStatus("All statuses");
+                setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+                setTxnPage(1);
+              }}
             />
-          ) : null}
-
-          <EtradeRequestList rows={paginatedRequests} />
-
-          <AuditTrailPagination
-            page={safePage}
-            pageSize={pageSize}
-            totalItems={requestItems}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-          />
-        </>
+          }
+        />
       ) : (
-        <>
-          <div className="mt-6 flex h-14.5 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-            <div className="w-full min-w-0 sm:w-[325px]">
-              <AuditTrailIconSearch
-                variant="toolbar"
-                placeholder="Search by Trade Name"
-                aria-label="Search by trade name"
-                value={tableSearch}
-                onChange={(e) => {
-                  setTableSearch(e.target.value);
-                  setPage(1);
-                  setTxnPage(1);
-                }}
-              />
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFilterOpen((o) => !o)}
-                className={[
-                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white transition-colors",
-                  filterOpen ? "bg-surface-subtle text-brand-navy" : "text-zinc-600 hover:bg-surface-subtle",
-                ].join(" ")}
-                aria-label="Filter"
-                aria-expanded={filterOpen}
-              >
-                <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              </button>
-            </div>
-          </div>
-
-          {filterOpen ? (
-            <EtradeFilterBar
-              etradeType={draftEtradeType}
-              etradeTypeOptions={ETRADE_TYPE_FILTER_OPTIONS}
-              onEtradeTypeChange={setDraftEtradeType}
-              onApply={handleApplyFilter}
-              onClear={handleClearFilter}
-            />
-          ) : null}
-
-          <EtradeTransactionList rows={paginatedTxn} />
-
-          <AuditTrailPagination
-            page={safePage}
-            pageSize={pageSize}
-            totalItems={txnItems}
-            onPageChange={setTxnPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setTxnPage(1);
-            }}
-          />
-        </>
+        toolbarSearch
       )}
+
+      {activeTab === "requests" ? (
+        <EtradeRequestList rows={paginatedRequests} />
+      ) : (
+        <EtradeTransactionList rows={paginatedTxn} />
+      )}
+
+      <AuditTrailPagination
+        page={safePage}
+        pageSize={pageSize}
+        totalItems={activeTotal}
+        onPageChange={activeTab === "requests" ? setPage : setTxnPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+          setTxnPage(1);
+        }}
+      />
     </div>
   );
 }

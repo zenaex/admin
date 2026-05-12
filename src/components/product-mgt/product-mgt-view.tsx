@@ -1,13 +1,21 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown2, Edit, WalletMoney, CardReceive, CardSend, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
-import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
+import { ArrowDown2, Edit, WalletMoney, CardReceive, CardSend } from "iconsax-react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 import { ProviderHeader } from "@/components/provider/provider-header";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 /* ── Types ── */
 type ProductTab = "All" | "Utility" | "Crypto" | "Giftcard" | "E-sim";
@@ -26,6 +34,8 @@ type ProductRow = {
 
 /* ── Seed data ── */
 const PROVIDERS = ["Buypower", "Presmit", "Quidax", "Baxi", "Flutterwave"];
+const PRODUCT_STATUS_FILTER = ["All statuses", "Active", "Inactive"] as const;
+const PROVIDER_FILTER_OPTIONS = ["All providers", ...PROVIDERS];
 
 const BASE_PRODUCTS: Omit<ProductRow, "id">[] = [
   { productName: "EKEDC Postpaid", productCategory: "Electricity", commissionType: "Percentage", commissionRate: "1.0%", cap: "-", switchProvider: "Buypower", status: "Active" },
@@ -39,6 +49,11 @@ const BASE_PRODUCTS: Omit<ProductRow, "id">[] = [
   { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
   { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
   { productName: "Spectranet Data", productCategory: "Internet", commissionType: "% capped @", commissionRate: "₦5000", cap: "-", switchProvider: "Buypower", status: "Active" },
+];
+
+const COMMISSION_TYPE_FILTER = [
+  "All types",
+  ...Array.from(new Set(BASE_PRODUCTS.map((p) => p.commissionType))),
 ];
 
 const ALL_PRODUCTS: ProductRow[] = Array.from({ length: 180 }, (_, i) => ({
@@ -128,21 +143,69 @@ export function ProductMgtView() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProductTab>("All");
   const [search, setSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "status" | "provider" | "commission">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"status" | "provider" | "commission">(openFilter, filterMode);
+
+  const [draftStatus, setDraftStatus] = useState<string>("All statuses");
+  const [draftProvider, setDraftProvider] = useState("All providers");
+  const [draftCommission, setDraftCommission] = useState("All types");
+  const [appliedProductStatus, setAppliedProductStatus] = useState<string | null>(null);
+  const [appliedSwitchProvider, setAppliedSwitchProvider] = useState<string | null>(null);
+  const [appliedCommissionType, setAppliedCommissionType] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [statuses, setStatuses] = useState<Record<string, ProductStatus>>({});
   const [providers, setProviders] = useState<Record<string, string>>({});
-  const [exportOpen, setExportOpen] = useState(false);
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const filteredProducts = useMemo(() => {
     const category = TAB_CATEGORY_MAP[activeTab];
     const q = search.trim().toLowerCase();
     return ALL_PRODUCTS.filter((p) => {
       if (category && p.productCategory !== category) return false;
-      if (q) return p.productName.toLowerCase().includes(q) || p.productCategory.toLowerCase().includes(q) || p.id.toLowerCase().includes(q);
+      const st = statuses[p.id] ?? p.status;
+      const prov = providers[p.id] ?? p.switchProvider;
+      if (appliedProductStatus && appliedProductStatus !== "All statuses" && st !== appliedProductStatus)
+        return false;
+      if (appliedSwitchProvider && appliedSwitchProvider !== "All providers" && prov !== appliedSwitchProvider)
+        return false;
+      if (
+        appliedCommissionType &&
+        appliedCommissionType !== "All types" &&
+        p.commissionType !== appliedCommissionType
+      )
+        return false;
+      if (q)
+        return (
+          p.productName.toLowerCase().includes(q) ||
+          p.productCategory.toLowerCase().includes(q) ||
+          p.id.toLowerCase().includes(q)
+        );
       return true;
     });
-  }, [activeTab, search]);
+  }, [
+    activeTab,
+    search,
+    statuses,
+    providers,
+    appliedProductStatus,
+    appliedSwitchProvider,
+    appliedCommissionType,
+  ]);
 
   const totalItems = filteredProducts.length;
   const safePage = Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)));
@@ -172,49 +235,131 @@ export function ProductMgtView() {
         />
       </div>
 
-      {/* Toolbar */}
-      <div className="mt-4 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-        <div className="w-[280px] shrink-0">
-          <AuditTrailIconSearch
-            variant="toolbar"
-            placeholder="Search by name or ID"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle" aria-label="Filter">
-            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-            >
-              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              Export
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      {filterMode ? (
+        <TableFilterModeBar
+          barClassName="!mt-4"
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="Status"
+                summary={draftStatus}
+                pillRef={registerPillRef("status")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "status" ? null : "status";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Switch provider"
+                summary={draftProvider}
+                pillRef={registerPillRef("provider")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "provider" ? null : "provider";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Commission type"
+                summary={draftCommission}
+                pillRef={registerPillRef("commission")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "commission" ? null : "commission";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "status" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[180px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={[...PRODUCT_STATUS_FILTER]}
+                    onSelect={(opt) => {
+                      setDraftStatus(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "provider" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={PROVIDER_FILTER_OPTIONS}
+                    onSelect={(opt) => {
+                      setDraftProvider(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "commission" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="min-w-[200px] max-w-[min(92vw,320px)]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={COMMISSION_TYPE_FILTER}
+                    onSelect={(opt) => {
+                      setDraftCommission(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => {
+                setAppliedProductStatus(draftStatus === "All statuses" ? null : draftStatus);
+                setAppliedSwitchProvider(draftProvider === "All providers" ? null : draftProvider);
+                setAppliedCommissionType(draftCommission === "All types" ? null : draftCommission);
+                setOpenFilter(null);
+                setPage(1);
+              }}
+              onClear={() => {
+                setSearch("");
+                setAppliedProductStatus(null);
+                setAppliedSwitchProvider(null);
+                setAppliedCommissionType(null);
+                setDraftStatus("All statuses");
+                setDraftProvider("All providers");
+                setDraftCommission("All types");
+                setOpenFilter(null);
+                setFilterMode(false);
+                setPage(1);
+              }}
+            />
+          }
+        />
+      ) : (
+        <AuditTrailToolbar
+          className="mt-4"
+          tableSearch={search}
+          onTableSearchChange={setSearch}
+          onFilterClick={() => {
+            setSearch("");
+            setFilterMode(true);
+          }}
+        />
+      )}
 
       {/* Table */}
       <div className="mt-4 overflow-x-auto rounded-[8px]">

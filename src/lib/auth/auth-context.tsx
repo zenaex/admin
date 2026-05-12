@@ -1,0 +1,150 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+import { postAdminLogin, postAdminVerifyOtp } from "@/lib/admin-api/auth-api";
+import type { AdminTokenPair } from "@/lib/admin-api/types";
+import { tryRefreshSession } from "@/lib/admin-api/client";
+import { decodeJwtPayload } from "@/lib/auth/jwt";
+import {
+  clearAuthStorage,
+  clearPendingOtpEmail,
+  getAccessToken,
+  getPendingOtpEmail,
+  getRefreshToken,
+  setPendingOtpEmail,
+  setTokens,
+} from "@/lib/auth/token-storage";
+
+type AuthContextValue = {
+  ready: boolean;
+  isAuthenticated: boolean;
+  /** Email used for the OTP step (after password login). */
+  pendingOtpEmail: string | null;
+  displayEmail: string | null;
+  login: (email: string, password: string) => Promise<"otp" | "dashboard">;
+  verifyOtp: (otp: string) => Promise<void>;
+  applyTokenPair: (pair: AdminTokenPair) => void;
+  logout: () => void;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+function emailFromAccessToken(token: string | null): string | null {
+  if (!token) return null;
+  const p = decodeJwtPayload(token);
+  if (!p) return null;
+  const sub = p.sub ?? p.email;
+  return typeof sub === "string" ? sub : null;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [displayEmail, setDisplayEmail] = useState<string | null>(null);
+  const [pendingOtpEmail, setPendingOtpEmailState] = useState<string | null>(null);
+
+  const syncFromStorage = useCallback(() => {
+    const access = getAccessToken();
+    setIsAuthenticated(Boolean(access));
+    setDisplayEmail(emailFromAccessToken(access));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!getAccessToken() && getRefreshToken()) {
+          await tryRefreshSession();
+        }
+      } finally {
+        if (!cancelled) {
+          syncFromStorage();
+          setPendingOtpEmailState(getPendingOtpEmail());
+          setReady(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [syncFromStorage]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await postAdminLogin({ email: email.trim(), password });
+    const requiresOtp =
+      res.requires_2fa === true ||
+      // Some backends return success/message with empty tokens when OTP is required.
+      (res.success === true && !res.accessToken && !res.refreshToken);
+    if (requiresOtp) {
+      const e = email.trim();
+      setPendingOtpEmail(e);
+      setPendingOtpEmailState(e);
+      return "otp" as const;
+    }
+    if (res.accessToken && res.refreshToken) {
+      setTokens(res.accessToken, res.refreshToken);
+      syncFromStorage();
+      return "dashboard" as const;
+    }
+    throw new Error("Unexpected login response");
+  }, [syncFromStorage]);
+
+  const verifyOtp = useCallback(async (otp: string) => {
+    const email = getPendingOtpEmail();
+    if (!email) throw new Error("Session expired. Please sign in again.");
+    const digits = otp.replace(/\D/g, "");
+    const pair = await postAdminVerifyOtp({ email, otp: digits });
+    setTokens(pair.accessToken, pair.refreshToken);
+    clearPendingOtpEmail();
+    setPendingOtpEmailState(null);
+    syncFromStorage();
+  }, [syncFromStorage]);
+
+  const applyTokenPair = useCallback(
+    (pair: AdminTokenPair) => {
+      setTokens(pair.accessToken, pair.refreshToken);
+      clearPendingOtpEmail();
+      setPendingOtpEmailState(null);
+      syncFromStorage();
+    },
+    [syncFromStorage],
+  );
+
+  const logout = useCallback(() => {
+    clearAuthStorage();
+    setIsAuthenticated(false);
+    setDisplayEmail(null);
+    setPendingOtpEmailState(null);
+  }, []);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      ready,
+      isAuthenticated,
+      pendingOtpEmail,
+      displayEmail,
+      login,
+      verifyOtp,
+      applyTokenPair,
+      logout,
+    }),
+    [applyTokenPair, displayEmail, isAuthenticated, login, logout, pendingOtpEmail, ready, verifyOtp],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
+}

@@ -1,8 +1,9 @@
 "use client";
 
-import { Notification, Setting2 } from "iconsax-react";
+import { Setting2 } from "iconsax-react";
 
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
+import { NotificationDrawerTrigger } from "@/components/notifications/notification-drawer";
 
 export function CommunicationHeader() {
   return (
@@ -18,16 +19,7 @@ export function CommunicationHeader() {
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-outline hover:text-zinc-600"
-          aria-label="Notifications"
-        >
-          <Notification size={22} variant="Outline" color="currentColor" />
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[10px] font-semibold text-white">
-            3
-          </span>
-        </button>
+        <NotificationDrawerTrigger notificationCount={3} />
         <button
           type="button"
           className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-outline hover:text-zinc-600"

@@ -55,14 +55,13 @@ All routes live under **`src/app/`**. The home route redirects to login.
 | `/dashboard/transactions` | Stub |
 | `/dashboard/e-trades` | Stub |
 | `/dashboard/product-mgt` | Stub |
-| `/dashboard/biller-management` | Stub |
 | `/dashboard/communication` | Stub |
 | `/dashboard/audit-trail` | Stub |
 | `/dashboard/settings` | Stub |
 | `/dashboard/user-mgt` | Redirects to `/dashboard/user-mgt/customers` |
-| `/dashboard/user-mgt/customers` | User Mgt — customers (default under user-mgt) |
-| `/dashboard/user-mgt/admin-management` | User Mgt — admin management |
-| `/dashboard/user-mgt/referral` | User Mgt — referral |
+| `/dashboard/user-mgt/customers` | Customer Mgt — customers |
+| `/dashboard/user-mgt/admin-management` | Account — user management (admin) |
+| `/dashboard/user-mgt/referral` | Customer Mgt — referral |
 
 ---
 

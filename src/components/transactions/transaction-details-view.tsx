@@ -7,86 +7,13 @@ import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import { GiftcardTransactionDetails } from "@/components/transactions/transaction-details/giftcard-details";
 import type { TxApprovalStatus } from "@/components/transactions/transaction-details/types";
-import { TxDataBlockTable, BORDER, HEADER_BG, TEXT, LINK } from "@/components/transactions/transaction-details/tx-data-block-table";
-
-/* ── Types ── */
-
-/** E-sim / non-giftcard outcome for status banner (does not affect giftcard Pending/Approved/Rejected). */
-type EsimTransactionOutcome = "Successful" | "Pending" | "Failed";
-
-/** Deposit / non-giftcard transaction detail layout (switch in `TX_DATA.depositDetailVariant`). Ignored when `channel === "Esim"`. */
-type DepositDetailVariant = "crypto" | "utility" | "utility_betting";
-
-/** When `depositDetailVariant === "utility"`, pick Electricity / Data / TV layout. */
-type UtilityDetailVariant = "electricity" | "data" | "tv";
-
-/** When `depositDetailVariant === "crypto"`, pick Buy / Swap / Sell deposit layout. */
-type CryptoDetailVariant = "buy" | "swap" | "sell_deposit";
-
-/* ── Mock data: use channel "Giftcard" (+ optional status Pending/Rejected) for giftcard tables & image placeholders. ── */
-const TX_DATA = {
-  channel: "Deposit" as "Deposit" | "Giftcard" | "Crypto" | "Esim",
-  /** When `channel` is `"Deposit"` or `"Crypto"`, pick utility / crypto / betting layout. */
-  depositDetailVariant: "utility" as DepositDetailVariant,
-  /**
-   * QA (e-sim): set `channel: "Esim"`, then toggle `esimOutcome`:
-   * `"Successful"` (green Approved!) · `"Pending"` (orange **Pending!**, timestamp Jan 5, 2025) · `"Failed"` (red **Failed!**).
-   */
-  esimOutcome: "Successful" as EsimTransactionOutcome,
-  /** Row “Channel” label; match transactions list tab spelling. */
-  esimChannelLabel: "E-sim",
-  esimCoverage: "Global",
-  esimDataAllowance: "5GB, Unlimited",
-  esimValidity: "30 days",
-  esimPriceUsd: "$30.00",
-  esimPriceNgn: "₦30,000.00",
-  esimProvider: "Airalo",
-  esimBalanceAfter: "₦30,000.00",
-  /**
-   * QA (utility): set `channel: "Deposit"`, `depositDetailVariant: "utility"`, then toggle:
-   * `utilityDetailVariant`: `"electricity"` | `"data"` | `"tv"`.
-   */
-  utilityDetailVariant: "electricity" as UtilityDetailVariant,
-  /**
-   * QA: set `depositDetailVariant: "crypto"` and `channel` to `"Crypto"` (buy/swap) or `"Deposit"` (sell deposit).
-   * Then toggle `cryptoDetailVariant`: `"buy"` | `"swap"` | `"sell_deposit"`.
-   * Swap: set `currency` to the pair string, `amountSent`, `amountEquivalent`, `rateGiven`, `coinReceived`.
-   */
-  cryptoDetailVariant: "buy" as CryptoDetailVariant,
-  transactionId: "12324235334252526",
-  customerName: "Naomi Salisu",
-  /** Unused for crypto when labels are derived from `cryptoDetailVariant`; kept for non-crypto deposit copy if needed. */
-  typeDeposit: "Sell Deposit",
-  /** Buy/Sell: e.g. `Bitcoin | BTC`. Swap: e.g. `Bitcoin | BTC to Tether | USDT`. */
-  currency: "Bitcoin | BTC",
-  /** Swap row 1 — Amount Sent (e.g. `B0.005 BTC`). */
-  amountSent: "B0.005 BTC",
-  amountUsd: "$30,000.00",
-  amountEquivalent: "₿0.005 BTC",
-  datedInitiated: "Jan 6, 2026 | 9:32AM",
-  dateCompleted: "Jan 6, 2026 | 9:32AM",
-  /** Buy: `₿1=$96832.01` · Swap: `B1 - ₮69,646,93.01` · Sell deposit: `$1 = $96832.01` */
-  rateGiven: "₿1=$96832.01",
-  provider: "Quidex",
-  ourFee: "$2.01",
-  balanceAfter: "$30,000.00",
-  /** Swap recipient — Coin Received (matches design typo `Tether | BTC`). */
-  coinReceived: "Tether | BTC",
-  sessionId: "12324235334262526",
-  typeGift: "Physical Card",
-  /** Giftcard “Type” column in details (e.g. Ecode). */
-  giftcardType: "Ecode",
-  /** Giftcard row 2 “Provider” when not rejected. */
-  giftcardProvider: "Quidax",
-  code: "14292920204637",
-  country: "United States | USD",
-  amount: "$1,000.00",
-  amountPaidOut: "₦ 1,000,000.00",
-  dateUploaded: "Jan 6, 2026 | 9:32AM",
-  rateFeeGiven: "1045/$1",
-  balanceAfterGift: "$1,000,000.00",
-  opsInCharge: "Florence Arinze",
-};
+import { TxDataBlockTable, TEXT, LINK } from "@/components/transactions/transaction-details/tx-data-block-table";
+import {
+  getTransactionDetailModel,
+  type CryptoDetailVariant,
+  type EsimTransactionOutcome,
+  type TransactionDetailModel,
+} from "@/components/transactions/transaction-mocks";
 
 const RECIPIENT_DATA = {
   walletAddress: "12324235334252526",
@@ -150,18 +77,27 @@ type TransactionDetailsViewProps = {
   id?: string;
 };
 
-export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps) {
+function initialApprovalFor(tx: TransactionDetailModel): TxApprovalStatus {
+  return tx.channel === "Giftcard" ? tx.giftcardInitialStatus : "Approved";
+}
+
+/**
+ * The route page passes `key={id}` so this component remounts when the route id changes;
+ * that lets state initializers handle per-transaction resets without effects.
+ */
+export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
+  const tx = getTransactionDetailModel(id);
+
   const [activeTab, setActiveTab] = useState<DetailTab>("Transaction Details");
   const [approvalStatus, setApprovalStatus] = useState<TxApprovalStatus>(() =>
-    TX_DATA.channel === "Giftcard" ? "Pending" : "Approved",
+    initialApprovalFor(tx),
   );
   const [actionOpen, setActionOpen] = useState(false);
-
-  const isGiftcard = TX_DATA.channel === "Giftcard";
-
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const isGiftcard = tx.channel === "Giftcard";
 
   const handleApproveConfirm = () => {
     setShowApproveConfirm(false);
@@ -222,11 +158,11 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
       </div>
 
       <StatusBanner
-        {...(TX_DATA.channel === "Giftcard"
+        {...(tx.channel === "Giftcard"
           ? { variant: "giftcard" as const, status: approvalStatus }
-          : TX_DATA.channel === "Esim"
-            ? { variant: "esim" as const, outcome: TX_DATA.esimOutcome }
-            : { variant: "default" as const })}
+          : tx.channel === "Esim"
+            ? { variant: "esim" as const, outcome: tx.esimOutcome }
+            : { variant: "default" as const, outcome: tx.defaultOutcome })}
       />
 
       <div className="mt-6">
@@ -237,7 +173,9 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
         />
       </div>
 
-      {activeTab === "Transaction Details" && <TransactionDetailsTab approvalStatus={approvalStatus} />}
+      {activeTab === "Transaction Details" && (
+        <TransactionDetailsTab approvalStatus={approvalStatus} tx={tx} />
+      )}
       {activeTab === "Transaction Log" && <TransactionLogTab />}
 
       {isGiftcard && approvalStatus === "Pending" && (
@@ -293,54 +231,50 @@ export function TransactionDetailsView({ id: _id }: TransactionDetailsViewProps)
 type StatusBannerProps =
   | { variant: "giftcard"; status: TxApprovalStatus }
   | { variant: "esim"; outcome: EsimTransactionOutcome }
-  | { variant: "default" };
+  | { variant: "default"; outcome: EsimTransactionOutcome };
 
-function StatusBanner(props: StatusBannerProps) {
-  if (props.variant === "esim") {
-    const { outcome } = props;
-    if (outcome === "Failed") {
-      return (
-        <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          <strong>Failed!</strong>
-        </div>
-      );
-    }
-    if (outcome === "Pending") {
-      return (
-        <div className="flex items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-600">
-          <strong>Pending!</strong>
-        </div>
-      );
-    }
+function OutcomeStatusBanner({ outcome }: { outcome: EsimTransactionOutcome }) {
+  if (outcome === "Failed") {
     return (
-      <div className="flex items-center justify-center rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-[#166534]">
-        Approved!
+      <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        <strong>Failed!</strong>
       </div>
     );
   }
-  if (props.variant === "giftcard") {
-    const { status } = props;
-    if (status === "Rejected") {
-      return (
-        <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          Rejected!
-        </div>
-      );
-    }
-    const isApproved = status === "Approved";
+  if (outcome === "Pending") {
     return (
-      <div
-        className={`flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ${
-          isApproved ? "bg-green-50 text-[#166534]" : "border border-orange-200 bg-orange-50 text-orange-600"
-        }`}
-      >
-        {isApproved ? "Approved!" : "Pending Approval!"}
+      <div className="flex items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-600">
+        <strong>Pending!</strong>
       </div>
     );
   }
   return (
     <div className="flex items-center justify-center rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-[#166534]">
       Approved!
+    </div>
+  );
+}
+
+function StatusBanner(props: StatusBannerProps) {
+  if (props.variant === "esim" || props.variant === "default") {
+    return <OutcomeStatusBanner outcome={props.outcome} />;
+  }
+  const { status } = props;
+  if (status === "Rejected") {
+    return (
+      <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        Rejected!
+      </div>
+    );
+  }
+  const isApproved = status === "Approved";
+  return (
+    <div
+      className={`flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ${
+        isApproved ? "bg-green-50 text-[#166534]" : "border border-orange-200 bg-orange-50 text-orange-600"
+      }`}
+    >
+      {isApproved ? "Approved!" : "Pending Approval!"}
     </div>
   );
 }
@@ -415,10 +349,10 @@ function cryptoTypeLabel(variant: CryptoDetailVariant): string {
   }
 }
 
-function CryptoTransactionDetailsContent() {
-  const variant = TX_DATA.cryptoDetailVariant;
-  const initiatedParts = TX_DATA.datedInitiated.split(" | ");
-  const completedParts = TX_DATA.dateCompleted.split(" | ");
+function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
+  const variant = tx.cryptoDetailVariant;
+  const initiatedParts = tx.datedInitiated.split(" | ");
+  const completedParts = tx.dateCompleted.split(" | ");
   const dateInitiatedCell = (
     <span key="di" className="text-sm" style={{ color: TEXT }}>
       <span style={{ color: LINK }}>{initiatedParts[0]}</span>
@@ -444,42 +378,42 @@ function CryptoTransactionDetailsContent() {
   );
 
   const customerHeader = variant === "swap" ? "Customer" : "Customer Names";
-  const channelLabel = TX_DATA.channel === "Deposit" || TX_DATA.channel === "Crypto" ? TX_DATA.channel : "Crypto";
+  const channelLabel = tx.channel === "Deposit" || tx.channel === "Crypto" ? tx.channel : "Crypto";
 
   const row1 =
     variant === "swap"
       ? {
           headers: ["Transaction ID", customerHeader, "Channel", "Type", "Currency", "Amount Sent"] as const,
           row: [
-            <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
-            TX_DATA.customerName,
+            <TransactionIdLink key="txid" id={tx.transactionId} />,
+            tx.customerName,
             channelLabel,
             cryptoTypeLabel(variant),
-            <CryptoCurrencyCell key="cur" value={TX_DATA.currency} />,
-            TX_DATA.amountSent,
+            <CryptoCurrencyCell key="cur" value={tx.currency} />,
+            tx.amountSent,
           ] as ReactNode[],
         }
       : {
           headers: ["Transaction ID", customerHeader, "Channel", "Type", "Currency", "Amount (USD)"] as const,
           row: [
-            <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
-            TX_DATA.customerName,
+            <TransactionIdLink key="txid" id={tx.transactionId} />,
+            tx.customerName,
             channelLabel,
             cryptoTypeLabel(variant),
-            <CryptoCurrencyCell key="cur" value={TX_DATA.currency} />,
-            TX_DATA.amountUsd,
+            <CryptoCurrencyCell key="cur" value={tx.currency} />,
+            tx.amountUsd,
           ] as ReactNode[],
         };
 
   const row2 = {
     headers: ["Amount Equivalent", "Date Initiated", "Date Completed", "Rate Given", "Provider", "Our Fee"] as const,
     row: [
-      TX_DATA.amountEquivalent,
+      tx.amountEquivalent,
       dateInitiatedCell,
       dateCompletedCell,
-      TX_DATA.rateGiven,
-      TX_DATA.provider,
-      TX_DATA.ourFee,
+      tx.rateGiven,
+      tx.provider,
+      tx.ourFee,
     ] as ReactNode[],
   };
 
@@ -487,7 +421,7 @@ function CryptoTransactionDetailsContent() {
     variant === "swap"
       ? {
           headers: ["Wallet Address", "Network", "Coin Received", "Network Fee"] as const,
-          row: [walletLink, RECIPIENT_DATA.network, TX_DATA.coinReceived, RECIPIENT_DATA.networkFee] as ReactNode[],
+          row: [walletLink, RECIPIENT_DATA.network, tx.coinReceived, RECIPIENT_DATA.networkFee] as ReactNode[],
         }
       : {
           headers: ["Wallet Address", "Network", "Network Fee"] as const,
@@ -503,7 +437,7 @@ function CryptoTransactionDetailsContent() {
         <TxDataBlockTable headers={[...row1.headers]} row={row1.row} />
         <TxDataBlockTable className="mt-6" headers={[...row2.headers]} row={row2.row} />
         {variant !== "swap" ? (
-          <TxDataBlockTable className="mt-6" headers={["Balance After"]} row={[TX_DATA.balanceAfter]} />
+          <TxDataBlockTable className="mt-6" headers={["Balance After"]} row={[tx.balanceAfter]} />
         ) : null}
       </section>
 
@@ -532,9 +466,9 @@ function UtilityDataTransactionIdLink() {
   );
 }
 
-function EsimTransactionDetailsContent() {
+function EsimTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
   const timestamp =
-    TX_DATA.esimOutcome === "Pending" ? "Jan 5, 2025 | 9:32AM" : "Jan 6, 2026 | 9:32AM";
+    tx.esimOutcome === "Pending" ? "Jan 5, 2025 | 9:32AM" : "Jan 6, 2026 | 9:32AM";
 
   return (
     <>
@@ -552,24 +486,24 @@ function EsimTransactionDetailsContent() {
             "Validity",
           ]}
           row={[
-            <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
-            TX_DATA.customerName,
-            TX_DATA.esimChannelLabel,
-            TX_DATA.esimCoverage,
-            TX_DATA.esimDataAllowance,
-            TX_DATA.esimValidity,
+            <TransactionIdLink key="txid" id={tx.transactionId} />,
+            tx.customerName,
+            tx.esimChannelLabel,
+            tx.esimCoverage,
+            tx.esimDataAllowance,
+            tx.esimValidity,
           ]}
         />
         <TxDataBlockTable
           className="mt-6"
           headers={["Validity", "Price (USD)", "Price (NGN)", "Provider", "Timestamp", "Balance After"]}
           row={[
-            TX_DATA.esimValidity,
-            TX_DATA.esimPriceUsd,
-            TX_DATA.esimPriceNgn,
-            TX_DATA.esimProvider,
+            tx.esimValidity,
+            tx.esimPriceUsd,
+            tx.esimPriceNgn,
+            tx.esimProvider,
             <TimeStampCell key="ts" value={timestamp} />,
-            TX_DATA.esimBalanceAfter,
+            tx.esimBalanceAfter,
           ]}
         />
       </section>
@@ -579,15 +513,97 @@ function EsimTransactionDetailsContent() {
   );
 }
 
-function DepositTransactionDetailsContent() {
-  const v = TX_DATA.depositDetailVariant;
+function WithdrawalTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
+  return (
+    <>
+      <section className="mt-6">
+        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+          Transaction Details
+        </h2>
+        <TxDataBlockTable
+          headers={[
+            "Transaction ID",
+            "Customer Names",
+            "Channel",
+            "Amount",
+            "Fee",
+            "Bank",
+          ]}
+          row={[
+            <TransactionIdLink key="txid" id={tx.transactionId} />,
+            tx.customerName,
+            "Withdrawal",
+            tx.withdrawalAmount,
+            tx.withdrawalFee,
+            tx.withdrawalBankName,
+          ]}
+        />
+        <TxDataBlockTable
+          className="mt-6"
+          headers={["Account Name", "Account Number", "Timestamp", "Balance After"]}
+          row={[
+            tx.withdrawalAccountName,
+            tx.withdrawalAccountNumber,
+            <TimeStampCell key="ts" value={tx.withdrawalTimestamp} />,
+            tx.withdrawalBalanceAfter,
+          ]}
+        />
+      </section>
+      <DepositDeviceSection />
+    </>
+  );
+}
+
+function EtradeTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
+  return (
+    <>
+      <section className="mt-6">
+        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+          Transaction Details
+        </h2>
+        <TxDataBlockTable
+          headers={[
+            "Transaction ID",
+            "Customer Names",
+            "Channel",
+            "Asset",
+            "Side",
+            "Quantity",
+          ]}
+          row={[
+            <TransactionIdLink key="txid" id={tx.transactionId} />,
+            tx.customerName,
+            "E-trade",
+            tx.etradeSymbol,
+            tx.etradeSide,
+            tx.etradeQuantity,
+          ]}
+        />
+        <TxDataBlockTable
+          className="mt-6"
+          headers={["Amount (NGN)", "Fee", "Timestamp", "Balance After"]}
+          row={[
+            tx.etradeAmountNgn,
+            tx.etradeFee,
+            <TimeStampCell key="ts" value={tx.etradeTimestamp} />,
+            tx.etradeBalanceAfter,
+          ]}
+        />
+      </section>
+      <DepositDeviceSection />
+    </>
+  );
+}
+
+function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
+  const v = tx.depositDetailVariant;
 
   if (v === "crypto") {
-    return <CryptoTransactionDetailsContent />;
+    return <CryptoTransactionDetailsContent tx={tx} />;
   }
 
   if (v === "utility") {
-    const u = TX_DATA.utilityDetailVariant;
+    const u = tx.utilityDetailVariant;
     const tsElectricityData = "Jan 6, 2028 | 9:32AM";
     const tsTv = "Jan 6, 2026 | 9:32AM";
 
@@ -608,8 +624,8 @@ function DepositTransactionDetailsContent() {
                 "Amount",
               ]}
               row={[
-                <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
-                TX_DATA.customerName,
+                <TransactionIdLink key="txid" id={tx.transactionId} />,
+                tx.customerName,
                 "Utility",
                 "Electricity",
                 "EKEDC",
@@ -658,7 +674,7 @@ function DepositTransactionDetailsContent() {
               headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Amount"]}
               row={[
                 <UtilityDataTransactionIdLink key="txid" />,
-                TX_DATA.customerName,
+                tx.customerName,
                 "Utility",
                 "Data",
                 "MTN",
@@ -701,8 +717,8 @@ function DepositTransactionDetailsContent() {
           <TxDataBlockTable
             headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Plan"]}
             row={[
-              <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
-              TX_DATA.customerName,
+              <TransactionIdLink key="txid" id={tx.transactionId} />,
+              tx.customerName,
               "Utility",
               "TV",
               "DSTV",
@@ -754,8 +770,8 @@ function DepositTransactionDetailsContent() {
             "Amount",
           ]}
           row={[
-            <TransactionIdLink key="txid" id={TX_DATA.transactionId} />,
-            TX_DATA.customerName,
+            <TransactionIdLink key="txid" id={tx.transactionId} />,
+            tx.customerName,
             "Utility",
             "Betting",
             "Sporty bet",
@@ -790,28 +806,34 @@ function DepositTransactionDetailsContent() {
 }
 
 /* ── Transaction Details Tab ── */
-function TransactionDetailsTab({ approvalStatus }: { approvalStatus: TxApprovalStatus }) {
-  switch (TX_DATA.channel) {
+function TransactionDetailsTab({
+  approvalStatus,
+  tx,
+}: {
+  approvalStatus: TxApprovalStatus;
+  tx: TransactionDetailModel;
+}) {
+  switch (tx.channel) {
     case "Esim":
-      return <EsimTransactionDetailsContent />;
+      return <EsimTransactionDetailsContent tx={tx} />;
     case "Giftcard":
       return (
         <GiftcardTransactionDetails
           approvalStatus={approvalStatus}
           model={{
-            sessionId: TX_DATA.sessionId,
-            customerName: TX_DATA.customerName,
-            typeLabel: TX_DATA.giftcardType,
-            code: TX_DATA.code,
-            country: TX_DATA.country,
-            amount: TX_DATA.amount,
-            amountPaidOut: TX_DATA.amountPaidOut,
-            dateUploaded: TX_DATA.dateUploaded,
-            dateCompleted: TX_DATA.dateCompleted,
-            rateFeeGiven: TX_DATA.rateFeeGiven,
-            balanceAfterGift: TX_DATA.balanceAfterGift,
-            opsInCharge: TX_DATA.opsInCharge,
-            provider: TX_DATA.giftcardProvider,
+            sessionId: tx.sessionId,
+            customerName: tx.customerName,
+            typeLabel: tx.giftcardType,
+            code: tx.code,
+            country: tx.country,
+            amount: tx.amount,
+            amountPaidOut: tx.amountPaidOut,
+            dateUploaded: tx.dateUploaded,
+            dateCompleted: tx.dateCompleted,
+            rateFeeGiven: tx.rateFeeGiven,
+            balanceAfterGift: tx.balanceAfterGift,
+            opsInCharge: tx.opsInCharge,
+            provider: tx.giftcardProvider,
           }}
           device={{
             device: DEVICE_DATA_GIFT.device,
@@ -821,8 +843,12 @@ function TransactionDetailsTab({ approvalStatus }: { approvalStatus: TxApprovalS
           }}
         />
       );
+    case "Withdrawal":
+      return <WithdrawalTransactionDetailsContent tx={tx} />;
+    case "E-trade":
+      return <EtradeTransactionDetailsContent tx={tx} />;
     default:
-      return <DepositTransactionDetailsContent />;
+      return <DepositTransactionDetailsContent tx={tx} />;
   }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, Edit, DocumentText, Document } from "iconsax-react";
 import { Download, ListFilter } from "lucide-react";
@@ -8,6 +8,15 @@ import { Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { AddProductModal, ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 type ProviderDetail = {
   providerId: string;
@@ -59,6 +68,9 @@ const ALL_PRODUCTS: ProductRow[] = Array.from({ length: 100 }, (_, i) => ({
       : `${BASE_PRODUCTS[i % BASE_PRODUCTS.length].productName} (${i + 1})`,
 }));
 
+const PRODUCT_COMMISSION_FILTER = ["All types", ...Array.from(new Set(BASE_PRODUCTS.map((p) => p.commissionType)))];
+const PRODUCT_ROW_STATUS_FILTER = ["All statuses", "Active", "Inactive"] as const;
+
 type StatusToggleProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -95,6 +107,16 @@ type ProviderDetailsViewProps = {
 
 export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
   const [productSearch, setProductSearch] = useState("");
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "commission" | "status">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"commission" | "status">(openFilter, filterMode);
+
+  const [draftCommission, setDraftCommission] = useState("All types");
+  const [draftRowStatus, setDraftRowStatus] = useState<string>("All statuses");
+  const [appliedCommission, setAppliedCommission] = useState<string | null>(null);
+  const [appliedRowStatus, setAppliedRowStatus] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [productStatuses, setProductStatuses] = useState<Record<string, boolean>>(
@@ -109,16 +131,43 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
 
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const getProductRowActive = (p: ProductRow) => productStatuses[p.id] ?? p.status;
+
   const filteredProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
-    if (!q) return ALL_PRODUCTS;
-    return ALL_PRODUCTS.filter(
-      (p) =>
-        p.productName.toLowerCase().includes(q) ||
-        p.productCategory.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q),
-    );
-  }, [productSearch]);
+    return ALL_PRODUCTS.filter((p) => {
+      if (appliedCommission && appliedCommission !== "All types" && p.commissionType !== appliedCommission)
+        return false;
+      if (appliedRowStatus && appliedRowStatus !== "All statuses") {
+        const active = getProductRowActive(p);
+        if (appliedRowStatus === "Active" && !active) return false;
+        if (appliedRowStatus === "Inactive" && active) return false;
+      }
+      if (
+        q &&
+        !(
+          p.productName.toLowerCase().includes(q) ||
+          p.productCategory.toLowerCase().includes(q) ||
+          p.id.toLowerCase().includes(q)
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [productSearch, productStatuses, appliedCommission, appliedRowStatus]);
 
   const totalItems = filteredProducts.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -216,6 +265,93 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
 
       {/* Product List */}
       <section className="mt-8">
+        {filterMode ? (
+          <TableFilterModeBar
+            filterBarRef={filterBarRef}
+            filterScrollRef={filterScrollRef}
+            showBackdrop={Boolean(openFilter)}
+            onBackdropClick={() => setOpenFilter(null)}
+            onPillsScroll={() => {
+              if (openFilter) syncDropdownLeft(openFilter);
+            }}
+            pills={
+              <>
+                <TableFilterPill
+                  label="Commission type"
+                  summary={draftCommission}
+                  pillRef={registerPillRef("commission")}
+                  onClick={() =>
+                    setOpenFilter((v) => {
+                      const next = v === "commission" ? null : "commission";
+                      syncDropdownLeft(next);
+                      return next;
+                    })
+                  }
+                />
+                <TableFilterPill
+                  label="Status"
+                  summary={draftRowStatus}
+                  pillRef={registerPillRef("status")}
+                  onClick={() =>
+                    setOpenFilter((v) => {
+                      const next = v === "status" ? null : "status";
+                      syncDropdownLeft(next);
+                      return next;
+                    })
+                  }
+                />
+              </>
+            }
+            dropdownLayer={
+              <>
+                {openFilter === "commission" ? (
+                  <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                    <TableFilterPanelTitle />
+                    <TableFilterOptionsList
+                      options={PRODUCT_COMMISSION_FILTER}
+                      onSelect={(opt) => {
+                        setDraftCommission(opt);
+                        setOpenFilter(null);
+                      }}
+                    />
+                  </TableFilterDropdownCard>
+                ) : null}
+                {openFilter === "status" ? (
+                  <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[180px]">
+                    <TableFilterPanelTitle />
+                    <TableFilterOptionsList
+                      options={[...PRODUCT_ROW_STATUS_FILTER]}
+                      onSelect={(opt) => {
+                        setDraftRowStatus(opt);
+                        setOpenFilter(null);
+                      }}
+                    />
+                  </TableFilterDropdownCard>
+                ) : null}
+              </>
+            }
+            actions={
+              <TableFilterApplyClear
+                onApply={() => {
+                  setAppliedCommission(draftCommission === "All types" ? null : draftCommission);
+                  setAppliedRowStatus(draftRowStatus === "All statuses" ? null : draftRowStatus);
+                  setOpenFilter(null);
+                  setPage(1);
+                }}
+                onClear={() => {
+                  setProductSearch("");
+                  setAppliedCommission(null);
+                  setAppliedRowStatus(null);
+                  setDraftCommission("All types");
+                  setDraftRowStatus("All statuses");
+                  setOpenFilter(null);
+                  setFilterMode(false);
+                  setPage(1);
+                }}
+              />
+            }
+          />
+        ) : (
         <div className="flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
           <span className="shrink-0 text-[15px] font-semibold text-primary-text">
             Product List ({ALL_PRODUCTS.length})
@@ -234,6 +370,10 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
               type="button"
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
               aria-label="Filter"
+              onClick={() => {
+                setProductSearch("");
+                setFilterMode(true);
+              }}
             >
               <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             </button>
@@ -266,6 +406,7 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
             </div>
           </div>
         </div>
+        )}
 
         <div className="mt-4 overflow-x-auto rounded-[8px]">
           <table className="w-full min-w-200 border-collapse bg-white text-left text-sm">

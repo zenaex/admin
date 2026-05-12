@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sms, Box, TickCircle, CloseCircle, Add, CloseSquare, Setting2, ArrowDown2, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
+import { CalendarDays, Download, ListFilter } from "lucide-react";
 import { useMemo } from "react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 
 /* ── QR Code SVG (static placeholder pattern) ── */
 function QrCodeSvg() {
@@ -534,6 +544,25 @@ export function SettingsAuthenticationTab() {
   const [subTab, setSubTab] = useState<AuthSubTab>("general");
   const [showCreateMfa, setShowCreateMfa] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "mfa" | "role">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"mfa" | "role">(openFilter, filterMode);
+
+  const [draftMfa, setDraftMfa] = useState("All statuses");
+  const [draftRole, setDraftRole] = useState("All roles");
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <div>
@@ -541,6 +570,8 @@ export function SettingsAuthenticationTab() {
       <div className="mb-6 flex flex-wrap items-center gap-3 border rounded-xl bg-white px-4 py-3">
         <h2 className="shrink-0 text-sm font-semibold text-primary-text">User Authentication</h2>
 
+        {!filterMode ? (
+          <>
         {/* Search */}
         <div className="flex h-9 w-[240px] items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-400">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -552,16 +583,21 @@ export function SettingsAuthenticationTab() {
             className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-zinc-400"
           />
         </div>
+          </>
+        ) : null}
 
         <div className="ml-auto flex items-center gap-2">
           {/* Filter */}
+          {!filterMode ? (
           <button
             type="button"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
             aria-label="Filter"
+            onClick={() => setFilterMode(true)}
           >
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
+          ) : null}
 
           {/* Export */}
           <div className="relative">
@@ -603,6 +639,91 @@ export function SettingsAuthenticationTab() {
           </button>
         </div>
       </div>
+
+      {filterMode ? (
+        <TableFilterModeBar
+          barClassName="!mt-0 mb-6"
+          filterBarRef={filterBarRef}
+          filterScrollRef={filterScrollRef}
+          showBackdrop={Boolean(openFilter)}
+          onBackdropClick={() => setOpenFilter(null)}
+          onPillsScroll={() => {
+            if (openFilter) syncDropdownLeft(openFilter);
+          }}
+          pills={
+            <>
+              <TableFilterPill
+                label="MFA status"
+                summary={draftMfa}
+                pillRef={registerPillRef("mfa")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "mfa" ? null : "mfa";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+              <TableFilterPill
+                label="Role"
+                summary={draftRole}
+                pillRef={registerPillRef("role")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "role" ? null : "role";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
+            </>
+          }
+          pillsTrailing={
+            <TableFilterTrailingIconButton ariaLabel="Calendar" onClick={() => setOpenFilter(null)}>
+              <CalendarDays size={14} />
+            </TableFilterTrailingIconButton>
+          }
+          dropdownLayer={
+            <>
+              {openFilter === "mfa" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={["All statuses", "MFA enabled", "MFA disabled"]}
+                    onSelect={(opt) => {
+                      setDraftMfa(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+              {openFilter === "role" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={["All roles", "Superadmin", "Admin", "Tech Support"]}
+                    onSelect={(opt) => {
+                      setDraftRole(opt);
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
+            </>
+          }
+          actions={
+            <TableFilterApplyClear
+              onApply={() => setOpenFilter(null)}
+              onClear={() => {
+                setDraftMfa("All statuses");
+                setDraftRole("All roles");
+                setOpenFilter(null);
+                setFilterMode(false);
+              }}
+            />
+          }
+        />
+      ) : null}
 
       {/* Sub-tab bar */}
       <div className="mb-6 flex items-center gap-6 rounded-full border border-outline bg-white px-5 py-3.5">

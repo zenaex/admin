@@ -1,23 +1,58 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/button";
 import { InputField } from "@/components/input-field";
 import { PasswordField } from "@/components/password-field";
+import { AdminApiError, getAdminApiBaseUrlSnapshot } from "@/lib/admin-api/client";
+import { useAuth } from "@/lib/auth/auth-context";
+
+function formatLoginApiError(e: unknown): string {
+  if (!(e instanceof AdminApiError)) return "Something went wrong. Try again.";
+  const lines: string[] = [e.message];
+  if (e.requestUrl) lines.push(`Request: ${e.requestMethod ?? "?"} ${e.requestUrl}`);
+  if (e.status === 404) {
+    lines.push(
+      "404: the server has no route at that URL—compare this Request URL with your backend/Postman. If the path matches, ask backend whether 404 is used for blocked or non-provisioned accounts.",
+    );
+  } else if (e.status === 403) {
+    lines.push("403: the server rejected credentials or this account is not allowed to sign in here.");
+  }
+  const base = getAdminApiBaseUrlSnapshot();
+  if (base && e.status === 0) lines.push(`Configured base: ${base}`);
+  return lines.join("\n\n");
+}
 
 export function LoginPage() {
   const router = useRouter();
+  const { login, isAuthenticated, ready } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const isLoginDisabled = email.trim() === "" || password.trim() === "";
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isLoginDisabled = email.trim() === "" || password.trim() === "" || submitting;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (ready && isAuthenticated) router.replace("/dashboard");
+  }, [ready, isAuthenticated, router]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isLoginDisabled) return;
-    router.push("/login/otp");
+    setError(null);
+    setSubmitting(true);
+    try {
+      const next = await login(email, password);
+      if (next === "otp") router.push("/login/otp");
+      else router.replace("/dashboard");
+    } catch (e) {
+      setError(formatLoginApiError(e));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -64,6 +99,14 @@ export function LoginPage() {
               </p>
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-5 text-[14px]">
+                {error ? (
+                  <p
+                    className="whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                ) : null}
                 <InputField
                   id="email"
                   name="email"
@@ -106,7 +149,7 @@ export function LoginPage() {
                         : "text-[16px]"
                     }
                   >
-                    Login
+                    {submitting ? "Signing in…" : "Login"}
                   </Button>
                 </div>
               </form>
