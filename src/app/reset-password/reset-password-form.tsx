@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/button";
 import { PasswordField } from "@/components/password-field";
-import { postPasswordResetReset } from "@/lib/admin-api/auth-api";
+import { getPasswordResetValidate, postPasswordResetReset } from "@/lib/admin-api/auth-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 
 export function ResetPasswordForm() {
@@ -13,18 +14,56 @@ export function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams?.get("token")?.trim() ?? "";
 
+  const [checkingToken, setCheckingToken] = useState(Boolean(token));
+  const [tokenValid, setTokenValid] = useState(false);
+  const [validateError, setValidateError] = useState<string | null>(null);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!token) {
+        setCheckingToken(false);
+        setTokenValid(false);
+        return;
+      }
+      setCheckingToken(true);
+      setValidateError(null);
+      setTokenValid(false);
+      setAccountEmail(null);
+      try {
+        const res = await getPasswordResetValidate(token);
+        if (cancelled) return;
+        if (!res.valid) {
+          setValidateError("This reset link is invalid or has expired.");
+          return;
+        }
+        setTokenValid(true);
+        if (res.email) setAccountEmail(res.email);
+      } catch (e) {
+        if (cancelled) return;
+        setValidateError(e instanceof AdminApiError ? e.message : "Could not validate reset link.");
+      } finally {
+        if (!cancelled) setCheckingToken(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
   const hasMinLength = password.length >= 8;
   const hasNumber = /\d/.test(password);
   const passwordsMatch = password.length > 0 && confirm.length > 0 && password === confirm;
   const canSubmit = useMemo(
-    () => Boolean(token) && hasMinLength && hasNumber && passwordsMatch && !submitting,
-    [token, hasMinLength, hasNumber, passwordsMatch, submitting],
+    () => tokenValid && Boolean(token) && hasMinLength && hasNumber && passwordsMatch && !submitting,
+    [token, tokenValid, hasMinLength, hasNumber, passwordsMatch, submitting],
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -55,6 +94,36 @@ export function ResetPasswordForm() {
     );
   }
 
+  if (checkingToken) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <p className="text-sm text-zinc-500">Checking reset link…</p>
+      </div>
+    );
+  }
+
+  if (!tokenValid) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <main className="w-full max-w-[440px] rounded-2xl border border-zinc-100 bg-white px-8 py-10 text-center shadow-sm">
+          <h1 className="text-xl font-semibold text-primary-text">Link not usable</h1>
+          <p className="mt-3 text-sm text-zinc-600" role="alert">
+            {validateError ?? "This reset link is invalid or has expired."}
+          </p>
+          <Button type="button" className="mt-6" fullWidth onClick={() => router.push("/login")}>
+            Back to login
+          </Button>
+          <p className="mt-4 text-sm text-zinc-500">
+            Need a new link?{" "}
+            <Link href="/forgot-password" className="font-semibold text-secondary-green underline">
+              Forgot password
+            </Link>
+          </p>
+        </main>
+      </div>
+    );
+  }
+
   if (done) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -74,6 +143,11 @@ export function ResetPasswordForm() {
       <main className="w-full max-w-[440px] rounded-2xl border border-zinc-100 bg-white px-8 py-10 shadow-sm">
         <h1 className="text-2xl font-semibold text-primary-text">Set new password</h1>
         <p className="mt-2 text-sm text-zinc-500">Choose a strong password for your admin account.</p>
+        {accountEmail ? (
+          <p className="mt-2 text-sm text-zinc-600">
+            Account: <span className="font-medium text-primary-text">{accountEmail}</span>
+          </p>
+        ) : null}
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           {error ? (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">

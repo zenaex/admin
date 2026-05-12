@@ -15,7 +15,9 @@ import type {
   AdminLoginBody,
   AdminLoginResponse,
   AdminPasswordResetApproveBody,
+  AdminPasswordResetDeclineBody,
   AdminPasswordResetResetBody,
+  AdminPasswordResetValidateResponse,
   AdminResendOtpBody,
   AdminTokenPair,
   AdminVerifyOtpBody,
@@ -82,6 +84,22 @@ export async function postPasswordResetApprove(body: AdminPasswordResetApproveBo
     method: "POST",
     body: JSON.stringify(body),
     auth: true,
+  });
+}
+
+export async function postPasswordResetDecline(body: AdminPasswordResetDeclineBody): Promise<unknown> {
+  return adminRequest("/admin/password-reset/decline", {
+    method: "POST",
+    body: JSON.stringify(body),
+    auth: true,
+  });
+}
+
+export async function getPasswordResetValidate(token: string): Promise<AdminPasswordResetValidateResponse> {
+  const q = new URLSearchParams({ token }).toString();
+  return adminRequest<AdminPasswordResetValidateResponse>(`/admin/password-reset/validate?${q}`, {
+    method: "GET",
+    auth: false,
   });
 }
 

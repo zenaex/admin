@@ -39,6 +39,14 @@ export type AdminInvitationAcceptBody = { token: string; password: string };
 
 export type AdminPasswordResetApproveBody = { requestId: string };
 
+export type AdminPasswordResetDeclineBody = { requestId: string };
+
+/** `GET /admin/password-reset/validate` */
+export type AdminPasswordResetValidateResponse = {
+  valid: boolean;
+  email?: string;
+};
+
 export type AdminPasswordResetResetBody = { token: string; newPassword: string };
 
 export type ApiErrorBody = {
