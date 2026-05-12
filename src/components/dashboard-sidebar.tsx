@@ -19,6 +19,8 @@ import {
   User,
 } from "iconsax-react";
 
+import { useAuth } from "@/lib/auth/auth-context";
+
 type SidebarItemProps = {
   href: string;
   label: string;
@@ -88,6 +90,7 @@ function isCustomerMgtPath(path: string) {
 export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
+  const { logout } = useAuth();
 
   const [activeOverrideHref, setActiveOverrideHref] = useState<string | null>(null);
 
@@ -408,13 +411,17 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           ) : null}
         </div>
         {!collapsed ? (
-          <Link
-            href="/login"
+          <button
+            type="button"
             className="mt-4 inline-flex items-center gap-2 text-[13px] text-sidebar-label"
+            onClick={() => {
+              logout();
+              router.replace("/login");
+            }}
           >
             <LogoutCurve size="24" color="var(--color-coral-red)" variant="Outline" />
             <span>Log out</span>
-          </Link>
+          </button>
         ) : null}
       </div>
     </aside>

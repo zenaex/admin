@@ -12,8 +12,18 @@ import {
   ChartSquare,
   ProfileAdd,
 } from "iconsax-react";
-import { ListFilter, TrendingUp } from "lucide-react";
+import { CalendarDays, ListFilter, TrendingUp } from "lucide-react";
 import { ProviderHeader } from "@/components/provider/provider-header";
+import {
+  TableFilterApplyClear,
+  TableFilterDropdownCard,
+  TableFilterModeBar,
+  TableFilterOptionsList,
+  TableFilterPanelTitle,
+  TableFilterPill,
+  TableFilterTrailingIconButton,
+  useTableFilterBarAnchor,
+} from "@/components/ui/table-filter-bar";
 import { TransactionTrendChart } from "@/components/dashboard/transaction-trend-chart";
 import { ProductCategoryChart } from "@/components/dashboard/product-category-chart";
 import { CryptoExchangeChart } from "@/components/dashboard/crypto-exchange-chart";
@@ -123,38 +133,69 @@ function SmallStatCard({
   );
 }
 
-/* ── Main Dashboard View ── */
-export function DashboardView() {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(2024, 0, 6),
-    to: new Date(2024, 0, 6),
-  });
+function formatDateRangeLabel(range: DateRange | undefined): string {
+  if (!range?.from) return "Select period";
+  const fmt = (d: Date) =>
+    d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const to = range.to ?? range.from;
+  return `From ${fmt(range.from)} - To ${fmt(to)}`;
+}
+
+function DashboardGreetingToolbar({
+  dateRange,
+  onDateRangeChange,
+}: {
+  dateRange: DateRange | undefined;
+  onDateRangeChange: (range: DateRange | undefined) => void;
+}) {
   const [exportOpen, setExportOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState(false);
+  const [openFilter, setOpenFilter] = useState<null | "period" | "currency">(null);
+  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
+    useTableFilterBarAnchor<"period" | "currency">(openFilter, filterMode);
+
+  const [draftCurrency, setDraftCurrency] = useState("NGN (default)");
+  const [draftPeriodLabel, setDraftPeriodLabel] = useState(() => formatDateRangeLabel(dateRange));
+
+  useEffect(() => {
+    setDraftPeriodLabel(formatDateRangeLabel(dateRange));
+  }, [dateRange]);
+
+  useEffect(() => {
+    if (!filterMode) setOpenFilter(null);
+  }, [filterMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFilter(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
-    <div>
-      {/* Header */}
-      <ProviderHeader title="Dashboard" />
-
-      {/* Greeting + toolbar */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white px-[30px] pt-[18px] pb-4 w-full">
+    <>
+      <div className="mt-6 flex w-full flex-wrap items-center justify-between gap-4 rounded-xl bg-white px-[30px] pb-4 pt-[18px]">
         <div>
-          <h2 className="text-[24px] font-semibold text-primary-text">
-            Good Morning, Shakur 👋
-          </h2>
+          <h2 className="text-[24px] font-semibold text-primary-text">Good Morning, Shakur 👋</h2>
           <p className="mt-0.5 text-[16px]" style={{ color: "#494A53" }}>
             Here are your activities for the day
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg  bg-white text-zinc-500 transition-colors "
-            aria-label="Filter"
-          >
-            <ListFilter size={16} strokeWidth={2} color="currentColor" />
-          </button>
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
+          {!filterMode ? (
+            <>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-zinc-500 transition-colors"
+                aria-label="Filter"
+                onClick={() => setFilterMode(true)}
+              >
+                <ListFilter size={16} strokeWidth={2} color="currentColor" />
+              </button>
+              <DateRangePicker value={dateRange} onChange={onDateRangeChange} />
+            </>
+          ) : null}
           <div className="relative">
             <button
               type="button"
@@ -164,23 +205,31 @@ export function DashboardView() {
               <ExportIcon size={16} />
               Export
             </button>
-            {exportOpen && (
+            {exportOpen ? (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
                 <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
                   <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                    <button
+                      type="button"
+                      onClick={() => setExportOpen(false)}
+                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50"
+                    >
                       <DocumentText size={18} variant="Outline" color="currentColor" />
                       CSV
                     </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                    <button
+                      type="button"
+                      onClick={() => setExportOpen(false)}
+                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50"
+                    >
                       <Document size={18} variant="Outline" color="currentColor" />
                       PDF
                     </button>
                   </div>
                 </div>
               </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -285,6 +334,23 @@ export function DashboardView() {
           }
         />
       ) : null}
+    </>
+  );
+}
+
+/* ── Main Dashboard View ── */
+export function DashboardView() {
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(2024, 0, 6),
+    to: new Date(2024, 0, 6),
+  });
+
+  return (
+    <div>
+      {/* Header */}
+      <ProviderHeader title="Dashboard" />
+
+      <DashboardGreetingToolbar dateRange={dateRange} onDateRangeChange={setDateRange} />
 
       {/* Total transaction hero card */}
       <div className="mt-4 rounded-xl bg-white px-5 py-5 w-full">

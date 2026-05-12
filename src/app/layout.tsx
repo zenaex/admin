@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Schibsted_Grotesk } from "next/font/google";
+
+import { AppProviders } from "@/components/providers";
 import "./globals.css";
 
 const schibstedGrotesk = Schibsted_Grotesk({
@@ -32,7 +34,9 @@ export default function RootLayout({
       lang="en"
       className={`${schibstedGrotesk.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

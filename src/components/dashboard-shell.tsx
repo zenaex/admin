@@ -1,15 +1,19 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { getAccessToken } from "@/lib/auth/token-storage";
+import { useAuth } from "@/lib/auth/auth-context";
 
 type DashboardShellProps = {
   children: React.ReactNode;
 };
 
 export function DashboardShell({ children }: DashboardShellProps) {
+  const router = useRouter();
+  const { ready, isAuthenticated } = useAuth();
   const pathname = usePathname() ?? "";
   const isEtradeChatroom =
     /^\/dashboard\/e-trades\/[^/]+$/.test(pathname) &&
@@ -17,6 +21,21 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const isEtradeTransactionDetail = /^\/dashboard\/e-trades\/transaction\/[^/]+$/.test(pathname);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const collapseTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!isAuthenticated && !getAccessToken()) {
+      router.replace("/login");
+    }
+  }, [ready, isAuthenticated, router]);
+
+  if (!ready || (!isAuthenticated && !getAccessToken())) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-zinc-500">
+        Checking session…
+      </div>
+    );
+  }
 
   return (
     <div className="box-border flex h-dvh max-h-dvh min-h-0 gap-4 overflow-hidden bg-background p-4">

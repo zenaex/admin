@@ -259,7 +259,7 @@ export function TransactionsView() {
                   <TableFilterOptionsList
                     options={["Less than ₦100,000", "Greater than ₦100,000"] as AmountFilter[]}
                     onSelect={(opt) => {
-                      setDraftAmount(opt);
+                      setDraftAmount(opt as AmountFilter);
                       setOpenFilter(null);
                     }}
                   />

@@ -174,7 +174,6 @@ export function ReferralView() {
   const [draftPeriod, setDraftPeriod] = useState("From Jan 6, 2026 - To Jan 6, 2026");
   const [appliedMade, setAppliedMade] = useState<string | null>(null);
   const [appliedRewards, setAppliedRewards] = useState<string | null>(null);
-  const [appliedPeriod, setAppliedPeriod] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
@@ -338,7 +337,6 @@ export function ReferralView() {
               onApply={() => {
                 setAppliedMade(draftMade === "All" ? null : draftMade);
                 setAppliedRewards(draftRewards === "All" ? null : draftRewards);
-                setAppliedPeriod(draftPeriod);
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -346,7 +344,6 @@ export function ReferralView() {
                 setSearch("");
                 setAppliedMade(null);
                 setAppliedRewards(null);
-                setAppliedPeriod(null);
                 setDraftMade("All");
                 setDraftRewards("All");
                 setDraftPeriod("From Jan 6, 2026 - To Jan 6, 2026");

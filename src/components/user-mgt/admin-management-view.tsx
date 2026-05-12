@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Notification, Edit2, PasswordCheck, Forbidden, Trash, DocumentText, Document } from "iconsax-react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Edit2, PasswordCheck, Forbidden, Trash, DocumentText, Document } from "iconsax-react";
 import { CalendarDays, Download, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import { Button } from "@/components/button";
+import { InputField } from "@/components/input-field";
+import { NotificationDrawerTrigger } from "@/components/notifications/notification-drawer";
+import { postInvitation, postPasswordResetApprove } from "@/lib/admin-api/auth-api";
+import { AdminApiError } from "@/lib/admin-api/client";
+import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
+import { useAuth } from "@/lib/auth/auth-context";
+import { getAccessToken } from "@/lib/auth/token-storage";
 import {
   TableFilterApplyClear,
   TableFilterDropdownCard,
@@ -18,8 +26,9 @@ import {
 } from "@/components/ui/table-filter-bar";
 
 /* ── Tab config ── */
-type AdminTab = "Team" | "Roles & Permission" | "Pending Invites";
-const TABS: AdminTab[] = ["Team", "Roles & Permission", "Pending Invites"];
+type AdminTab = "Team" | "Roles & Permission" | "Pending Invites" | "Password resets";
+
+const INVITE_ROLE_OPTIONS = ["Super Admin", "Admin", "Operations", "Compliance", "Customer Care", "Tech Support"] as const;
 
 /* ── Types ── */
 type MemberStatus = "Successful" | "Pending" | "Failed";
@@ -92,6 +101,19 @@ function StatusBadge({ status }: { status: MemberStatus }) {
 
 /* ── Main view ── */
 export function AdminManagementView() {
+  const { isAuthenticated } = useAuth();
+  const isSuper = useMemo(
+    () => isLikelySuperAdminFromToken(getAccessToken()),
+    [isAuthenticated],
+  );
+  const tabList = useMemo<AdminTab[]>(
+    () =>
+      isSuper
+        ? ["Team", "Roles & Permission", "Pending Invites", "Password resets"]
+        : ["Team", "Roles & Permission", "Pending Invites"],
+    [isSuper],
+  );
+
   const [activeTab, setActiveTab] = useState<AdminTab>("Team");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -110,6 +132,10 @@ export function AdminManagementView() {
   const [appliedTeamRole, setAppliedTeamRole] = useState<string | null>(null);
   const [appliedTeamStatus, setAppliedTeamStatus] = useState<string | null>(null);
   const [appliedTeamDate, setAppliedTeamDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab === "Password resets" && !isSuper) setActiveTab("Team");
+  }, [activeTab, isSuper]);
 
   useEffect(() => {
     if (activeTab !== "Team") setTeamFilterMode(false);
@@ -162,12 +188,7 @@ export function AdminManagementView() {
         <div className="flex items-center gap-6 w-full justify-end">
           {/* Icons */}
           <div className="flex items-center gap-4 text-zinc-600">
-            <button type="button" className="relative hover:text-primary-text transition-colors">
-              <Notification size={24} variant="Outline" color="currentColor" />
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 text-[9px] font-bold text-white">
-                2
-              </span>
-            </button>
+            <NotificationDrawerTrigger notificationCount={2} iconSize={24} />
             <button type="button" className="hover:text-primary-text transition-colors">
               <Setting2 size={24} variant="Outline" color="currentColor" />
             </button>
@@ -178,7 +199,7 @@ export function AdminManagementView() {
       {/* Tabs */}
       <div className="mt-4">
         <UnderlineTabs
-          tabs={TABS.map((t) => ({ id: t, label: t }))}
+          tabs={tabList.map((t) => ({ id: t, label: t }))}
           active={activeTab}
           onChange={(id) => {
             setActiveTab(id as AdminTab);
@@ -472,9 +493,9 @@ export function AdminManagementView() {
         <RolesPermissionTab />
       )}
 
-      {activeTab === "Pending Invites" && (
-        <PendingInvitesTab />
-      )}
+      {activeTab === "Pending Invites" && <PendingInvitesTab showInvite={isSuper} />}
+
+      {activeTab === "Password resets" && isSuper ? <PasswordResetsTab /> : null}
     </div>
   );
 }
@@ -688,8 +709,167 @@ function RoleCard({ role }: { role: (typeof ROLES)[number] }) {
   );
 }
 
+function InviteAdminForm() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<string>(INVITE_ROLE_OPTIONS[1]);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !role) return;
+    setError(null);
+    setSuccess(null);
+    setSubmitting(true);
+    try {
+      await postInvitation({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        role,
+      });
+      setSuccess("Invitation sent.");
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+    } catch (err) {
+      setError(err instanceof AdminApiError ? err.message : "Could not send invitation.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mb-6 rounded-xl border border-outline bg-white p-5">
+      <h3 className="text-[15px] font-semibold text-primary-text">Invite admin</h3>
+      <p className="mt-1 text-xs text-zinc-500">Sends an email with an accept link (super admin only).</p>
+      <form onSubmit={handleSubmit} className="mt-4 grid gap-3 sm:grid-cols-2">
+        {error ? (
+          <p className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {success ? (
+          <p className="sm:col-span-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
+            {success}
+          </p>
+        ) : null}
+        <InputField id="inv-fn" label="First name" value={firstName} onChange={(ev) => setFirstName(ev.target.value)} />
+        <InputField id="inv-ln" label="Last name" value={lastName} onChange={(ev) => setLastName(ev.target.value)} />
+        <InputField
+          id="inv-em"
+          label="Email"
+          type="email"
+          className="sm:col-span-2"
+          value={email}
+          onChange={(ev) => setEmail(ev.target.value)}
+        />
+        <div className="sm:col-span-2">
+          <label htmlFor="inv-role" className="mb-1.5 block text-[11px] font-medium text-gray-500">
+            Role
+          </label>
+          <select
+            id="inv-role"
+            value={role}
+            onChange={(ev) => setRole(ev.target.value)}
+            className="text-primary-text h-10 w-full max-w-md rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green"
+          >
+            {INVITE_ROLE_OPTIONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="sm:col-span-2">
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Sending…" : "Send invitation"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+const DEMO_PASSWORD_RESET_ROWS = [
+  { requestId: "demo-req-1", email: "pending.user@example.com", createdAt: "Jan 10, 2026" },
+];
+
+function PasswordResetsTab() {
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const approve = async (requestId: string) => {
+    setError(null);
+    setMessage(null);
+    setBusyId(requestId);
+    try {
+      await postPasswordResetApprove({ requestId });
+      setMessage(`Request ${requestId} approved. The user will receive a reset link by email.`);
+    } catch (e) {
+      setError(e instanceof AdminApiError ? e.message : "Approve failed.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="mt-6 space-y-4">
+      <p className="text-sm text-zinc-500">
+        Demo rows below; replace with a GET list from the API when available. Approve calls{" "}
+        <code className="text-xs">POST /admin/password-reset/approve</code>.
+      </p>
+      {error ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
+          {message}
+        </p>
+      ) : null}
+      <div className="overflow-x-auto rounded-[8px] border border-outline bg-white">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead>
+            <tr className="bg-outline text-xs text-zinc-400">
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Request ID</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Email</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Requested</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DEMO_PASSWORD_RESET_ROWS.map((row) => (
+              <tr key={row.requestId} className="hover:bg-zinc-50">
+                <td className="border-b border-zinc-100 px-4 py-3 font-mono text-xs">{row.requestId}</td>
+                <td className="border-b border-zinc-100 px-4 py-3">{row.email}</td>
+                <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.createdAt}</td>
+                <td className="border-b border-zinc-100 px-4 py-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={busyId === row.requestId}
+                    onClick={() => approve(row.requestId)}
+                  >
+                    {busyId === row.requestId ? "Approving…" : "Approve"}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ── Pending Invites tab ── */
-function PendingInvitesTab() {
+function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
@@ -743,6 +923,7 @@ function PendingInvitesTab() {
 
   return (
     <>
+      {showInvite ? <InviteAdminForm /> : null}
       {filterMode ? (
         <TableFilterModeBar
           filterBarRef={filterBarRef}
