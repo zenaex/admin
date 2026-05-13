@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Profile2User, UserAdd } from "iconsax-react";
 import { CalendarDays } from "lucide-react";
@@ -19,59 +19,63 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { getAdminCustomersList, getAdminCustomersSummary } from "@/lib/admin-api/customers-api";
+import { AdminApiError } from "@/lib/admin-api/client";
+import type { AdminCustomerListQuery, AdminCustomerListRow, AdminCustomersSummary } from "@/lib/admin-api/types";
 
-/* ── Tab config ── */
+/* ── Tab config ──
+ * Active / Blocked map to OpenAPI `accountStatus`.
+ * PND / Lien: no matching query param — client-side filter on row.raw flags when present (see `rowMatchesTab`).
+ */
 type CustomerTab = "All" | "Active" | "Blocked" | "PND" | "Lien";
 const TABS: CustomerTab[] = ["All", "Active", "Blocked", "PND", "Lien"];
 
-/* ── Types ── */
-type CustomerStatus = "Active" | "Inactive" | "Deactivated" | "Blocked" | "PND" | "Lien" | "Blocked | Lien" | "PND | Lien";
+const FILTER_ACCOUNT_STATUSES = [
+  { value: "", label: "All statuses" },
+  { value: "active", label: "Active" },
+  { value: "suspended", label: "Suspended" },
+  { value: "blocked", label: "Blocked" },
+] as const;
 
-type Customer = {
-  id: string;
-  name: string;
-  username: string;
-  email: string;
-  phone: string;
-  status: CustomerStatus;
-  dateOnboarded: string;
-};
+function truthy(v: unknown): boolean {
+  return v === true || v === "true" || v === 1 || v === "1";
+}
 
-/* ── Seed data ── */
-const BASE_CUSTOMERS: Omit<Customer, "id">[] = [
-  { name: "Adekunle Timothy",  username: "@kunletin",    email: "Adekunle@gmail.com",      phone: "08077657878", status: "Deactivated",    dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Timothy Nasiru",    username: "@Timo",        email: "Nastimo@gmail.com",        phone: "08077657878", status: "Active",         dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Babangida Tunde",   username: "@Bangi",       email: "Babangida@yahoo.com",      phone: "08077657878", status: "Active",         dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chiamaka Ngozi",    username: "@maxxxxxx",    email: "Maxngigozi@gmail.com",     phone: "08077657878", status: "Blocked | Lien", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chiroma Ikechukwu", username: "@CN1boy",      email: "Ikechukwe@gmail.com",      phone: "08077657878", status: "Inactive",       dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chizoba Adekunle",  username: "@Cngirl",      email: "Chizoba@gmail.com",        phone: "08077657878", status: "Active",         dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Lala Jibola",       username: "@Ogala",       email: "Lalajibola@gmail.com",     phone: "08077657878", status: "Blocked",        dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Pelumi Fetuga",     username: "@Fat",         email: "Pelumifetuga@gmail.com",   phone: "08077657878", status: "Active",         dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Precious Ikotun",   username: "@biotunegbeda",email: "Precioudikotun@gmail.com", phone: "08077657878", status: "PND | Lien",     dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Poco Lee",          username: "@pocojoe",     email: "Poco.lee@yahoo.com",       phone: "08077657878", status: "PND",            dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Shakur Wasiu",      username: "@2pacshakur",  email: "Shakurrwasiu@gmail.com",   phone: "08077657878", status: "Lien",           dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-];
-
-const ALL_CUSTOMERS: Customer[] = Array.from({ length: 180 }, (_, i) => ({
-  ...BASE_CUSTOMERS[i % BASE_CUSTOMERS.length],
-  id: `customer-${i}`,
-  name:
-    i < BASE_CUSTOMERS.length
-      ? BASE_CUSTOMERS[i].name
-      : `${BASE_CUSTOMERS[i % BASE_CUSTOMERS.length].name} (${i + 1})`,
-}));
-
-const CUSTOMER_STATUS_FILTER_OPTIONS: CustomerStatus[] = Array.from(
-  new Set(BASE_CUSTOMERS.map((c) => c.status)),
-);
-
-function matchesCustomerTab(c: Customer, tab: CustomerTab): boolean {
+function rowMatchesTab(row: AdminCustomerListRow, tab: CustomerTab): boolean {
   if (tab === "All") return true;
-  if (tab === "Active") return c.status === "Active";
-  if (tab === "Blocked") return c.status.includes("Blocked");
-  if (tab === "PND") return c.status.includes("PND");
-  if (tab === "Lien") return c.status.includes("Lien");
+  if (tab === "Active") {
+    const s = String(row.raw.accountStatus ?? row.raw.status ?? "").toLowerCase();
+    return s === "active";
+  }
+  if (tab === "Blocked") {
+    const s = String(row.raw.accountStatus ?? row.raw.status ?? "").toLowerCase();
+    return s === "blocked";
+  }
+  if (tab === "PND") {
+    const r = row.raw;
+    if (truthy(r.isPnd) || truthy(r.pnd) || truthy(r.hasPnd)) return true;
+    const s = JSON.stringify(r).toLowerCase();
+    return s.includes("pnd") && (s.includes("true") || s.includes(":1"));
+  }
+  if (tab === "Lien") {
+    const r = row.raw;
+    if (truthy(r.lien) || truthy(r.hasLien) || truthy(r.isLien)) return true;
+    const s = JSON.stringify(r).toLowerCase();
+    return s.includes("lien") && (s.includes("true") || s.includes(":1"));
+  }
   return true;
+}
+
+/** Map top tabs to server query (except PND/Lien — handled client-side). */
+function tabToServerQuery(tab: CustomerTab): Pick<AdminCustomerListQuery, "accountStatus" | "activityStatus"> {
+  if (tab === "Active") return { accountStatus: "active" };
+  if (tab === "Blocked") return { accountStatus: "blocked" };
+  return {};
+}
+
+function formatCount(n: number | undefined): string {
+  if (n === undefined || Number.isNaN(n)) return "—";
+  return n.toLocaleString();
 }
 
 /* ── Avatar initials ── */
@@ -84,48 +88,60 @@ function Avatar({ name }: { name: string }) {
     .toUpperCase();
   return (
     <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-profile-picture text-xs font-semibold text-blue-grey">
-      {initials}
+      {initials || "?"}
     </span>
   );
 }
 
-/* ── Status badge ── */
-function StatusBadge({ status }: { status: CustomerStatus }) {
-  const styles: Record<CustomerStatus, string> = {
-    Active:           "bg-green-50 text-green-600",
-    Inactive:         "bg-zinc-100 text-zinc-500",
-    Deactivated:      "bg-red-50 text-red-500",
-    Blocked:          "bg-red-50 text-red-500",
-    PND:              "bg-red-50 text-red-500",
-    Lien:             "bg-red-50 text-red-500",
-    "Blocked | Lien": "bg-red-50 text-red-500",
-    "PND | Lien":     "bg-red-50 text-red-500",
-  };
+/* ── Status badge (free text from API) ── */
+function StatusBadge({ label }: { label: string }) {
+  const key = label.toLowerCase();
+  let cls = "bg-zinc-100 text-zinc-600";
+  if (key.includes("active") && !key.includes("in")) cls = "bg-green-50 text-green-600";
+  else if (key.includes("inactive") || key.includes("deactivated")) cls = "bg-zinc-100 text-zinc-500";
+  else if (key.includes("block") || key.includes("pnd") || key.includes("lien") || key.includes("suspend"))
+    cls = "bg-red-50 text-red-500";
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${styles[status]}`}>
-      {status}
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${cls}`}>
+      {label}
     </span>
   );
 }
 
-/* ── Main view ── */
 export function CustomersView() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<CustomerTab>("All");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "status" | "date">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
     useTableFilterBarAnchor<"status" | "date">(openFilter, filterMode);
 
-  const [draftStatus, setDraftStatus] = useState<CustomerStatus>(CUSTOMER_STATUS_FILTER_OPTIONS[0] ?? "Active");
-  const [draftDateLabel, setDraftDateLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
-  const [appliedStatus, setAppliedStatus] = useState<CustomerStatus | null>(null);
-  const [appliedDateLabel, setAppliedDateLabel] = useState<string | null>(null);
+  const [draftStatusValue, setDraftStatusValue] = useState<string>(FILTER_ACCOUNT_STATUSES[0].value);
+  const [draftDateLabel, setDraftDateLabel] = useState("Date range (picker coming soon)");
+  const [appliedAccountStatus, setAppliedAccountStatus] = useState<string | null>(null);
+
+  const [summary, setSummary] = useState<AdminCustomersSummary | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  const [listRows, setListRows] = useState<AdminCustomerListRow[]>([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
+
+  const clientTab = activeTab === "PND" || activeTab === "Lien";
+  const effectivePage = clientTab ? 1 : page;
+  const effectivePageSize = clientTab ? 100 : pageSize;
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 320);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -139,38 +155,77 @@ export function CustomersView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return ALL_CUSTOMERS.filter((c) => {
-      if (!matchesCustomerTab(c, activeTab)) return false;
-      if (appliedStatus && c.status !== appliedStatus) return false;
-      if (appliedDateLabel && !c.dateOnboarded.includes("Jan 6, 2026")) return false;
-      if (
-        q &&
-        !(
-          c.name.toLowerCase().includes(q) ||
-          c.email.toLowerCase().includes(q) ||
-          c.id.toLowerCase().includes(q)
-        )
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [search, activeTab, appliedStatus, appliedDateLabel]);
+  const loadSummary = useCallback(async () => {
+    setSummaryError(null);
+    try {
+      const s = await getAdminCustomersSummary();
+      setSummary(s);
+    } catch (e) {
+      setSummary(null);
+      setSummaryError(e instanceof AdminApiError ? e.message : "Could not load summary.");
+    }
+  }, []);
 
-  const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
-  const paginatedRows = useMemo(
-    () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filtered, safePage, pageSize],
-  );
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
-  const allChecked = paginatedRows.length > 0 && paginatedRows.every((r) => selected.has(r.id));
+  const loadList = useCallback(async () => {
+    setListError(null);
+    setListLoading(true);
+    try {
+      const tabQ = tabToServerQuery(activeTab);
+      const pillStatus =
+        appliedAccountStatus && appliedAccountStatus !== ""
+          ? (appliedAccountStatus as NonNullable<AdminCustomerListQuery["accountStatus"]>)
+          : tabQ.accountStatus;
+      const q: AdminCustomerListQuery = {
+        page: effectivePage,
+        pageSize: effectivePageSize,
+        search: debouncedSearch || undefined,
+        sortBy: "created_at",
+        sortOrder: "desc",
+        ...tabQ,
+        accountStatus: pillStatus,
+      };
+      const res = await getAdminCustomersList(q);
+      setListRows(res.items);
+      setListTotal(res.total);
+    } catch (e) {
+      setListRows([]);
+      setListTotal(0);
+      setListError(e instanceof AdminApiError ? e.message : "Could not load customers.");
+    } finally {
+      setListLoading(false);
+    }
+  }, [activeTab, appliedAccountStatus, debouncedSearch, effectivePage, effectivePageSize]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
+
+  const displayedRows = useMemo(() => {
+    if (!clientTab) return listRows;
+    return listRows.filter((r) => rowMatchesTab(r, activeTab));
+  }, [listRows, activeTab, clientTab]);
+
+  const paginationTotal = clientTab ? displayedRows.length : listTotal;
+  const safePage = clientTab ? 1 : Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)));
+  const paginatedRows = useMemo(() => {
+    if (clientTab) return displayedRows;
+    return listRows;
+  }, [clientTab, displayedRows, listRows]);
+
+  useEffect(() => {
+    if (clientTab) setPage(1);
+  }, [activeTab, clientTab]);
+
+  const allChecked = paginatedRows.length > 0 && paginatedRows.every((r) => selected.has(r.accountId));
   const toggleAll = () =>
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allChecked) paginatedRows.forEach((r) => next.delete(r.id));
-      else paginatedRows.forEach((r) => next.add(r.id));
+      if (allChecked) paginatedRows.forEach((r) => next.delete(r.accountId));
+      else paginatedRows.forEach((r) => next.add(r.accountId));
       return next;
     });
   const toggleRow = (id: string) =>
@@ -181,26 +236,62 @@ export function CustomersView() {
       return next;
     });
 
+  const draftStatusLabel =
+    FILTER_ACCOUNT_STATUSES.find((o) => o.value === draftStatusValue)?.label ?? "All statuses";
+
   return (
     <div>
       <ProviderHeader title="Customers" />
 
-      {/* Stat cards */}
+      {summaryError ? (
+        <p className="mt-4 text-sm text-amber-800" role="status">
+          {summaryError}
+        </p>
+      ) : null}
+
       <div className="mt-6 flex min-w-0 gap-3">
-        <StatCard label="Total Customers"    value="₦ 150,000" accentColor="#BCEB0F" icon={<Profile2User size={20} variant="Outline" color="#0B294F" />} />
-        <StatCard label="Active Customers"   value="100,000"   accentColor="#3B82F6" icon={<img src="/metrics/green.svg" alt="Active customers" className="h-5 w-5 object-contain" width={20} height={20} />} />
-        <StatCard label="Inactive Customers" value="50,000"    accentColor="#EF4444" icon={<img src="/metrics/red.svg" alt="Inactive customers" className="h-5 w-5 object-contain" width={20} height={20} />} />
-        <StatCard label="New Sign ups"       value="50,000"    accentColor="#013220" icon={<UserAdd size={20} variant="Outline" color="#0B294F" />} />
+        <StatCard
+          label="Total Customers"
+          value={formatCount(summary?.totalUsers)}
+          accentColor="#BCEB0F"
+          icon={<Profile2User size={20} variant="Outline" color="#0B294F" />}
+        />
+        <StatCard
+          label="Active Customers"
+          value={formatCount(summary?.activeUsers)}
+          accentColor="#3B82F6"
+          icon={<img src="/metrics/green.svg" alt="Active customers" className="h-5 w-5 object-contain" width={20} height={20} />}
+        />
+        <StatCard
+          label="Inactive Customers"
+          value={formatCount(summary?.inactiveUsers)}
+          accentColor="#EF4444"
+          icon={<img src="/metrics/red.svg" alt="Inactive customers" className="h-5 w-5 object-contain" width={20} height={20} />}
+        />
+        <StatCard
+          label="New Sign ups"
+          value={formatCount(summary?.newSignupsThisMonth)}
+          accentColor="#013220"
+          icon={<UserAdd size={20} variant="Outline" color="#0B294F" />}
+        />
       </div>
 
-      {/* Tab bar */}
       <div className="mt-6">
         <UnderlineTabs
           tabs={TABS.map((t) => ({ id: t, label: t }))}
           active={activeTab}
-          onChange={(id) => { setActiveTab(id as CustomerTab); setPage(1); }}
+          onChange={(id) => {
+            setActiveTab(id as CustomerTab);
+            setPage(1);
+          }}
         />
       </div>
+
+      {clientTab ? (
+        <p className="mt-3 text-xs text-zinc-500">
+          PND and Lien tabs filter up to {effectivePageSize} loaded rows using account flags when the API includes them.
+        </p>
+      ) : null}
 
       {filterMode ? (
         <TableFilterModeBar
@@ -215,7 +306,7 @@ export function CustomersView() {
             <>
               <TableFilterPill
                 label="Status"
-                summary={draftStatus}
+                summary={draftStatusLabel}
                 pillRef={registerPillRef("status")}
                 onClick={() =>
                   setOpenFilter((v) => {
@@ -259,9 +350,10 @@ export function CustomersView() {
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[220px]">
                   <TableFilterPanelTitle />
                   <TableFilterOptionsList
-                    options={CUSTOMER_STATUS_FILTER_OPTIONS}
-                    onSelect={(opt) => {
-                      setDraftStatus(opt as CustomerStatus);
+                    options={FILTER_ACCOUNT_STATUSES.map((o) => o.label)}
+                    onSelect={(label) => {
+                      const opt = FILTER_ACCOUNT_STATUSES.find((o) => o.label === label);
+                      setDraftStatusValue(opt?.value ?? "");
                       setOpenFilter(null);
                     }}
                   />
@@ -270,17 +362,7 @@ export function CustomersView() {
               {openFilter === "date" ? (
                 <TableFilterDropdownCard left={dropdownLeft}>
                   <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Jan 6, 2026 - Jan 6, 2026
-                    <CalendarDays size={16} />
-                  </button>
+                  <p className="px-2 py-2 text-xs text-zinc-500">Date range filters will send ISO dates once a picker is wired.</p>
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -288,17 +370,15 @@ export function CustomersView() {
           actions={
             <TableFilterApplyClear
               onApply={() => {
-                setAppliedStatus(draftStatus);
-                setAppliedDateLabel(draftDateLabel);
+                setAppliedAccountStatus(draftStatusValue === "" ? null : draftStatusValue);
                 setOpenFilter(null);
                 setPage(1);
               }}
               onClear={() => {
                 setSearch("");
-                setAppliedStatus(null);
-                setAppliedDateLabel(null);
-                setDraftStatus(CUSTOMER_STATUS_FILTER_OPTIONS[0] ?? "Active");
-                setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                setAppliedAccountStatus(null);
+                setDraftStatusValue(FILTER_ACCOUNT_STATUSES[0].value);
+                setDraftDateLabel("Date range (picker coming soon)");
                 setOpenFilter(null);
                 setFilterMode(false);
                 setPage(1);
@@ -311,13 +391,20 @@ export function CustomersView() {
           tableSearch={search}
           onTableSearchChange={setSearch}
           onFilterClick={() => {
-            setSearch("");
             setFilterMode(true);
           }}
         />
       )}
 
-      {/* Table */}
+      {listError ? (
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {listError}{" "}
+          <button type="button" className="font-semibold underline" onClick={() => void loadList()}>
+            Retry
+          </button>
+        </p>
+      ) : null}
+
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
@@ -338,44 +425,69 @@ export function CustomersView() {
             </tr>
           </thead>
           <tbody>
-            {paginatedRows.map((row, idx) => (
-              <tr key={row.id} onClick={() => router.push(`/dashboard/user-mgt/customers/${row.id}`)} className="cursor-pointer transition-colors hover:bg-zinc-50">
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(row.id)}
-                    onChange={() => toggleRow(row.id)}
-                    className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
-                  />
+            {listLoading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                  Loading customers…
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={row.name} />
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-primary-text">{row.name}</span>
-                      <span className="text-xs text-zinc-400">{row.username}</span>
-                    </div>
-                  </div>
-                </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <StatusBadge status={row.status} />
-                </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">{row.dateOnboarded}</td>
               </tr>
-            ))}
+            ) : paginatedRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                  No customers found.
+                </td>
+              </tr>
+            ) : (
+              paginatedRows.map((row) => (
+                <tr
+                  key={row.accountId}
+                  onClick={() => router.push(`/dashboard/user-mgt/customers/${encodeURIComponent(row.accountId)}`)}
+                  className="cursor-pointer transition-colors hover:bg-zinc-50"
+                >
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(row.accountId)}
+                      onChange={() => toggleRow(row.accountId)}
+                      className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
+                    />
+                  </td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={row.name} />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-primary-text">{row.name}</span>
+                        <span className="text-xs text-zinc-400">{row.username}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                    <StatusBadge label={row.statusLabel} />
+                  </td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
+                    {row.dateOnboarded}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
-      <AuditTrailPagination
-        page={safePage}
-        pageSize={pageSize}
-        totalItems={filtered.length}
-        onPageChange={(p) => setPage(p)}
-        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
-      />
+      {!clientTab ? (
+        <AuditTrailPagination
+          page={safePage}
+          pageSize={pageSize}
+          totalItems={paginationTotal}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
