@@ -130,7 +130,6 @@ export function CustomersView() {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
 
@@ -219,22 +218,6 @@ export function CustomersView() {
   useEffect(() => {
     if (clientTab) setPage(1);
   }, [activeTab, clientTab]);
-
-  const allChecked = paginatedRows.length > 0 && paginatedRows.every((r) => selected.has(r.accountId));
-  const toggleAll = () =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allChecked) paginatedRows.forEach((r) => next.delete(r.accountId));
-      else paginatedRows.forEach((r) => next.add(r.accountId));
-      return next;
-    });
-  const toggleRow = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   const draftStatusLabel =
     FILTER_ACCOUNT_STATUSES.find((o) => o.value === draftStatusValue)?.label ?? "All statuses";
@@ -409,14 +392,6 @@ export function CustomersView() {
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
             <tr className="bg-zinc-50 text-xs text-zinc-400">
-              <th className="h-11 w-10 border-b border-zinc-200 px-4 py-0 align-middle">
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  onChange={toggleAll}
-                  className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
-                />
-              </th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Customer Name</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email Address</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Phone Number</th>
@@ -427,13 +402,13 @@ export function CustomersView() {
           <tbody>
             {listLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
                   Loading customers…
                 </td>
               </tr>
             ) : paginatedRows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
                   No customers found.
                 </td>
               </tr>
@@ -444,14 +419,6 @@ export function CustomersView() {
                   onClick={() => router.push(`/dashboard/user-mgt/customers/${encodeURIComponent(row.accountId)}`)}
                   className="cursor-pointer transition-colors hover:bg-zinc-50"
                 >
-                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(row.accountId)}
-                      onChange={() => toggleRow(row.accountId)}
-                      className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
-                    />
-                  </td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                     <div className="flex items-center gap-3">
                       <Avatar name={row.name} />
