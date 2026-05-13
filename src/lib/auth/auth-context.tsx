@@ -13,7 +13,7 @@ import {
 import { postAdminLogin, postAdminVerifyOtp } from "@/lib/admin-api/auth-api";
 import type { AdminTokenPair } from "@/lib/admin-api/types";
 import { tryRefreshSession } from "@/lib/admin-api/client";
-import { decodeJwtPayload } from "@/lib/auth/jwt";
+import { adminProfileHintsFromToken } from "@/lib/auth/jwt";
 import {
   clearAuthStorage,
   clearPendingOtpEmail,
@@ -30,6 +30,12 @@ type AuthContextValue = {
   /** Email used for the OTP step (after password login). */
   pendingOtpEmail: string | null;
   displayEmail: string | null;
+  /** Best-effort name from JWT (or email). */
+  displayName: string | null;
+  /** Role string from JWT for UI. */
+  displayRole: string | null;
+  /** Two-letter avatar hint from JWT name/email. */
+  userInitials: string;
   login: (email: string, password: string) => Promise<"otp" | "dashboard">;
   verifyOtp: (otp: string) => Promise<void>;
   applyTokenPair: (pair: AdminTokenPair) => void;
@@ -38,24 +44,23 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function emailFromAccessToken(token: string | null): string | null {
-  if (!token) return null;
-  const p = decodeJwtPayload(token);
-  if (!p) return null;
-  const sub = p.sub ?? p.email;
-  return typeof sub === "string" ? sub : null;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [displayEmail, setDisplayEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [displayRole, setDisplayRole] = useState<string | null>(null);
+  const [userInitials, setUserInitials] = useState("?");
   const [pendingOtpEmail, setPendingOtpEmailState] = useState<string | null>(null);
 
   const syncFromStorage = useCallback(() => {
     const access = getAccessToken();
     setIsAuthenticated(Boolean(access));
-    setDisplayEmail(emailFromAccessToken(access));
+    const hints = adminProfileHintsFromToken(access);
+    setDisplayEmail(hints.email);
+    setDisplayName(hints.displayName);
+    setDisplayRole(hints.roleLabel);
+    setUserInitials(hints.initials);
   }, []);
 
   useEffect(() => {
@@ -123,6 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuthStorage();
     setIsAuthenticated(false);
     setDisplayEmail(null);
+    setDisplayName(null);
+    setDisplayRole(null);
+    setUserInitials("?");
     setPendingOtpEmailState(null);
   }, []);
 
@@ -132,12 +140,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       pendingOtpEmail,
       displayEmail,
+      displayName,
+      displayRole,
+      userInitials,
       login,
       verifyOtp,
       applyTokenPair,
       logout,
     }),
-    [applyTokenPair, displayEmail, isAuthenticated, login, logout, pendingOtpEmail, ready, verifyOtp],
+    [
+      applyTokenPair,
+      displayEmail,
+      displayName,
+      displayRole,
+      isAuthenticated,
+      login,
+      logout,
+      pendingOtpEmail,
+      ready,
+      userInitials,
+      verifyOtp,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

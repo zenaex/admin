@@ -5,16 +5,20 @@ export type SettingsTabId = "profile" | "password" | "password-policy" | "authen
 type SettingsTabsProps = {
   active: SettingsTabId;
   onChange: (id: SettingsTabId) => void;
+  /** When false, Password Policy tab is hidden (super admin only on backend). */
+  showPasswordPolicy: boolean;
 };
 
-const tabs: { id: SettingsTabId; label: string }[] = [
-  { id: "profile",         label: "Profile"         },
-  { id: "password",        label: "Password"        },
+const allTabs: { id: SettingsTabId; label: string }[] = [
+  { id: "profile", label: "Profile" },
+  { id: "password", label: "Password" },
   { id: "password-policy", label: "Password Policy" },
-  { id: "authentication",  label: "Authentication"  },
+  { id: "authentication", label: "Authentication" },
 ];
 
-export function SettingsTabs({ active, onChange }: SettingsTabsProps) {
+export function SettingsTabs({ active, onChange, showPasswordPolicy }: SettingsTabsProps) {
+  const tabs = showPasswordPolicy ? allTabs : allTabs.filter((t) => t.id !== "password-policy");
+
   return (
     <div className="flex items-baseline gap-8 border-b border-zinc-200">
       {tabs.map((tab) => {

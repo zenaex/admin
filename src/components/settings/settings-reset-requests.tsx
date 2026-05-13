@@ -1,85 +1,99 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown2 } from "iconsax-react";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
-
-type ResetRequest = { id: string; name: string; email: string; role: string; dateRequested: string };
-
-const BASE_REQUESTS: Omit<ResetRequest, "id">[] = [
-  { name: "Adeboye Temidayo",  email: "Adeboye.temidayo@zanaex.com",  role: "Superadmin",   dateRequested: "Jan 6, 2026 | 9:32AM" },
-  { name: "Azuka Adefemi",     email: "Azuka.adefemi@zanaex.com",     role: "Admin",        dateRequested: "Jan 6, 2026 | 9:32AM" },
-  { name: "Babangida Tunde",   email: "Babangida.tunde@zanaex.com",   role: "Tech Support", dateRequested: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chiamaka Ngozi",    email: "Chiamaka.ngozi@zanaex.com",    role: "Tech Support", dateRequested: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chiroma Ikechukwu", email: "Chiroma.ikechukwu@zanaex.com", role: "Tech Support", dateRequested: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chizoba Adekunle",  email: "Chizoba.adekunle@shago.com",   role: "Admin",        dateRequested: "Jan 6, 2026 | 9:32AM" },
-  { name: "Lala Jibola",       email: "Lala.jibola@zanaex.com",       role: "Tech Support", dateRequested: "Jan 6, 2026 | 9:32AM" },
-  { name: "Shakur Wasiu",      email: "Shakur.wasiu@zanaex.com",      role: "Tech Support", dateRequested: "Jan 6, 2026 | 9:32AM" },
-];
-
-const ALL_REQUESTS: ResetRequest[] = Array.from({ length: 48 }, (_, i) => ({
-  ...BASE_REQUESTS[i % BASE_REQUESTS.length],
-  id: `req-${i}`,
-  name: i < BASE_REQUESTS.length
-    ? BASE_REQUESTS[i].name
-    : `${BASE_REQUESTS[i % BASE_REQUESTS.length].name} (${i + 1})`,
-}));
+import { postPasswordResetApprove, postPasswordResetDecline } from "@/lib/admin-api/auth-api";
+import { getAdminSettingsPasswordResetRequests } from "@/lib/admin-api/settings-api";
+import { AdminApiError } from "@/lib/admin-api/client";
+import type { AdminSettingsPasswordResetRequestRow } from "@/lib/admin-api/types";
 
 export function ResetRequestsTable() {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [rows, setRows] = useState<AdminSettingsPasswordResetRequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [pending, setPending] = useState<{ id: string; action: "approve" | "reject" } | null>(null);
+  const [pending, setPending] = useState<{ requestId: string; action: "approve" | "decline" } | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const safePage = Math.min(page, Math.max(1, Math.ceil(ALL_REQUESTS.length / pageSize)));
+  const load = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
+    try {
+      const list = await getAdminSettingsPasswordResetRequests();
+      setRows(list);
+      setPage(1);
+    } catch (e) {
+      setRows([]);
+      setLoadError(e instanceof AdminApiError ? e.message : "Could not load reset requests.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(rows.length, 1) / pageSize)));
   const paginatedRows = useMemo(
-    () => ALL_REQUESTS.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [safePage, pageSize],
+    () => rows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [rows, safePage, pageSize],
   );
-  const allChecked = paginatedRows.length > 0 && paginatedRows.every((r) => selected.has(r.id));
 
-  const toggleAll = () =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allChecked) paginatedRows.forEach((r) => next.delete(r.id));
-      else paginatedRows.forEach((r) => next.add(r.id));
-      return next;
-    });
-
-  const toggleRow = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const handleConfirm = () => {
-    if (!pending) return;
-    const msg =
-      pending.action === "approve"
-        ? "Password resent has been approved. Team Member will get a reset link."
-        : "Password resent has been rejected.";
-    setPending(null);
-    setSuccessMsg(msg);
+  const handleConfirm = async () => {
+    if (!pending || actionBusy) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      if (pending.action === "approve") {
+        await postPasswordResetApprove({ requestId: pending.requestId });
+        setSuccessMsg("Password reset approved. The user will receive a reset link by email.");
+      } else {
+        await postPasswordResetDecline({ requestId: pending.requestId });
+        setSuccessMsg("Password reset request declined.");
+      }
+      setPending(null);
+      await load();
+    } catch (e) {
+      setActionError(e instanceof AdminApiError ? e.message : "Request failed.");
+    } finally {
+      setActionBusy(false);
+    }
   };
+
+  if (loading) {
+    return <p className="text-sm text-zinc-500">Loading reset requests…</p>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+        {loadError}
+        <button type="button" className="ml-3 font-semibold underline" onClick={() => void load()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
+      {actionError ? (
+        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {actionError}
+        </p>
+      ) : null}
+
       <div className="overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
             <tr className="bg-surface-subtle text-zinc-500">
-              <th className="h-11 w-10 border-b border-zinc-200 px-4 py-0 align-middle">
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  onChange={toggleAll}
-                  className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
-                />
-              </th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">
                 <span className="inline-flex items-center gap-1">
                   Name <ArrowDown2 size={12} variant="Outline" color="currentColor" />
@@ -87,90 +101,97 @@ export function ResetRequestsTable() {
               </th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Role</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Requested</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date requested</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedRows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(row.id)}
-                    onChange={() => toggleRow(row.id)}
-                    className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
-                  />
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                  <span className="cursor-pointer font-medium text-black underline underline-offset-2">
-                    {row.name}
-                  </span>
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-                <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
-                <td className="h-16 border-b border-outline px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">
-                  {row.dateRequested}
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                  <div className="flex items-center gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setPending({ id: row.id, action: "reject" })}
-                      className="text-sm font-medium text-red-500 underline transition-colors hover:text-red-700"
-                    >
-                      Reject
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPending({ id: row.id, action: "approve" })}
-                      className="text-sm font-medium text-green-600 underline transition-colors hover:text-green-800"
-                    >
-                      Approve
-                    </button>
-                  </div>
+            {paginatedRows.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="border-b border-outline px-4 py-8 text-center text-zinc-500">
+                  No pending password reset requests.
                 </td>
               </tr>
-            ))}
+            ) : (
+              paginatedRows.map((row) => (
+                <tr key={row.requestId} className="transition-colors hover:bg-surface-subtle">
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+                    <span className="font-medium text-primary-text">{row.name ?? "—"}</span>
+                  </td>
+                  <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.email ?? "—"}</td>
+                  <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.role ?? "—"}</td>
+                  <td className="h-16 whitespace-nowrap border-b border-outline px-4 py-0 text-zinc-500 align-middle">
+                    {row.dateRequested ?? "—"}
+                  </td>
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionError(null);
+                          setPending({ requestId: row.requestId, action: "decline" });
+                        }}
+                        className="text-sm font-medium text-red-500 underline transition-colors hover:text-red-700"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionError(null);
+                          setPending({ requestId: row.requestId, action: "approve" });
+                        }}
+                        className="text-sm font-medium text-green-600 underline transition-colors hover:text-green-800"
+                      >
+                        Approve
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
-      <AuditTrailPagination
-        page={safePage}
-        pageSize={pageSize}
-        totalItems={ALL_REQUESTS.length}
-        onPageChange={(p) => setPage(p)}
-        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
-      />
+      {rows.length > 0 ? (
+        <AuditTrailPagination
+          page={safePage}
+          pageSize={pageSize}
+          totalItems={rows.length}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      ) : null}
 
       {pending?.action === "approve" && (
         <ConfirmModal
           variant="approve"
-          title="Approve Request"
+          title="Approve request"
           message="Are you sure you want to approve this password reset?"
-          confirmLabel="Approve"
-          cancelLabel="Continue"
-          onConfirm={handleConfirm}
-          onCancel={() => setPending(null)}
+          confirmLabel={actionBusy ? "Working…" : "Approve"}
+          cancelLabel="Cancel"
+          onConfirm={() => void handleConfirm()}
+          onCancel={() => !actionBusy && setPending(null)}
         />
       )}
 
-      {pending?.action === "reject" && (
+      {pending?.action === "decline" && (
         <ConfirmModal
           variant="danger"
-          title="Reject Reset"
-          message="Are you sure you want to reject this password reset?"
-          confirmLabel="Reject"
+          title="Decline request"
+          message="Are you sure you want to decline this password reset?"
+          confirmLabel={actionBusy ? "Working…" : "Decline"}
           cancelLabel="Cancel"
-          onConfirm={handleConfirm}
-          onCancel={() => setPending(null)}
+          onConfirm={() => void handleConfirm()}
+          onCancel={() => !actionBusy && setPending(null)}
         />
       )}
 
-      {successMsg && (
-        <SuccessModal message={successMsg} onContinue={() => setSuccessMsg(null)} />
-      )}
+      {successMsg && <SuccessModal message={successMsg} onContinue={() => setSuccessMsg(null)} />}
     </div>
   );
 }

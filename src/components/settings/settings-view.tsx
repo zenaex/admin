@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowDown2 } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { SettingsTabs, SettingsTabId } from "@/components/settings/settings-tabs";
@@ -8,17 +8,24 @@ import { SettingsProfileTab } from "@/components/settings/settings-profile-tab";
 import { SettingsPasswordTab } from "@/components/settings/settings-password-tab";
 import { SettingsPasswordPolicyTab } from "@/components/settings/settings-password-policy-tab";
 import { SettingsAuthenticationTab } from "@/components/settings/settings-authentication-tab";
+import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
+import { getAccessToken } from "@/lib/auth/token-storage";
 
 export function SettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
 
+  const showSuperAdminSettings = isLikelySuperAdminFromToken(getAccessToken());
+
+  useEffect(() => {
+    if (activeTab === "password-policy" && !showSuperAdminSettings) {
+      setActiveTab("profile");
+    }
+  }, [activeTab, showSuperAdminSettings]);
+
   return (
     <div>
-      {/* Header row: title + search + action — all on one line */}
       <header className="flex flex-wrap items-center gap-4">
-        <h1 className="text-primary-text shrink-0 text-[20px] font-semibold tracking-tight">
-          Settings
-        </h1>
+        <h1 className="text-primary-text shrink-0 text-[20px] font-semibold tracking-tight">Settings</h1>
         <div className="flex min-w-0 flex-1 justify-center">
           <div className="h-10 w-[382px] shrink-0">
             <AuditTrailIconSearch variant="header" placeholder="Search here..." aria-label="Search" />
@@ -35,15 +42,14 @@ export function SettingsView() {
         </div>
       </header>
 
-      {/* Tabs */}
       <div className="mt-8">
-        <SettingsTabs active={activeTab} onChange={setActiveTab} />
+        <SettingsTabs active={activeTab} onChange={setActiveTab} showPasswordPolicy={showSuperAdminSettings} />
       </div>
 
       <div className="mt-6">
         {activeTab === "profile" && <SettingsProfileTab />}
-        {activeTab === "password" && <SettingsPasswordTab />}
-        {activeTab === "password-policy" && <SettingsPasswordPolicyTab />}
+        {activeTab === "password" && <SettingsPasswordTab showResetRequests={showSuperAdminSettings} />}
+        {activeTab === "password-policy" && showSuperAdminSettings && <SettingsPasswordPolicyTab />}
         {activeTab === "authentication" && <SettingsAuthenticationTab />}
       </div>
     </div>
