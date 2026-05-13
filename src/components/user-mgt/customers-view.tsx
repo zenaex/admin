@@ -345,7 +345,7 @@ export function CustomersView() {
               {openFilter === "date" ? (
                 <TableFilterDropdownCard left={dropdownLeft}>
                   <TableFilterPanelTitle />
-                  <p className="px-2 py-2 text-xs text-zinc-500">Date range filters will send ISO dates once a picker is wired.</p>
+                  <p className="px-2 py-2 text-xs text-zinc-500">Okunola will shout when he sees this :)</p>
                 </TableFilterDropdownCard>
               ) : null}
             </>
