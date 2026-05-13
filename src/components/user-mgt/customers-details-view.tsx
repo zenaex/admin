@@ -1,68 +1,86 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, WalletMoney, CardReceive, CardSend, Copy, DocumentDownload, Warning2, Forbidden2, CloseCircle, Forbidden, DocumentText, Document } from "iconsax-react";
-import { CalendarDays, Download, ListFilter } from "lucide-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, Copy, DocumentDownload, Warning2, Forbidden2, CloseCircle, Forbidden } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import {
-  TableFilterApplyClear,
-  TableFilterDropdownCard,
-  TableFilterModeBar,
-  TableFilterOptionsList,
-  TableFilterPanelTitle,
-  TableFilterPill,
-  TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
-} from "@/components/ui/table-filter-bar";
+  getAdminAuditCustomerLogs,
+  getAdminCustomerKyc,
+  getAdminCustomerProfile,
+  getAdminCustomerTransactions,
+  getAdminCustomerWallets,
+} from "@/lib/admin-api/customers-api";
+import { AdminApiError } from "@/lib/admin-api/client";
+import type { AdminCustomerTransactionRow, AdminCustomerWalletItem } from "@/lib/admin-api/types";
 
-/* ── Tab config ── */
 type CustomerDetailTab = "Customer Details" | "Transaction History" | "KYC Details" | "Wallet" | "Audit Log";
 const TABS: CustomerDetailTab[] = ["Customer Details", "Transaction History", "KYC Details", "Wallet", "Audit Log"];
 
-/* ── Mock data ── */
-const CUSTOMER_INFO = {
-  accountId: "10124325326267",
-  customerName: "Shakur Waisu",
-  username: "@Shakur2pacs",
-  phoneNumber: "08077657678",
-  emailAddress: "Shakurwasiu@gmail.com",
-  dateOnboarded: "Jan 6, 2025 | 9:32AM",
+function pickStr(o: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function boolToSet(v: unknown): "Set" | "Not Set" {
+  if (v === true || v === "true" || v === 1) return "Set";
+  if (v === false || v === "false" || v === 0) return "Not Set";
+  return "Not Set";
+}
+
+function formatWhen(iso: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (!Number.isNaN(d.getTime())) return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return iso;
+}
+
+export type CustomerDetailsViewProps = {
+  id: string;
 };
 
-const ACCOUNT_INFO = {
-  passcode: "Set" as "Set" | "Not Set",
-  transactionPin: "Set" as "Set" | "Not Set",
-  kycLevel: "Tier 2",
-  accountStatus: "Active" as "Active" | "Inactive" | "Blocked" | "PND" | "Lien",
-  dateTransactedLast: "Jan 6, 2025 | 9:32AM",
-  securityQuestion: "Not Set" as "Set" | "Not Set",
-};
-
-/* ── Main view ── */
-type CustomerDetailsViewProps = {
-  id?: string;
-};
-
-export function CustomerDetailsView({ id: _id }: CustomerDetailsViewProps) {
+export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps) {
   const [activeTab, setActiveTab] = useState<CustomerDetailTab>("Customer Details");
   const [actionOpen, setActionOpen] = useState(false);
 
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const loadProfile = useCallback(async () => {
+    setProfileError(null);
+    setProfileLoading(true);
+    try {
+      const p = await getAdminCustomerProfile(accountId);
+      setProfile(p);
+    } catch (e) {
+      setProfile(null);
+      setProfileError(e instanceof AdminApiError ? e.message : "Could not load customer.");
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
+
   const ACTION_ITEMS = [
     { label: "Account Statement", icon: <DocumentDownload size={16} variant="Outline" color="currentColor" /> },
-    { label: "Place on Lien",     icon: <Warning2        size={16} variant="Outline" color="currentColor" /> },
-    { label: "PND Account",       icon: <Forbidden2      size={16} variant="Outline" color="currentColor" /> },
-    { label: "Block Account",     icon: <CloseCircle     size={16} variant="Outline" color="currentColor" /> },
-    { label: "Deactivate Account",icon: <Forbidden       size={16} variant="Outline" color="currentColor" /> },
+    { label: "Place on Lien", icon: <Warning2 size={16} variant="Outline" color="currentColor" /> },
+    { label: "PND Account", icon: <Forbidden2 size={16} variant="Outline" color="currentColor" /> },
+    { label: "Block Account", icon: <CloseCircle size={16} variant="Outline" color="currentColor" /> },
+    { label: "Deactivate Account", icon: <Forbidden size={16} variant="Outline" color="currentColor" /> },
   ];
 
   return (
-    <div >
-      {/* Breadcrumb + Action */}
-      <div className="h-[66px] mb-6 flex items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
+    <div>
+      <div className="mb-6 flex h-[66px] items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
           <Link href="/dashboard/user-mgt/customers" className="inline-flex items-center gap-1 text-primary-text">
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
@@ -81,7 +99,7 @@ export function CustomerDetailsView({ id: _id }: CustomerDetailsViewProps) {
             Action
             <ArrowDown2 size={12} variant="Outline" color="currentColor" className={`transition-transform ${actionOpen ? "rotate-180" : ""}`} />
           </button>
-          {actionOpen && (
+          {actionOpen ? (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setActionOpen(false)} />
               <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
@@ -98,32 +116,68 @@ export function CustomerDetailsView({ id: _id }: CustomerDetailsViewProps) {
                 ))}
               </div>
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Tabs */}
+      {profileError ? (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          {profileError}{" "}
+          <button type="button" className="font-semibold underline" onClick={() => void loadProfile()}>
+            Retry
+          </button>
+        </div>
+      ) : null}
+
       <UnderlineTabs
         tabs={TABS.map((t) => ({ id: t, label: t }))}
         active={activeTab}
-        onChange={(id) => setActiveTab(id as CustomerDetailTab)}
+        onChange={(tid) => setActiveTab(tid as CustomerDetailTab)}
       />
 
-      {/* Tab content */}
-      {activeTab === "Customer Details" && <CustomerDetailsTab />}
-      {activeTab === "Transaction History" && <TransactionHistoryTab />}
-      {activeTab === "KYC Details" && <KycDetailsTab />}
-      {activeTab === "Wallet" && <WalletTab />}
-      {activeTab === "Audit Log" && <AuditLogTab />}
+      {activeTab === "Customer Details" ? (
+        <CustomerDetailsTab accountId={accountId} profile={profile} loading={profileLoading} />
+      ) : null}
+      {activeTab === "Transaction History" ? <TransactionHistoryTab accountId={accountId} /> : null}
+      {activeTab === "KYC Details" ? <KycDetailsTab accountId={accountId} /> : null}
+      {activeTab === "Wallet" ? <WalletTab accountId={accountId} /> : null}
+      {activeTab === "Audit Log" ? <AuditLogTab accountId={accountId} /> : null}
     </div>
   );
 }
 
-/* ── Customer Details tab ── */
-function CustomerDetailsTab() {
+function CustomerDetailsTab({
+  accountId,
+  profile,
+  loading,
+}: {
+  accountId: string;
+  profile: Record<string, unknown> | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return <p className="mt-6 text-sm text-zinc-500">Loading customer details…</p>;
+  }
+  const p = profile ?? {};
+  const name =
+    [pickStr(p, ["firstName", "first_name"]), pickStr(p, ["lastName", "last_name"])].filter(Boolean).join(" ").trim() ||
+    pickStr(p, ["fullName", "full_name", "name", "customerName"]) ||
+    "—";
+  const username = pickStr(p, ["username", "userName", "handle"]) || "—";
+  const email = pickStr(p, ["email", "emailAddress"]) || "—";
+  const phone = pickStr(p, ["phone", "phoneNumber", "mobile"]) || "—";
+  const onboard = pickStr(p, ["createdAt", "created_at", "dateOnboarded", "onboardedAt"]) || "";
+  const displayId = pickStr(p, ["accountId", "id", "uuid"]) || accountId;
+
+  const passcode = boolToSet(p.passcodeSet ?? p.passcode_is_set ?? p.hasPasscode);
+  const pin = boolToSet(p.transactionPinSet ?? p.pinSet ?? p.hasTransactionPin);
+  const kycLevel = pickStr(p, ["kycLevel", "kyc_level", "kycTier"]) || "—";
+  const acctStatus = pickStr(p, ["accountStatus", "account_status", "status"]) || "—";
+  const lastTx = pickStr(p, ["lastTransactionAt", "dateTransactedLast", "last_activity_at"]) || "—";
+  const secQ = boolToSet(p.securityQuestionSet ?? p.hasSecurityQuestion);
+
   return (
     <>
-      {/* Customer Details table */}
       <section className="mt-6">
         <h2 className="text-[18px] font-semibold text-primary-text">Customer Details</h2>
         <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
@@ -140,21 +194,18 @@ function CustomerDetailsTab() {
             </thead>
             <tbody>
               <tr>
-                <td className="px-4 py-5 border-r border-outline font-medium text-gray-900 underline underline-offset-2">
-                  {CUSTOMER_INFO.accountId}
-                </td>
-                <td className="px-4 py-5 border-r border-outline text-primary-text">{CUSTOMER_INFO.customerName}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{CUSTOMER_INFO.username}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{CUSTOMER_INFO.phoneNumber}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{CUSTOMER_INFO.emailAddress}</td>
-                <td className="px-4 py-5 whitespace-nowrap text-zinc-500">{CUSTOMER_INFO.dateOnboarded}</td>
+                <td className="border-r border-outline px-4 py-5 font-medium text-gray-900 underline underline-offset-2">{displayId}</td>
+                <td className="border-r border-outline px-4 py-5 text-primary-text">{name}</td>
+                <td className="border-r border-outline px-4 py-5 text-zinc-500">{username}</td>
+                <td className="border-r border-outline px-4 py-5 text-zinc-500">{phone}</td>
+                <td className="border-r border-outline px-4 py-5 text-zinc-500">{email}</td>
+                <td className="whitespace-nowrap px-4 py-5 text-zinc-500">{onboard ? formatWhen(onboard) : "—"}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      {/* Account Details table */}
       <section className="mt-8">
         <div className="overflow-x-auto rounded-xl border border-outline bg-white">
           <table className="w-full min-w-[800px] border-collapse text-left text-sm">
@@ -170,21 +221,21 @@ function CustomerDetailsTab() {
             </thead>
             <tbody>
               <tr>
-                <td className="px-4 py-5 border-r border-outline">
-                  <SetBadge value={ACCOUNT_INFO.passcode} />
+                <td className="border-r border-outline px-4 py-5">
+                  <SetBadge value={passcode} />
                 </td>
-                <td className="px-4 py-5 border-r border-outline">
-                  <SetBadge value={ACCOUNT_INFO.transactionPin} />
+                <td className="border-r border-outline px-4 py-5">
+                  <SetBadge value={pin} />
                 </td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{ACCOUNT_INFO.kycLevel}</td>
-                <td className="px-4 py-5 border-r border-outline">
-                  <AccountStatusBadge status={ACCOUNT_INFO.accountStatus} />
+                <td className="border-r border-outline px-4 py-5 text-zinc-500">{kycLevel}</td>
+                <td className="border-r border-outline px-4 py-5">
+                  <AccountStatusBadge status={acctStatus} />
                 </td>
-                <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">
-                  {ACCOUNT_INFO.dateTransactedLast}
+                <td className="border-r border-outline whitespace-nowrap px-4 py-5 text-zinc-500">
+                  {lastTx ? formatWhen(lastTx) : "—"}
                 </td>
                 <td className="px-4 py-5">
-                  <SetBadge value={ACCOUNT_INFO.securityQuestion} />
+                  <SetBadge value={secQ} />
                 </td>
               </tr>
             </tbody>
@@ -195,318 +246,108 @@ function CustomerDetailsTab() {
   );
 }
 
-/* ── Transaction History tab ── */
-type TxStatus = "Successful" | "Pending" | "Failed";
+function SetBadge({ value }: { value: "Set" | "Not Set" }) {
+  return (
+    <span className={`text-sm font-medium ${value === "Set" ? "text-green-600" : "text-red-500"}`}>
+      {value}
+    </span>
+  );
+}
 
-type TransactionRow = {
-  id: string;
-  referenceNo: string;
-  customerName: string;
-  channel: string;
-  amount: string;
-  biller: string;
-  status: TxStatus;
-  date: string;
-};
+function AccountStatusBadge({ status }: { status: string }) {
+  const key = status.toLowerCase();
+  let cls = "bg-zinc-100 text-zinc-500";
+  if (key.includes("active")) cls = "bg-green-50 text-green-600";
+  else if (key.includes("block") || key.includes("pnd") || key.includes("lien") || key.includes("suspend"))
+    cls = "bg-red-50 text-red-500";
+  return (
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${cls}`}>
+      {status}
+    </span>
+  );
+}
 
-const BASE_TRANSACTIONS: Omit<TransactionRow, "id">[] = [
-  { referenceNo: "Zenx_WVA_S373000PN", customerName: "Naomi Salisu", channel: "Crypto", amount: "₦ 20,000", biller: "BAXI", status: "Successful", date: "Jan 6, 2026 | 9:32AM" },
-  { referenceNo: "Zenx_WVA_S373000PN", customerName: "Job Awolowo", channel: "Deposit", amount: "₦ 20,000", biller: "BAXI", status: "Successful", date: "Jan 6, 2026 | 9:32AM" },
-  { referenceNo: "Zenx_WVA_S373000PN", customerName: "Martha Kalio", channel: "Withdrawal", amount: "₦ 20,000", biller: "XPRESS_PAYMENT", status: "Pending", date: "Jan 6, 2026 | 9:32AM" },
-  { referenceNo: "Zenx_WVA_S373000PN", customerName: "Victoria Salisu", channel: "Giftcard", amount: "₦ 20,000", biller: "XPRESS_PAYMENT", status: "Pending", date: "Jan 6, 2026 | 9:32AM" },
-  { referenceNo: "Zenx_WVA_S373000PN", customerName: "Mary Kalio", channel: "Esim", amount: "₦ 20,000", biller: "XPRESS_PAYMENT", status: "Successful", date: "Jan 6, 2026 | 9:32AM" },
-  { referenceNo: "Zenx_WVA_S373000PN", customerName: "Joseph Anunobi", channel: "Etrade", amount: "₦ 20,000", biller: "XPRESS_PAYMENT", status: "Successful", date: "Jan 6, 2026 | 9:32AM" },
-  { referenceNo: "Zenx_WVA_S373000PN", customerName: "Sarah Ibe", channel: "Buy Crypto", amount: "₦ 20,000", biller: "CRIBD", status: "Failed", date: "Jan 6, 2026 | 9:32AM" },
-];
+function TxStatusBadge({ status }: { status: string }) {
+  const k = status.toLowerCase();
+  let cls = "bg-zinc-100 text-zinc-600";
+  if (k.includes("success") || k.includes("complete")) cls = "bg-green-50 text-green-600";
+  else if (k.includes("pend")) cls = "bg-orange-50 text-orange-500";
+  else if (k.includes("fail")) cls = "bg-red-50 text-red-500";
+  return (
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${cls}`}>
+      {status}
+    </span>
+  );
+}
 
-const ALL_TRANSACTIONS: TransactionRow[] = Array.from({ length: 180 }, (_, i) => ({
-  ...BASE_TRANSACTIONS[i % BASE_TRANSACTIONS.length],
-  id: `tx-${i}`,
-}));
-
-const TX_CHANNEL_FILTER = ["All channels", ...Array.from(new Set(BASE_TRANSACTIONS.map((t) => t.channel)))];
-const TX_STATUS_FILTER = ["All statuses", "Successful", "Pending", "Failed"] as const;
-
-function TransactionHistoryTab() {
+function TransactionHistoryTab({ accountId }: { accountId: string }) {
   const [search, setSearch] = useState("");
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "channel" | "status" | "date">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"channel" | "status" | "date">(openFilter, filterMode);
-
-  const [draftChannel, setDraftChannel] = useState("All channels");
-  const [draftStatus, setDraftStatus] = useState<string>("All statuses");
-  const [draftDate, setDraftDate] = useState("From Jan 6, 2026 - To Jan 6, 2026");
-  const [appliedChannel, setAppliedChannel] = useState<string | null>(null);
-  const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
-  const [appliedDate, setAppliedDate] = useState<string | null>(null);
-
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [rows, setRows] = useState<AdminCustomerTransactionRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await getAdminCustomerTransactions(accountId, { page, pageSize });
+      setRows(res.items);
+      setTotal(res.total);
+    } catch (e) {
+      setRows([]);
+      setTotal(0);
+      setError(e instanceof AdminApiError ? e.message : "Could not load transactions.");
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId, page, pageSize]);
 
   useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
+    void load();
+  }, [load]);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const q = search.trim().toLowerCase();
+  const visible = q
+    ? rows.filter(
+        (r) =>
+          r.referenceNo.toLowerCase().includes(q) ||
+          r.customerName.toLowerCase().includes(q) ||
+          r.biller.toLowerCase().includes(q),
+      )
+    : rows;
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return ALL_TRANSACTIONS.filter((t) => {
-      if (appliedChannel && appliedChannel !== "All channels" && t.channel !== appliedChannel) return false;
-      if (appliedStatus && appliedStatus !== "All statuses" && t.status !== appliedStatus) return false;
-      if (appliedDate && !t.date.includes("Jan 6, 2026")) return false;
-      if (
-        q &&
-        !(
-          t.referenceNo.toLowerCase().includes(q) ||
-          t.customerName.toLowerCase().includes(q) ||
-          t.biller.toLowerCase().includes(q)
-        )
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [search, appliedChannel, appliedStatus, appliedDate]);
-
-  const totalItems = filtered.length;
-  const safePage = Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)));
-  const paginatedRows = useMemo(() => filtered.slice((safePage - 1) * pageSize, safePage * pageSize), [filtered, safePage, pageSize]);
-
-  const allChecked = paginatedRows.length > 0 && paginatedRows.every((r) => selected.has(r.id));
-  const toggleAll = () =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allChecked) paginatedRows.forEach((r) => next.delete(r.id));
-      else paginatedRows.forEach((r) => next.add(r.id));
-      return next;
-    });
-  const toggleRow = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(total, 1) / pageSize)));
 
   return (
     <>
-      {/* Stat cards */}
-      <div className="mt-6 flex gap-3">
-        <TxStatCard label="Total Available Balance" value="₦ 150,000" accentColor="var(--color-primary-green)" icon={<WalletMoney size={20} variant="Outline" color="currentColor" />} />
-        <TxStatCard label="Total Amount Inflow" value="100,000" accentColor="var(--color-vivid-azure)" icon={<CardReceive size={20} variant="Outline" color="currentColor" />} />
-        <TxStatCard label="Total Amount Outflow" value="50,000" accentColor="var(--color-failed)" icon={<CardSend size={20} variant="Outline" color="currentColor" />} />
-      </div>
-
-      {filterMode ? (
-        <TableFilterModeBar
-          filterBarRef={filterBarRef}
-          filterScrollRef={filterScrollRef}
-          showBackdrop={Boolean(openFilter)}
-          onBackdropClick={() => setOpenFilter(null)}
-          onPillsScroll={() => {
-            if (openFilter) syncDropdownLeft(openFilter);
-          }}
-          pills={
-            <>
-              <TableFilterPill
-                label="Channel"
-                summary={draftChannel}
-                pillRef={registerPillRef("channel")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "channel" ? null : "channel";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
-              />
-              <TableFilterPill
-                label="Status"
-                summary={draftStatus}
-                pillRef={registerPillRef("status")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "status" ? null : "status";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
-              />
-              <TableFilterPill
-                label="Date"
-                summary={draftDate}
-                pillRef={registerPillRef("date")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "date" ? null : "date";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
-              />
-            </>
-          }
-          pillsTrailing={
-            <TableFilterTrailingIconButton
-              ariaLabel="Calendar"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "date" ? null : "date";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
-              <CalendarDays size={14} />
-            </TableFilterTrailingIconButton>
-          }
-          dropdownLayer={
-            <>
-              {openFilter === "channel" ? (
-                <TableFilterDropdownCard left={dropdownLeft} widthClass="min-w-[200px] max-w-[min(92vw,280px)]">
-                  <TableFilterPanelTitle />
-                  <TableFilterOptionsList
-                    options={TX_CHANNEL_FILTER}
-                    onSelect={(opt) => {
-                      setDraftChannel(opt);
-                      setOpenFilter(null);
-                    }}
-                  />
-                </TableFilterDropdownCard>
-              ) : null}
-              {openFilter === "status" ? (
-                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[180px]">
-                  <TableFilterPanelTitle />
-                  <TableFilterOptionsList
-                    options={[...TX_STATUS_FILTER]}
-                    onSelect={(opt) => {
-                      setDraftStatus(opt);
-                      setOpenFilter(null);
-                    }}
-                  />
-                </TableFilterDropdownCard>
-              ) : null}
-              {openFilter === "date" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
-                  <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Jan 6, 2026 - Jan 6, 2026
-                    <CalendarDays size={16} />
-                  </button>
-                </TableFilterDropdownCard>
-              ) : null}
-            </>
-          }
-          actions={
-            <TableFilterApplyClear
-              onApply={() => {
-                setAppliedChannel(draftChannel === "All channels" ? null : draftChannel);
-                setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
-                setAppliedDate(draftDate);
-                setOpenFilter(null);
-                setPage(1);
-              }}
-              onClear={() => {
-                setSearch("");
-                setAppliedChannel(null);
-                setAppliedStatus(null);
-                setAppliedDate(null);
-                setDraftChannel("All channels");
-                setDraftStatus("All statuses");
-                setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
-                setOpenFilter(null);
-                setFilterMode(false);
-                setPage(1);
-              }}
-            />
-          }
-        />
-      ) : (
-      <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-        <span className="shrink-0 text-[15px] font-semibold text-primary-text">
-          All Transactions ({totalItems.toLocaleString()})
-        </span>
-        <div className="ml-4 w-[280px] shrink-0">
+      <div className="mt-6 flex h-14 flex-wrap items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
+        <span className="shrink-0 text-[15px] font-semibold text-primary-text">Transactions ({total.toLocaleString()})</span>
+        <div className="ml-0 w-full min-w-[200px] max-w-[320px] sm:ml-4 sm:w-[280px]">
           <AuditTrailIconSearch
             variant="toolbar"
-            placeholder="Search by Reference No"
+            placeholder="Search by reference (this page)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
-            aria-label="Filter"
-            onClick={() => {
-              setSearch("");
-              setFilterMode(true);
-            }}
-          >
-            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-            >
-              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              Export
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
       </div>
-      )}
 
-      {/* Table */}
+      {error ? (
+        <p className="mt-4 text-sm text-red-700" role="alert">
+          {error}{" "}
+          <button type="button" className="underline" onClick={() => void load()}>
+            Retry
+          </button>
+        </p>
+      ) : null}
+
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
             <tr className="bg-outline text-xs text-zinc-400">
-              <th className="h-11 w-10 border-b border-zinc-200 px-4 py-0 align-middle">
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  onChange={toggleAll}
-                  className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
-                />
-              </th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Reference No</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Customer Names</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Channel</th>
@@ -517,292 +358,298 @@ function TransactionHistoryTab() {
             </tr>
           </thead>
           <tbody>
-            {paginatedRows.map((row) => (
-              <tr key={row.id} className="transition-colors hover:bg-zinc-50">
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(row.id)}
-                    onChange={() => toggleRow(row.id)}
-                    className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
-                  />
+            {loading ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+                  Loading…
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 font-medium text-grey-900 underline underline-offset-2 align-middle">
-                  {row.referenceNo}
-                </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.customerName}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.channel}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.amount}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.biller}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <TxStatusBadge status={row.status} />
-                </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 whitespace-nowrap text-zinc-500 align-middle">{row.date}</td>
               </tr>
-            ))}
+            ) : visible.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+                  No transactions.
+                </td>
+              </tr>
+            ) : (
+              visible.map((row) => (
+                <tr key={row.id} className="transition-colors hover:bg-zinc-50">
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle font-medium text-grey-900 underline underline-offset-2">
+                    {row.referenceNo}
+                  </td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.customerName}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.channel}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.amount}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.biller}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                    <TxStatusBadge status={row.status} />
+                  </td>
+                  <td className="h-16 whitespace-nowrap border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.date}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
-      <AuditTrailPagination
-        page={safePage}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(p) => setPage(p)}
-        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
-      />
+      {!q ? (
+        <AuditTrailPagination
+          page={safePage}
+          pageSize={pageSize}
+          totalItems={total}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(s) => {
+            setPageSize(s);
+            setPage(1);
+          }}
+        />
+      ) : (
+        <p className="mt-2 text-xs text-zinc-500">Clear search to use server pagination.</p>
+      )}
     </>
   );
 }
 
-/* ── Tx Stat card ── */
-function TxStatCard({ label, value, accentColor, icon }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
-  return (
-    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-outline bg-white px-5 py-4">
-      <div className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full" style={{ backgroundColor: accentColor }} />
-      <div className="flex items-start justify-between">
-        <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-outline text-zinc-400">{icon}</span>
-      </div>
-      <p className="mt-3 text-[28px] font-bold text-primary-text">{value}</p>
-    </div>
-  );
-}
-
-/* ── Tx Status badge ── */
-function TxStatusBadge({ status }: { status: TxStatus }) {
-  const styles: Record<TxStatus, string> = {
-    Successful: "bg-green-50 text-green-600",
-    Pending: "bg-orange-50 text-orange-500",
-    Failed: "bg-red-50 text-red-500",
-  };
-  return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${styles[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-/* ── Set / Not Set badge ── */
-function SetBadge({ value }: { value: "Set" | "Not Set" }) {
-  return (
-    <span className={`text-sm font-medium ${value === "Set" ? "text-green-600" : "text-red-500"}`}>
-      {value}
-    </span>
-  );
-}
-
-/* ── Account Status badge ── */
-function AccountStatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    Active: "bg-green-50 text-green-600",
-    Inactive: "bg-zinc-100 text-zinc-500",
-    Blocked: "bg-red-50 text-red-500",
-    PND: "bg-red-50 text-red-500",
-    Lien: "bg-red-50 text-red-500",
-  };
-  return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${styles[status] ?? "text-zinc-500"}`}>
-      {status}
-    </span>
-  );
-}
-
-/* ── Wallet tab ── */
-const WALLETS = [
-  { name: "Bitcoin", ticker: "BTC", address: "3r2G7GVaSwsaPaW1ALxs", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1280px-Bitcoin.svg.png" },
-  { name: "Ethereum", ticker: "ETH", address: "3r2G7GVaSwsaPaW1ALxs", logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJDn0ojTITvcdAzMsfBMJaZC4STaDHzduleQ&s" },
-  { name: "Cardano", ticker: "ADA", address: "3r2G7GVaSwsaPaW1ALxs", logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLdd9WfS3QIH6smKyelNNojxodAJk9w03ZmA&s" },
-  { name: "Tron", ticker: "TRX", address: "3r2G7GVaSwsaPaW1ALxs", logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBsWaz0K2kxYpSFMhQ2pPdBcnOwpQHWYEyzw&s" },
-  { name: "Solana", ticker: "SOL", address: "3r2G7GVaSwsaPaW1ALxs", logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYjqar5ovv3GMyrHAY2qoIdX6boeg0GYVAIA&s" },
-  { name: "Tether", ticker: "USDT", address: "3r2G7GVaSwsaPaW1ALxs", logo: "https://cdn-icons-png.flaticon.com/512/825/825508.png" },
-];
-
-function WalletTab() {
+function WalletTab({ accountId }: { accountId: string }) {
+  const [wallets, setWallets] = useState<AdminCustomerWalletItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
-  const handleCopy = (address: string, idx: number) => {
-    navigator.clipboard.writeText(address);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await getAdminCustomerWallets(accountId);
+        if (cancelled) return;
+        setWallets(res.wallets ?? []);
+      } catch (e) {
+        if (!cancelled) {
+          setWallets([]);
+          setError(e instanceof AdminApiError ? e.message : "Could not load wallets.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
+  const handleCopy = (text: string, idx: number) => {
+    void navigator.clipboard.writeText(text);
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 1500);
   };
+
+  if (loading) return <p className="mt-6 text-sm text-zinc-500">Loading wallets…</p>;
+  if (error)
+    return (
+      <p className="mt-6 text-sm text-red-700" role="alert">
+        {error}
+      </p>
+    );
+
+  if (wallets.length === 0) {
+    return <p className="mt-6 text-sm text-zinc-500">No wallets for this customer.</p>;
+  }
 
   return (
     <section className="mt-6">
       <h2 className="text-[18px] font-semibold text-primary-text">Wallet Details</h2>
       <div className="mt-4 rounded-xl border border-outline bg-white">
-        {WALLETS.map((wallet, idx) => (
-          <div
-            key={wallet.ticker}
-            className={`flex items-center gap-4 px-5 py-4 ${idx < WALLETS.length - 1 ? "border-b border-outline" : ""
-              }`}
-          >
-
-            {/* Logo */}
-            <Image
-              src={wallet.logo}
-              alt={wallet.name}
-              width={40}
-              height={40}
-              className="h-10 w-10 shrink-0 rounded-full object-cover"
-              unoptimized
-            />
-
-            {/* Name + ticker */}
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-primary-text">{wallet.name}</span>
-              <span className="text-xs text-zinc-400">{wallet.ticker}</span>
+        {wallets.map((w, idx) => {
+          const label = w.walletType || w.currency || "Wallet";
+          const sub = [w.currency, w.status].filter(Boolean).join(" · ") || "—";
+          const addr = pickStr(w as unknown as Record<string, unknown>, ["address", "walletAddress", "publicKey"]) || w.walletId || "—";
+          return (
+            <div
+              key={`${w.walletId ?? idx}`}
+              className={`flex flex-wrap items-center gap-4 px-5 py-4 ${idx < wallets.length - 1 ? "border-b border-outline" : ""}`}
+            >
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-primary-text">{label}</span>
+                <span className="text-xs text-zinc-400">{sub}</span>
+              </div>
+              <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:max-w-[60%]">
+                <span className="truncate text-sm font-medium text-primary-text" title={addr}>
+                  {addr}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(addr, idx)}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:text-zinc-600"
+                  aria-label="Copy address"
+                >
+                  {copiedIdx === idx ? <span className="text-xs font-medium text-green-600">✓</span> : <Copy size={16} variant="Outline" color="currentColor" />}
+                </button>
+              </div>
+              <div className="w-full text-xs text-zinc-500 sm:w-auto sm:text-right">
+                Available: {w.availableBalance ?? "—"} · Current: {w.currentBalance ?? "—"} · Held: {w.heldBalance ?? "—"}
+              </div>
             </div>
-
-            {/* Address + copy */}
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-sm font-medium text-primary-text">{wallet.address}</span>
-              <button
-                type="button"
-                onClick={() => handleCopy(wallet.address, idx)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:text-zinc-600"
-                aria-label={`Copy ${wallet.name} address`}
-              >
-                {copiedIdx === idx ? (
-                  <span className="text-xs font-medium text-green-600">✓</span>
-                ) : (
-                  <Copy size={16} variant="Outline" color="currentColor" />
-                )}
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
 }
 
-/* ── KYC Details tab ── */
-function KycDetailsTab() {
-  return (
-    <>
-      {/* Tier 1 Details */}
-      <section className="mt-6">
-        <h2 className="text-[18px] font-semibold text-primary-text">Tier 1 Details</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
-          <table className="w-full min-w-[700px] border-collapse text-left text-sm">
+function KycDetailsTab({ accountId }: { accountId: string }) {
+  const [data, setData] = useState<unknown>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const k = await getAdminCustomerKyc(accountId);
+        if (!cancelled) setData(k);
+      } catch (e) {
+        if (!cancelled) {
+          setData(null);
+          setError(e instanceof AdminApiError ? e.message : "Could not load KYC.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
+  if (loading) return <p className="mt-6 text-sm text-zinc-500">Loading KYC…</p>;
+  if (error)
+    return (
+      <p className="mt-6 text-sm text-red-700" role="alert">
+        {error}
+      </p>
+    );
+
+  if (data == null) return <p className="mt-6 text-sm text-zinc-500">No KYC data.</p>;
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return <p className="mt-6 text-sm text-zinc-500">No KYC records.</p>;
+    const first = data[0];
+    if (first && typeof first === "object") {
+      const keys = Object.keys(first as object);
+      return (
+        <section className="mt-6 overflow-x-auto rounded-xl border border-outline bg-white">
+          <table className="w-full min-w-[600px] border-collapse text-left text-sm">
             <thead>
               <tr className="text-zinc-500">
-                <th className="border-b border-outline px-4 py-3 font-medium">Name</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">BVN</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Date of Birth</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Status</th>
+                {keys.map((k) => (
+                  <th key={k} className="border-b border-outline px-4 py-3 font-medium">
+                    {k}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="px-4 py-5 border-r border-outline text-primary-text">Shakur Waisu</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">23231212321</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">Oct. 19, 1988</td>
-                <td className="px-4 py-5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-600">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    Approved
-                  </span>
-                </td>
-              </tr>
+              {data.map((row, i) => (
+                <tr key={i}>
+                  {keys.map((k) => (
+                    <td key={k} className="border-b border-zinc-100 px-4 py-3 text-zinc-600">
+                      {formatCell((row as Record<string, unknown>)[k])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
             </tbody>
           </table>
-        </div>
-      </section>
+        </section>
+      );
+    }
+  }
 
-      {/* Tier 2 Details */}
-      <section className="mt-8">
-        <h2 className="text-[18px] font-semibold text-primary-text">Tier 2 Details</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
-          <table className="w-full min-w-[700px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="text-zinc-500">
-                <th className="border-b border-outline px-4 py-3 font-medium">ID Type</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">ID Number</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Date Issued</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Date of Expiry</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-4 py-5 border-r border-outline text-primary-text">NIN</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">23231212321</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">-</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">-</td>
-                <td className="px-4 py-5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-600">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    Approved
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </>
-  );
-}
-
-/* ── Audit Log tab ── */
-type ActivityItem = {
-  time: string;
-  message: string;
-  userAgent: string;
-  ip: string;
-};
-
-const todayActivities: ActivityItem[] = Array.from({ length: 4 }, () => ({
-  time: "2022-01-19 03:14:07",
-  message: "User Logged in with fingerprint successfully",
-  userAgent: "Mozilla5.0 (Windows 11; Win 64; x64",
-  ip: "192.160.1.1",
-}));
-
-const yesterdayActivities: ActivityItem[] = Array.from({ length: 4 }, () => ({
-  time: "2022-01-19 03:14:07",
-  message: "User Logged in with fingerprint successfully",
-  userAgent: "Mozilla5.0 (Windows 11; Win 64; x64",
-  ip: "192.160.1.1",
-}));
-
-function ActivityGroup({ title, items }: { title: string; items: ActivityItem[] }) {
-  return (
-    <section className="mt-6">
-      <h3 className="text-[18px] font-semibold text-primary-text">{title}</h3>
-      <div className="mt-4 space-y-3">
-        {items.map((item, idx) => (
-          <div
-            key={`${title}-${idx}`}
-            className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-xl border border-outline bg-white px-4 py-4 text-sm"
-          >
-            <span className="rounded-md bg-outline px-2 py-1 text-sidebar-dark">{item.time}</span>
-            <span className="text-sidebar-dark">{item.message}</span>
-            <span className="text-sidebar-dark">{item.userAgent}</span>
-            <span className="text-sidebar-dark">{item.ip}</span>
+  if (typeof data === "object") {
+    const o = data as Record<string, unknown>;
+    return (
+      <section className="mt-6 space-y-6">
+        {Object.entries(o).map(([section, val]) => (
+          <div key={section}>
+            <h3 className="text-[16px] font-semibold capitalize text-primary-text">{section.replace(/_/g, " ")}</h3>
+            <div className="mt-2 rounded-xl border border-outline bg-white p-4 text-sm text-zinc-600">
+              {typeof val === "object" ? <pre className="overflow-x-auto whitespace-pre-wrap text-xs">{JSON.stringify(val, null, 2)}</pre> : String(val)}
+            </div>
           </div>
         ))}
-      </div>
+      </section>
+    );
+  }
+
+  return (
+    <pre className="mt-6 overflow-x-auto rounded-xl border border-outline bg-white p-4 text-xs">{JSON.stringify(data, null, 2)}</pre>
+  );
+}
+
+function formatCell(v: unknown): string {
+  if (v == null) return "—";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+function AuditLogTab({ accountId }: { accountId: string }) {
+  const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const list = await getAdminAuditCustomerLogs(accountId);
+        if (!cancelled) setLogs(list);
+      } catch (e) {
+        if (!cancelled) {
+          setLogs([]);
+          setError(e instanceof AdminApiError ? e.message : "Could not load audit log.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
+  if (loading) return <p className="mt-6 text-sm text-zinc-500">Loading audit log…</p>;
+  if (error)
+    return (
+      <p className="mt-6 text-sm text-red-700" role="alert">
+        {error}
+      </p>
+    );
+  if (logs.length === 0) return <p className="mt-6 text-sm text-zinc-500">No audit entries.</p>;
+
+  return (
+    <section className="mt-6 space-y-3">
+      {logs.map((log, idx) => {
+        const time = pickStr(log, ["timestamp", "createdAt", "created_at", "time", "date"]);
+        const message = pickStr(log, ["message", "action", "description", "event", "type"]);
+        const ua = pickStr(log, ["userAgent", "user_agent", "browser"]);
+        const ip = pickStr(log, ["ip", "ipAddress", "ip_address", "clientIp"]);
+        return (
+          <div
+            key={idx}
+            className="grid grid-cols-1 gap-2 rounded-xl border border-outline bg-white px-4 py-4 text-sm sm:grid-cols-[auto_1fr_auto_auto]"
+          >
+            <span className="rounded-md bg-outline px-2 py-1 text-sidebar-dark">{time ? formatWhen(time) : "—"}</span>
+            <span className="text-sidebar-dark">{message || JSON.stringify(log)}</span>
+            <span className="text-sidebar-dark">{ua || "—"}</span>
+            <span className="text-sidebar-dark">{ip || "—"}</span>
+          </div>
+        );
+      })}
     </section>
-  );
-}
-
-function AuditLogTab() {
-  return (
-    <>
-      <ActivityGroup title="Today - 10th March, 2026" items={todayActivities} />
-      <ActivityGroup title="Yesterday - 9th March, 2026" items={yesterdayActivities} />
-    </>
-  );
-}
-
-/* ── Placeholder for other tabs ── */
-function PlaceholderTab({ label }: { label: string }) {
-  return (
-    <div className="mt-6 rounded-xl border border-outline bg-white px-6 py-10 text-center text-zinc-400">
-      {label} content will go here.
-    </div>
   );
 }

@@ -104,3 +104,82 @@ export type AdminSettingsPasswordPolicyDto = {
   requireLetters?: boolean;
   requireAlphanumericAndSpecial?: boolean;
 };
+
+/** `GET /admin/customers/summary` */
+export type AdminCustomersSummary = {
+  totalUsers?: number;
+  activeUsers?: number;
+  inactiveUsers?: number;
+  newSignupsThisMonth?: number;
+};
+
+/** Query for `GET /admin/customers` (OpenAPI names). */
+export type AdminCustomerListQuery = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  sortBy?: "created_at" | "first_name" | "last_name";
+  sortOrder?: "asc" | "desc";
+  accountStatus?: "" | "active" | "suspended" | "blocked";
+  activityStatus?: "" | "active" | "inactive";
+  kycTier?: number;
+  fromDate?: string;
+  toDate?: string;
+};
+
+/** Normalized row for customer list UI. */
+export type AdminCustomerListRow = {
+  accountId: string;
+  name: string;
+  username: string;
+  email: string;
+  phone: string;
+  statusLabel: string;
+  dateOnboarded: string;
+  /** Raw item for client-side PND/Lien heuristics when API has no query filter. */
+  raw: Record<string, unknown>;
+};
+
+export type AdminCustomerListResult = {
+  items: AdminCustomerListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/** Normalized wallet transaction row (customer detail tab). */
+export type AdminCustomerTransactionRow = {
+  id: string;
+  referenceNo: string;
+  customerName: string;
+  channel: string;
+  amount: string;
+  biller: string;
+  status: string;
+  date: string;
+};
+
+export type AdminCustomerTransactionListResult = {
+  items: AdminCustomerTransactionRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/** `GET /admin/customers/{accountId}/wallets` */
+export type AdminCustomerWalletItem = {
+  walletId?: string;
+  userId?: string;
+  walletType?: string;
+  status?: string;
+  currency?: string;
+  availableBalance?: number;
+  currentBalance?: number;
+  heldBalance?: number;
+};
+
+export type AdminCustomerWalletsResponse = {
+  wallets?: AdminCustomerWalletItem[];
+  totalCount?: number;
+  nextPageToken?: string;
+};
