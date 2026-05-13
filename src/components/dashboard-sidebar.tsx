@@ -19,6 +19,7 @@ import {
   User,
 } from "iconsax-react";
 
+import { ConfirmModal } from "@/components/provider/provider-modals";
 import { useAuth } from "@/lib/auth/auth-context";
 
 type SidebarItemProps = {
@@ -90,9 +91,13 @@ function isCustomerMgtPath(path: string) {
 export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, displayName, displayRole, displayEmail, userInitials } = useAuth();
 
   const [activeOverrideHref, setActiveOverrideHref] = useState<string | null>(null);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+
+  const sidebarTitle = displayName?.trim() || displayEmail?.trim() || "Admin";
+  const sidebarSubtitle = displayRole?.trim() || "Administrator";
 
   const isCustomerMgtRoute = isCustomerMgtPath(pathname);
   const activeCustomerMgtItem = pathname.startsWith("/dashboard/user-mgt/referral") ? "referral" : "customers";
@@ -400,30 +405,60 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
 
       <div className={`pb-6 pt-4 ${collapsed ? "px-3" : "px-4"}`}>
         <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-[14px] font-medium text-secondary-green">
-            RJ
+          <div
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[13px] font-semibold text-secondary-green"
+            aria-hidden
+          >
+            {userInitials}
           </div>
           {!collapsed ? (
-            <div>
-              <p className="text-[13px] font-semibold leading-tight">Roscoly Jibola</p>
-              <p className="text-[11px] text-label">Superadmin</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold leading-tight text-white">{sidebarTitle}</p>
+              <p className="truncate text-[11px] text-label">{sidebarSubtitle}</p>
+              {displayEmail && sidebarTitle !== displayEmail ? (
+                <p className="mt-0.5 truncate text-[10px] text-sidebar-label">{displayEmail}</p>
+              ) : null}
             </div>
           ) : null}
         </div>
-        {!collapsed ? (
+        {collapsed ? (
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-sidebar-label transition-colors hover:bg-white/10"
+              aria-label="Log out"
+              onClick={() => setLogoutOpen(true)}
+            >
+              <LogoutCurve size="22" color="var(--color-coral-red)" variant="Outline" />
+            </button>
+          </div>
+        ) : (
           <button
             type="button"
-            className="mt-4 inline-flex items-center gap-2 text-[13px] text-sidebar-label"
-            onClick={() => {
-              logout();
-              router.replace("/login");
-            }}
+            className="mt-4 inline-flex items-center gap-2 text-[13px] text-sidebar-label transition-colors hover:text-white"
+            onClick={() => setLogoutOpen(true)}
           >
             <LogoutCurve size="24" color="var(--color-coral-red)" variant="Outline" />
             <span>Log out</span>
           </button>
-        ) : null}
+        )}
       </div>
+
+      {logoutOpen ? (
+        <ConfirmModal
+          variant="danger"
+          title="Log out?"
+          message="You will need to sign in again to access the admin dashboard."
+          confirmLabel="Log out"
+          cancelLabel="Cancel"
+          onConfirm={() => {
+            logout();
+            router.replace("/login");
+            setLogoutOpen(false);
+          }}
+          onCancel={() => setLogoutOpen(false)}
+        />
+      ) : null}
     </aside>
   );
 }

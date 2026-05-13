@@ -9,7 +9,7 @@ import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { Button } from "@/components/button";
 import { InputField } from "@/components/input-field";
 import { NotificationDrawerTrigger } from "@/components/notifications/notification-drawer";
-import { postInvitation, postPasswordResetApprove } from "@/lib/admin-api/auth-api";
+import { postInvitation, postPasswordResetApprove, postPasswordResetDecline } from "@/lib/admin-api/auth-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -794,6 +794,10 @@ function InviteAdminForm() {
   );
 }
 
+/**
+ * Demo rows until the backend exposes a list endpoint (e.g. pending password-reset requests).
+ * Replace this array with a GET-driven fetch when that API is available.
+ */
 const DEMO_PASSWORD_RESET_ROWS = [
   { requestId: "demo-req-1", email: "pending.user@example.com", createdAt: "Jan 10, 2026" },
 ];
@@ -801,27 +805,42 @@ const DEMO_PASSWORD_RESET_ROWS = [
 function PasswordResetsTab() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busy, setBusy] = useState<null | { requestId: string; kind: "approve" | "decline" }>(null);
 
   const approve = async (requestId: string) => {
     setError(null);
     setMessage(null);
-    setBusyId(requestId);
+    setBusy({ requestId, kind: "approve" });
     try {
       await postPasswordResetApprove({ requestId });
       setMessage(`Request ${requestId} approved. The user will receive a reset link by email.`);
     } catch (e) {
       setError(e instanceof AdminApiError ? e.message : "Approve failed.");
     } finally {
-      setBusyId(null);
+      setBusy(null);
+    }
+  };
+
+  const decline = async (requestId: string) => {
+    setError(null);
+    setMessage(null);
+    setBusy({ requestId, kind: "decline" });
+    try {
+      await postPasswordResetDecline({ requestId });
+      setMessage(`Request ${requestId} declined.`);
+    } catch (e) {
+      setError(e instanceof AdminApiError ? e.message : "Decline failed.");
+    } finally {
+      setBusy(null);
     }
   };
 
   return (
     <div className="mt-6 space-y-4">
       <p className="text-sm text-zinc-500">
-        Demo rows below; replace with a GET list from the API when available. Approve calls{" "}
-        <code className="text-xs">POST /admin/password-reset/approve</code>.
+        Demo rows below; replace with a GET list from the API when available. Actions call{" "}
+        <code className="text-xs">POST /admin/password-reset/approve</code> and{" "}
+        <code className="text-xs">POST /admin/password-reset/decline</code>.
       </p>
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -844,23 +863,35 @@ function PasswordResetsTab() {
             </tr>
           </thead>
           <tbody>
-            {DEMO_PASSWORD_RESET_ROWS.map((row) => (
+            {DEMO_PASSWORD_RESET_ROWS.map((row) => {
+              const rowBusy = busy?.requestId === row.requestId;
+              return (
               <tr key={row.requestId} className="hover:bg-zinc-50">
                 <td className="border-b border-zinc-100 px-4 py-3 font-mono text-xs">{row.requestId}</td>
                 <td className="border-b border-zinc-100 px-4 py-3">{row.email}</td>
                 <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.createdAt}</td>
                 <td className="border-b border-zinc-100 px-4 py-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={busyId === row.requestId}
-                    onClick={() => approve(row.requestId)}
-                  >
-                    {busyId === row.requestId ? "Approving…" : "Approve"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      disabled={rowBusy}
+                      onClick={() => approve(row.requestId)}
+                    >
+                      {rowBusy && busy?.kind === "approve" ? "Approving…" : "Approve"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={rowBusy}
+                      onClick={() => decline(row.requestId)}
+                    >
+                      {rowBusy && busy?.kind === "decline" ? "Declining…" : "Decline"}
+                    </Button>
+                  </div>
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>
