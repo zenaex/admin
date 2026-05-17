@@ -80,7 +80,23 @@ Source module: `src/lib/admin-api/customers-api.ts`
 
 ---
 
-## 5) Role-aware Application Rules Implemented
+## 5) Admin Transactions
+
+Source module: `src/lib/admin-api/transactions-api.ts`
+
+OpenAPI lists these routes but does not document query params or response schemas; list/detail parsing is normalized in `transactions-api.ts`.
+
+| Method | Endpoint | Application in product | Main usage locations |
+|---|---|---|---|
+| GET | `/admin/transactions` | Product transaction list (Crypto, Giftcard, Utility, E-sim, E-trade tabs) | `src/components/transactions/transactions-view.tsx` |
+| GET | `/admin/transactions/wallet` | Wallet transaction list (Deposit, Withdrawal tabs) | `src/components/transactions/transactions-view.tsx` |
+| GET | `/admin/transactions/{reference}` | Transaction detail + log tab | `src/components/transactions/transaction-details-view.tsx` |
+
+**Not wired in UI (optional later):** `POST /admin/transactions/export`, `POST /admin/transactions/{reference}/sensitive`.
+
+---
+
+## 6) Role-aware Application Rules Implemented
 
 - Settings tabs hide super-admin-only areas for non-super-admins:
   - Password Policy tab hidden unless `isLikelySuperAdminFromToken(getAccessToken())` is true.
@@ -89,11 +105,12 @@ Source module: `src/lib/admin-api/customers-api.ts`
 
 ---
 
-## 6) Quick File Index
+## 7) Quick File Index
 
 - Auth endpoints: `src/lib/admin-api/auth-api.ts`
 - Settings endpoints: `src/lib/admin-api/settings-api.ts`
 - Customers + customer audit log: `src/lib/admin-api/customers-api.ts`
+- Transactions: `src/lib/admin-api/transactions-api.ts`
 - API client/refresh/error handling: `src/lib/admin-api/client.ts`
 - Endpoint types: `src/lib/admin-api/types.ts`
 - Settings policy mapping: `src/lib/admin-api/settings-policy-map.ts`

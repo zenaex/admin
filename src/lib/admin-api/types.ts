@@ -183,3 +183,37 @@ export type AdminCustomerWalletsResponse = {
   totalCount?: number;
   nextPageToken?: string;
 };
+
+/** Query for `GET /admin/transactions` and `GET /admin/transactions/wallet` (common params; not all documented in OpenAPI). */
+export type AdminTransactionListQuery = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  channel?: string;
+  type?: string;
+  fromDate?: string;
+  toDate?: string;
+};
+
+/** Normalized row for global transactions list UI. */
+export type AdminTransactionListRow = {
+  id: string;
+  refNo: string;
+  customerName: string;
+  channel: string;
+  amount: string;
+  provider: string;
+  status: string;
+  date: string;
+  /** ISO or raw timestamp for sorting merged lists. */
+  dateSortKey: string;
+  raw: Record<string, unknown>;
+};
+
+export type AdminTransactionListResult = {
+  items: AdminTransactionListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
