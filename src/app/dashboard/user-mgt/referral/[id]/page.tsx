@@ -6,5 +6,5 @@ type Props = {
 
 export default async function ReferralDetailsPage({ params }: Props) {
   const { id } = await params;
-  return <ReferralDetailsView id={id} />;
+  return <ReferralDetailsView key={id} id={id} />;
 }

@@ -96,7 +96,21 @@ OpenAPI lists these routes but does not document query params or response schema
 
 ---
 
-## 6) Role-aware Application Rules Implemented
+## 6) Admin Referrals
+
+Source module: `src/lib/admin-api/referrals-api.ts`
+
+| Method | Endpoint | Application in product | Main usage locations |
+|---|---|---|---|
+| GET | `/admin/referrals` | Paginated referrer list, search, status filter | `src/components/user-mgt/referral-view.tsx` |
+| GET | `/admin/referrals/summary` | Referral metrics (available for future stat cards) | `src/lib/admin-api/referrals-api.ts` |
+| GET | `/admin/referrals/config` | Load active earning configuration in modal | `src/components/user-mgt/referral-view.tsx` |
+| POST | `/admin/referrals/config` | Save earning configuration (super_admin) | `src/components/user-mgt/referral-view.tsx` |
+| GET | `/admin/referrals/{accountId}` | Referrer profile, stats, referred users table | `src/components/user-mgt/referral-details-view.tsx` |
+
+---
+
+## 7) Role-aware Application Rules Implemented
 
 - Settings tabs hide super-admin-only areas for non-super-admins:
   - Password Policy tab hidden unless `isLikelySuperAdminFromToken(getAccessToken())` is true.
@@ -105,12 +119,13 @@ OpenAPI lists these routes but does not document query params or response schema
 
 ---
 
-## 7) Quick File Index
+## 8) Quick File Index
 
 - Auth endpoints: `src/lib/admin-api/auth-api.ts`
 - Settings endpoints: `src/lib/admin-api/settings-api.ts`
 - Customers + customer audit log: `src/lib/admin-api/customers-api.ts`
 - Transactions: `src/lib/admin-api/transactions-api.ts`
+- Referrals: `src/lib/admin-api/referrals-api.ts`
 - API client/refresh/error handling: `src/lib/admin-api/client.ts`
 - Endpoint types: `src/lib/admin-api/types.ts`
 - Settings policy mapping: `src/lib/admin-api/settings-policy-map.ts`

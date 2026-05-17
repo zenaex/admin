@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CloseCircle, DocumentText, Document } from "iconsax-react";
 import { CalendarDays, Download, ListFilter } from "lucide-react";
@@ -18,46 +18,21 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { AdminApiError } from "@/lib/admin-api/client";
+import {
+  createAdminReferralConfig,
+  getAdminReferralConfig,
+  getAdminReferralsList,
+  parseAmountString,
+} from "@/lib/admin-api/referrals-api";
+import type { AdminReferralConfigBody, AdminReferralListRow } from "@/lib/admin-api/types";
 
-/* ── Types ── */
-type Referral = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  referralCode: string;
-  referralMade: number;
-  totalRewardsEarned: string;
-};
+const REFERRAL_STATUS_OPTIONS = [
+  { value: "", label: "All statuses" },
+  { value: "qualified", label: "Qualified" },
+  { value: "pending", label: "Pending" },
+] as const;
 
-/* ── Seed data ── */
-const BASE_REFERRALS: Omit<Referral, "id">[] = [
-  { name: "Adeboye Temidayo", email: "Adeboye.temidayo@zaneax.com", phone: "08077657678", referralCode: "bigbear444", referralMade: 40, totalRewardsEarned: "₦60,000.00" },
-  { name: "Azuka Adefemi", email: "Azuka.adefemi@zaneax.com", phone: "08077657678", referralCode: "Baddoooo", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-  { name: "Babangida Tunde", email: "Babangida.tunde@zaneax.com", phone: "08077657678", referralCode: "BigJerry", referralMade: 40, totalRewardsEarned: "₦60,000.00" },
-  { name: "Chiamaka Ngozi", email: "Chiamaka.ngozi@zaneax.com", phone: "08077657678", referralCode: "Samierry01", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-  { name: "Chiroma Ikechukwu", email: "Chiroma.ikechukwu@zaneax.com", phone: "08077657678", referralCode: "Papitto39", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-  { name: "Chizoba Adekunle", email: "Chizoba.adekunle@shago.com", phone: "08077657678", referralCode: "Papitto39", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-  { name: "Lala Jibola", email: "Lala.jibola@zaneax.com", phone: "08077657678", referralCode: "Papitto39", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-  { name: "Lola Serubawon", email: "Lala.serubawon@zaneax.com", phone: "08077657678", referralCode: "Papitto39", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-  { name: "Pelumi Fetuga", email: "Pelumi.fetuga@zaneax.com", phone: "08077657678", referralCode: "Papitto39", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-  { name: "Poco Lee", email: "Poco.lee@zaneax.com", phone: "08077657678", referralCode: "Papitto39", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-  { name: "Shakur Wasiu", email: "Shakur.wasiu@zaneax.com", phone: "08077657678", referralCode: "Papitto39", referralMade: 50, totalRewardsEarned: "₦60,000.00" },
-];
-
-const ALL_REFERRALS: Referral[] = Array.from({ length: 180 }, (_, i) => ({
-  ...BASE_REFERRALS[i % BASE_REFERRALS.length],
-  id: `ref-${i}`,
-  name:
-    i < BASE_REFERRALS.length
-      ? BASE_REFERRALS[i].name
-      : `${BASE_REFERRALS[i % BASE_REFERRALS.length].name} (${i + 1})`,
-}));
-
-const REFERRAL_MADE_OPTIONS = ["All", "40", "50"] as const;
-const REWARD_OPTIONS = ["All", ...Array.from(new Set(BASE_REFERRALS.map((r) => r.totalRewardsEarned)))];
-
-/* ── Avatar ── */
 function Avatar({ name }: { name: string }) {
   const initials = name
     .split(" ")
@@ -67,24 +42,90 @@ function Avatar({ name }: { name: string }) {
     .toUpperCase();
   return (
     <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-profile-picture text-xs font-semibold text-blue-grey">
-      {initials}
+      {initials || "?"}
     </span>
   );
 }
 
-/* ── Configure Earnings Modal ── */
-const THRESHOLD_TYPES = ["Transaction number", "Amount spent", "Sign-up count"];
+function matchesClientFilters(
+  row: AdminReferralListRow,
+  made: string | null,
+  rewards: string | null,
+): boolean {
+  if (made && made !== "All" && String(row.referralMade) !== made) return false;
+  if (rewards && rewards !== "All" && row.totalRewardsEarned !== rewards) return false;
+  return true;
+}
 
-function ConfigureEarningsModal({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+function ConfigureEarningsModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: () => void;
+}) {
   const [thresholdType, setThresholdType] = useState("Transaction number");
   const [transactionNumber, setTransactionNumber] = useState("20");
-  const [rewardAmount, setRewardAmount] = useState("₦5000");
+  const [rewardAmount, setRewardAmount] = useState("5000");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const cfg = await getAdminReferralConfig();
+        if (cancelled) return;
+        const cycle = cfg.cycleSize ?? cfg.cycle_size;
+        const reward = cfg.rewardAmount ?? cfg.reward_amount;
+        const minTx = cfg.minTransactionAmount ?? cfg.min_transaction_amount;
+        if (cycle !== undefined) setTransactionNumber(String(cycle));
+        if (reward !== undefined) setRewardAmount(String(reward));
+        if (minTx !== undefined && !cycle) setTransactionNumber(String(minTx));
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof AdminApiError ? e.message : "Could not load configuration.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const cycle = Number.parseInt(transactionNumber, 10) || 10;
+      const body: AdminReferralConfigBody = {
+        minTransactionAmount: parseAmountString(transactionNumber),
+        currency: "NGN",
+        maxDaysFromOnboarding: 30,
+        cycleSize: cycle,
+        allowedProducts: [],
+        rewardAmount: parseAmountString(rewardAmount),
+        rewardCurrency: "NGN",
+      };
+      await createAdminReferralConfig(body);
+      onSave();
+    } catch (err) {
+      setError(err instanceof AdminApiError ? err.message : "Could not save configuration.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-2xl bg-white px-6 pb-7 pt-5 shadow-xl mx-4">
-        {/* Header */}
+      <div className="relative mx-4 w-full max-w-sm rounded-2xl bg-white px-6 pb-7 pt-5 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-[17px] font-bold text-primary-text">Configure Earnings</h2>
           <button
@@ -97,89 +138,105 @@ function ConfigureEarningsModal({ onClose, onSave }: { onClose: () => void; onSa
           </button>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSave();
-          }}
-          className="space-y-4"
-        >
-          {/* Threshold Type */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-primary-text">Threshold Type</label>
-            <div className="relative">
-              <select
-                className="w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
-                value={thresholdType}
-                onChange={(e) => setThresholdType(e.target.value)}
-              >
-                {THRESHOLD_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
+        {loading ? (
+          <p className="text-sm text-zinc-500">Loading configuration…</p>
+        ) : (
+          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+            {error ? (
+              <p className="text-sm text-red-700" role="alert">
+                {error}
+              </p>
+            ) : null}
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-primary-text">Threshold Type</label>
+              <div className="relative">
+                <select
+                  className="w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
+                  value={thresholdType}
+                  onChange={(e) => setThresholdType(e.target.value)}
+                >
+                  {["Transaction number", "Amount spent", "Sign-up count"].map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="mt-1 text-xs text-zinc-500">Saved to API as cycle size / min transaction amount.</p>
             </div>
-          </div>
 
-          {/* Transaction Number */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-primary-text">Transaction Number</label>
-            <input
-              type="text"
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
-              value={transactionNumber}
-              onChange={(e) => setTransactionNumber(e.target.value)}
-              placeholder="e.g. 20"
-            />
-          </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-primary-text">Cycle size</label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
+                value={transactionNumber}
+                onChange={(e) => setTransactionNumber(e.target.value)}
+                placeholder="e.g. 20"
+              />
+            </div>
 
-          {/* Reward Amount */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-primary-text">Reward Amount</label>
-            <input
-              type="text"
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
-              value={rewardAmount}
-              onChange={(e) => setRewardAmount(e.target.value)}
-              placeholder="e.g. ₦5000"
-            />
-          </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-primary-text">Reward Amount (NGN)</label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
+                value={rewardAmount}
+                onChange={(e) => setRewardAmount(e.target.value)}
+                placeholder="e.g. 5000"
+              />
+            </div>
 
-          <button
-            type="submit"
-            className="mt-2 w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
-          >
-            Save
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={saving}
+              className="mt-2 w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
 }
 
-/* ── Main view ── */
 export function ReferralView() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "made" | "rewards" | "period">(null);
+  const [openFilter, setOpenFilter] = useState<null | "made" | "rewards" | "period" | "status">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"made" | "rewards" | "period">(openFilter, filterMode);
+    useTableFilterBarAnchor<"made" | "rewards" | "period" | "status">(openFilter, filterMode);
 
-  const [draftMade, setDraftMade] = useState<string>("All");
-  const [draftRewards, setDraftRewards] = useState<string>("All");
-  const [draftPeriod, setDraftPeriod] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [draftMade, setDraftMade] = useState("All");
+  const [draftRewards, setDraftRewards] = useState("All");
+  const [draftPeriod, setDraftPeriod] = useState("Date range (picker coming soon)");
+  const [draftStatus, setDraftStatus] = useState("");
   const [appliedMade, setAppliedMade] = useState<string | null>(null);
   const [appliedRewards, setAppliedRewards] = useState<string | null>(null);
+  const [appliedStatus, setAppliedStatus] = useState<"" | "qualified" | "pending" | null>(null);
+
+  const [listRows, setListRows] = useState<AdminReferralListRow[]>([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showConfigSuccess, setShowConfigSuccess] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+
+  const clientFiltersActive = Boolean(
+    (appliedMade && appliedMade !== "All") || (appliedRewards && appliedRewards !== "All"),
+  );
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 320);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -193,37 +250,68 @@ export function ReferralView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return ALL_REFERRALS.filter((r) => {
-      if (appliedMade && appliedMade !== "All" && String(r.referralMade) !== appliedMade) return false;
-      if (appliedRewards && appliedRewards !== "All" && r.totalRewardsEarned !== appliedRewards)
-        return false;
-      if (
-        q &&
-        !(
-          r.name.toLowerCase().includes(q) ||
-          r.email.toLowerCase().includes(q) ||
-          r.referralCode.toLowerCase().includes(q)
-        )
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [search, appliedMade, appliedRewards]);
+  const loadList = useCallback(async () => {
+    setListError(null);
+    setListLoading(true);
+    try {
+      const res = await getAdminReferralsList({
+        page: clientFiltersActive ? 1 : page,
+        pageSize: clientFiltersActive ? 100 : pageSize,
+        search: debouncedSearch || undefined,
+        status: appliedStatus ?? undefined,
+      });
+      setListRows(res.items);
+      setListTotal(res.total);
+    } catch (e) {
+      setListRows([]);
+      setListTotal(0);
+      setListError(e instanceof AdminApiError ? e.message : "Could not load referrals.");
+    } finally {
+      setListLoading(false);
+    }
+  }, [appliedStatus, clientFiltersActive, debouncedSearch, page, pageSize]);
 
-  const totalItems = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const paginatedRows = useMemo(
-    () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filtered, safePage, pageSize],
-  );
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
+
+  const rewardOptions = useMemo(() => {
+    const fromApi = Array.from(new Set(listRows.map((r) => r.totalRewardsEarned))).filter((v) => v !== "—");
+    return ["All", ...fromApi];
+  }, [listRows]);
+
+  const madeOptions = useMemo(() => {
+    const counts = Array.from(new Set(listRows.map((r) => String(r.referralMade))));
+    return ["All", ...counts.sort((a, b) => Number(a) - Number(b))];
+  }, [listRows]);
+
+  const displayedRows = useMemo(() => {
+    return listRows.filter((r) => matchesClientFilters(r, appliedMade, appliedRewards));
+  }, [listRows, appliedMade, appliedRewards]);
+
+  const paginationTotal = clientFiltersActive ? displayedRows.length : listTotal;
+  const paginatedRows = useMemo(() => {
+    if (!clientFiltersActive) return displayedRows;
+    const start = (page - 1) * pageSize;
+    return displayedRows.slice(start, start + pageSize);
+  }, [clientFiltersActive, displayedRows, page, pageSize]);
+
+  const safePage = clientFiltersActive
+    ? Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)))
+    : page;
+
+  const draftStatusLabel =
+    REFERRAL_STATUS_OPTIONS.find((o) => o.value === draftStatus)?.label ?? "All statuses";
 
   return (
     <div>
       <ProviderHeader title="Referrals" />
+
+      {clientFiltersActive ? (
+        <p className="mt-3 text-xs text-zinc-500">
+          Referrals made / rewards filters apply to up to 100 loaded rows. Status uses the API query param.
+        </p>
+      ) : null}
 
       {filterMode ? (
         <TableFilterModeBar
@@ -236,6 +324,18 @@ export function ReferralView() {
           }}
           pills={
             <>
+              <TableFilterPill
+                label="Status"
+                summary={draftStatusLabel}
+                pillRef={registerPillRef("status")}
+                onClick={() =>
+                  setOpenFilter((v) => {
+                    const next = v === "status" ? null : "status";
+                    syncDropdownLeft(next);
+                    return next;
+                  })
+                }
+              />
               <TableFilterPill
                 label="Referrals made"
                 summary={draftMade}
@@ -290,11 +390,24 @@ export function ReferralView() {
           }
           dropdownLayer={
             <>
+              {openFilter === "status" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[180px]">
+                  <TableFilterPanelTitle />
+                  <TableFilterOptionsList
+                    options={REFERRAL_STATUS_OPTIONS.map((o) => o.label)}
+                    onSelect={(label) => {
+                      const opt = REFERRAL_STATUS_OPTIONS.find((o) => o.label === label);
+                      setDraftStatus(opt?.value ?? "");
+                      setOpenFilter(null);
+                    }}
+                  />
+                </TableFilterDropdownCard>
+              ) : null}
               {openFilter === "made" ? (
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[160px]">
                   <TableFilterPanelTitle />
                   <TableFilterOptionsList
-                    options={[...REFERRAL_MADE_OPTIONS]}
+                    options={madeOptions.length > 1 ? madeOptions : ["All", "40", "50"]}
                     onSelect={(opt) => {
                       setDraftMade(opt);
                       setOpenFilter(null);
@@ -306,7 +419,7 @@ export function ReferralView() {
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
                   <TableFilterPanelTitle />
                   <TableFilterOptionsList
-                    options={REWARD_OPTIONS}
+                    options={rewardOptions}
                     onSelect={(opt) => {
                       setDraftRewards(opt);
                       setOpenFilter(null);
@@ -317,17 +430,9 @@ export function ReferralView() {
               {openFilter === "period" ? (
                 <TableFilterDropdownCard left={dropdownLeft}>
                   <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftPeriod("From Jan 6, 2026 - To Jan 6, 2026");
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Jan 6, 2026 - Jan 6, 2026
-                    <CalendarDays size={16} />
-                  </button>
+                  <p className="px-2 py-2 text-xs text-zinc-500">
+                    Date range filters will send ISO dates once a picker is wired.
+                  </p>
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -337,6 +442,9 @@ export function ReferralView() {
               onApply={() => {
                 setAppliedMade(draftMade === "All" ? null : draftMade);
                 setAppliedRewards(draftRewards === "All" ? null : draftRewards);
+                setAppliedStatus(
+                  draftStatus === "" ? null : (draftStatus as "qualified" | "pending"),
+                );
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -344,9 +452,11 @@ export function ReferralView() {
                 setSearch("");
                 setAppliedMade(null);
                 setAppliedRewards(null);
+                setAppliedStatus(null);
                 setDraftMade("All");
                 setDraftRewards("All");
-                setDraftPeriod("From Jan 6, 2026 - To Jan 6, 2026");
+                setDraftStatus("");
+                setDraftPeriod("Date range (picker coming soon)");
                 setOpenFilter(null);
                 setFilterMode(false);
                 setPage(1);
@@ -355,101 +465,129 @@ export function ReferralView() {
           }
         />
       ) : (
-      <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-        <span className="shrink-0 text-[15px] font-semibold text-primary-text">
-          Referral List
-        </span>
-        <div className="ml-4 w-[280px] shrink-0">
-          <AuditTrailIconSearch
-            variant="toolbar"
-            placeholder="Search by Name or ID"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
-            aria-label="Filter"
-            onClick={() => {
-              setSearch("");
-              setFilterMode(true);
-            }}
-          >
-            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-          </button>
-          <div className="relative">
+        <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
+          <span className="shrink-0 text-[15px] font-semibold text-primary-text">Referral List</span>
+          <div className="ml-4 w-[280px] shrink-0">
+            <AuditTrailIconSearch
+              variant="toolbar"
+              placeholder="Search by Name or ID"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
+              aria-label="Filter"
+              onClick={() => setFilterMode(true)}
             >
-              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              Export
+              <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportOpen((o) => !o)}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
+              >
+                <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+                Export
+              </button>
+              {exportOpen ? (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
+                    <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
+                      <button
+                        type="button"
+                        onClick={() => setExportOpen(false)}
+                        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50"
+                      >
+                        <DocumentText size={18} variant="Outline" color="currentColor" />
+                        CSV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExportOpen(false)}
+                        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50"
+                      >
+                        <Document size={18} variant="Outline" color="currentColor" />
+                        PDF
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowConfigModal(true)}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+            >
+              Configure Earning
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowConfigModal(true)}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-          >
-            Configure Earning
-          </button>
         </div>
-      </div>
       )}
 
-      {/* Table */}
+      {listError ? (
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {listError}{" "}
+          <button type="button" className="font-semibold underline" onClick={() => void loadList()}>
+            Retry
+          </button>
+        </p>
+      ) : null}
+
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
             <tr className="bg-outline text-xs text-zinc-400">
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Customer Name</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Phone Number</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Referral Code</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Referral Made</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Total Rewards Earned</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Customer Name</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Email</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Phone Number</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Referral Code</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Referral Made</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Total Rewards Earned</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedRows.map((row) => (
-              <tr
-                key={row.id}
-                className="cursor-pointer transition-colors hover:bg-zinc-50"
-                onClick={() => {}}
-              >
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <Link href={`/dashboard/user-mgt/referral/${row.id}`} className="flex items-center gap-3">
-                    <Avatar name={row.name} />
-                    <span className="text-sm font-medium text-primary-text">{row.name}</span>
-                  </Link>
+            {listLoading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                  Loading referrals…
                 </td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.phone}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.referralCode}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle text-center">{row.referralMade}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.totalRewardsEarned}</td>
               </tr>
-            ))}
+            ) : paginatedRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                  No referrals found.
+                </td>
+              </tr>
+            ) : (
+              paginatedRows.map((row) => (
+                <tr key={row.accountId} className="transition-colors hover:bg-zinc-50">
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                    <Link
+                      href={`/dashboard/user-mgt/referral/${encodeURIComponent(row.accountId)}`}
+                      className="flex items-center gap-3"
+                    >
+                      <Avatar name={row.name} />
+                      <span className="text-sm font-medium text-primary-text">{row.name}</span>
+                    </Link>
+                  </td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle text-zinc-500">{row.email}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle text-zinc-500">{row.phone}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle text-zinc-500">{row.referralCode}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-center align-middle text-zinc-500">
+                    {row.referralMade}
+                  </td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle text-zinc-500">
+                    {row.totalRewardsEarned}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -457,13 +595,15 @@ export function ReferralView() {
       <AuditTrailPagination
         page={safePage}
         pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(p) => setPage(p)}
-        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+        totalItems={paginationTotal}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
       />
 
-      {/* Configure Earnings Modal */}
-      {showConfigModal && (
+      {showConfigModal ? (
         <ConfigureEarningsModal
           onClose={() => setShowConfigModal(false)}
           onSave={() => {
@@ -471,16 +611,15 @@ export function ReferralView() {
             setShowConfigSuccess(true);
           }}
         />
-      )}
+      ) : null}
 
-      {/* Success Modal */}
-      {showConfigSuccess && (
+      {showConfigSuccess ? (
         <SuccessModal
           message="Earning configuration has been saved successfully"
           confirmLabel="Done"
           onContinue={() => setShowConfigSuccess(false)}
         />
-      )}
+      ) : null}
     </div>
   );
 }
