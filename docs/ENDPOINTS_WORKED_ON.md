@@ -47,7 +47,7 @@ Source module: `src/lib/admin-api/settings-api.ts`
 | GET | `/admin/settings/profile` | Fetch current admin profile for Settings > Profile tab | `src/components/settings/settings-profile-tab.tsx` |
 | PATCH | `/admin/settings/profile` | Update profile fields (`firstName`, `lastName`, `phoneNumber`, `department`) | `src/components/settings/settings-profile-tab.tsx` |
 | POST | `/admin/settings/change-password` | Change own password from Settings > Password | `src/components/settings/settings-password-reset.tsx` |
-| GET | `/admin/settings/password-reset-requests` | Fetch reset requests list for super admin moderation table | `src/components/settings/settings-reset-requests.tsx` |
+| GET | `/admin/settings/password-reset-requests` | Fetch pending reset requests (super admin) | `src/components/settings/settings-reset-requests.tsx`, `src/components/user-mgt/admin-management-view.tsx` (Password resets tab) |
 | GET | `/admin/settings/password-policy` | Load password policy into policy tab controls | `src/components/settings/settings-password-policy-tab.tsx` |
 | PATCH | `/admin/settings/password-policy` | Persist policy changes from expiry/length/combination controls | `src/components/settings/settings-password-policy-tab.tsx` |
 
@@ -80,7 +80,60 @@ Source module: `src/lib/admin-api/customers-api.ts`
 
 ---
 
-## 5) Role-aware Application Rules Implemented
+## 5) Admin Transactions
+
+Source module: `src/lib/admin-api/transactions-api.ts`
+
+OpenAPI lists these routes but does not document query params or response schemas; list/detail parsing is normalized in `transactions-api.ts`.
+
+| Method | Endpoint | Application in product | Main usage locations |
+|---|---|---|---|
+| GET | `/admin/transactions` | Product transaction list (Crypto, Giftcard, Utility, E-sim, E-trade tabs) | `src/components/transactions/transactions-view.tsx` |
+| GET | `/admin/transactions/wallet` | Wallet transaction list (Deposit, Withdrawal tabs) | `src/components/transactions/transactions-view.tsx` |
+| GET | `/admin/transactions/{reference}` | Transaction detail + log tab | `src/components/transactions/transaction-details-view.tsx` |
+
+| POST | `/admin/transactions/export` | CSV/PDF/JSON export (API with client fallback) | `transactions-view.tsx`, `src/lib/admin-api/export-api.ts` |
+
+**Not wired in UI (optional later):** `POST /admin/transactions/{reference}/sensitive`.
+
+---
+
+## 6) Admin Referrals
+
+Source module: `src/lib/admin-api/referrals-api.ts`
+
+| Method | Endpoint | Application in product | Main usage locations |
+|---|---|---|---|
+| GET | `/admin/referrals` | Paginated referrer list, search, status filter | `src/components/user-mgt/referral-view.tsx` |
+| GET | `/admin/referrals/summary` | Referral metrics (available for future stat cards) | `src/lib/admin-api/referrals-api.ts` |
+| GET | `/admin/referrals/config` | Load active earning configuration in modal | `src/components/user-mgt/referral-view.tsx` |
+| POST | `/admin/referrals/config` | Save earning configuration (super_admin) | `src/components/user-mgt/referral-view.tsx` |
+| GET | `/admin/referrals/{accountId}` | Referrer profile, stats, referred users table | `src/components/user-mgt/referral-details-view.tsx` |
+
+---
+
+## 7) Admin Audit Trail
+
+Source module: `src/lib/admin-api/audit-api.ts`
+
+| Method | Endpoint | Application in product | Main usage locations |
+|---|---|---|---|
+| GET | `/admin/audit/internal-users` | Internal Users tab — session list | `src/components/audit-trail/audit-trail-view.tsx` |
+| GET | `/admin/audit/customers` | Customers tab — session list | `src/components/audit-trail/audit-trail-view.tsx` |
+| GET | `/admin/audit/internal-users/{adminId}/logs` | Internal user activity detail | `src/components/audit-trail/audit-trail-details-view.tsx` |
+| GET | `/admin/audit/customers/{accountId}/logs` | Customer activity detail + customer detail Audit Log tab | `audit-trail-details-view.tsx`, `customers-details-view.tsx` |
+
+| POST | `/admin/audit/export` | CSV/PDF/JSON export for audit list and detail logs | `audit-trail-view.tsx`, `audit-trail-details-view.tsx`, `export-api.ts` |
+
+**Not wired in UI (optional later):** per-log `GET .../logs/{logId}`.
+
+**Client-side table export (no dedicated API):** Customers, Referrals, Communication, Admin Management, Provider/Product details, Settings authentication users, Dashboard summary — via `src/lib/export/table-export.ts` and `TableExportMenu`.
+
+OpenAPI does not document list query params; search/role/action filters are client-side on loaded rows. Date pill is UI-only until a picker sends ISO `fromDate`/`toDate`.
+
+---
+
+## 8) Role-aware Application Rules Implemented
 
 - Settings tabs hide super-admin-only areas for non-super-admins:
   - Password Policy tab hidden unless `isLikelySuperAdminFromToken(getAccessToken())` is true.
@@ -89,11 +142,14 @@ Source module: `src/lib/admin-api/customers-api.ts`
 
 ---
 
-## 6) Quick File Index
+## 9) Quick File Index
 
 - Auth endpoints: `src/lib/admin-api/auth-api.ts`
 - Settings endpoints: `src/lib/admin-api/settings-api.ts`
 - Customers + customer audit log: `src/lib/admin-api/customers-api.ts`
+- Transactions: `src/lib/admin-api/transactions-api.ts`
+- Referrals: `src/lib/admin-api/referrals-api.ts`
+- Audit trail: `src/lib/admin-api/audit-api.ts`
 - API client/refresh/error handling: `src/lib/admin-api/client.ts`
 - Endpoint types: `src/lib/admin-api/types.ts`
 - Settings policy mapping: `src/lib/admin-api/settings-policy-map.ts`

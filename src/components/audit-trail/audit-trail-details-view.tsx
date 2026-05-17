@@ -1,46 +1,35 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown2, ArrowLeft2, ArrowRight2 } from "iconsax-react";
 
-type ActivityItem = {
-  time: string;
-  message: string;
-  userAgent: string;
-  ip: string;
-};
+import { AdminApiError } from "@/lib/admin-api/client";
+import {
+  getAdminAuditCustomerLogs,
+  getAdminAuditInternalUserLogs,
+} from "@/lib/admin-api/audit-api";
+import type { AdminAuditActivityLogEntry, AdminAuditSubjectDetails } from "@/lib/admin-api/types";
+import type { ExportColumn } from "@/lib/export/table-export";
+import { exportTableWithApiFallback, exportViaAuditApi } from "@/lib/export/export-handlers";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
 
-const userDetails = {
-  name: "Shakur Waisu",
-  role: "Tech Support",
-  phoneNumber: "080778567878",
-  emailAddress: "Shakurwaisu@gmail.com",
-  dateAdded: "Jan 6, 2025 | 9:32AM",
-};
+const AUDIT_LOG_EXPORT_COLUMNS: ExportColumn<AdminAuditActivityLogEntry>[] = [
+  { header: "Time", value: (l) => l.time },
+  { header: "Message", value: (l) => l.message },
+  { header: "User Agent", value: (l) => l.userAgent },
+  { header: "IP", value: (l) => l.ip },
+];
 
-const todayActivities: ActivityItem[] = Array.from({ length: 4 }, () => ({
-  time: "2022-01-19 03:14:07",
-  message: "User Logged in with fingerprint successfully",
-  userAgent: "Mozilla/5.0 (Windows 11; Win 64; x64)",
-  ip: "192.160.1.1",
-}));
-
-const yesterdayActivities: ActivityItem[] = Array.from({ length: 4 }, () => ({
-  time: "2022-01-19 03:14:07",
-  message: "User Logged in with fingerprint successfully",
-  userAgent: "Mozilla/5.0 (Windows 11; Win 64; x64)",
-  ip: "192.160.1.1",
-}));
-
-function ActivityGroup({ title, items }: { title: string; items: ActivityItem[] }) {
+function ActivityGroup({ title, items }: { title: string; items: AdminAuditActivityLogEntry[] }) {
   return (
     <section className="mt-6">
       <h3 className="text-[18px] font-semibold text-primary-text">{title}</h3>
       <div className="mt-4 space-y-3">
-        {items.map((item, idx) => (
+        {items.map((item) => (
           <div
-            key={`${title}-${idx}`}
-            className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-xl border border-outline bg-white px-4 py-4 text-sm"
+            key={item.id}
+            className="grid grid-cols-1 items-center gap-4 rounded-xl border border-outline bg-white px-4 py-4 text-sm sm:grid-cols-[auto_1fr_auto_auto]"
           >
             <span className="rounded-md bg-outline px-2 py-1 text-sidebar-dark">{item.time}</span>
             <span className="text-sidebar-dark">{item.message}</span>
@@ -53,12 +42,77 @@ function ActivityGroup({ title, items }: { title: string; items: ActivityItem[] 
   );
 }
 
-export function AuditTrailDetailsView() {
+function groupLogsByDay(logs: AdminAuditActivityLogEntry[]): { title: string; items: AdminAuditActivityLogEntry[] }[] {
+  const groups = new Map<string, AdminAuditActivityLogEntry[]>();
+  for (const log of logs) {
+    const d = new Date(log.raw.timestamp as string ?? log.raw.createdAt as string ?? log.time);
+    const key = !Number.isNaN(d.getTime())
+      ? d.toLocaleDateString(undefined, { dateStyle: "long" })
+      : "Activity";
+    const list = groups.get(key) ?? [];
+    list.push(log);
+    groups.set(key, list);
+  }
+  if (groups.size === 0) return [];
+  return Array.from(groups.entries()).map(([title, items]) => ({ title, items }));
+}
+
+export type AuditTrailDetailsViewProps = {
+  subjectId: string;
+  subjectType: "internal" | "customers";
+};
+
+export function AuditTrailDetailsView({ subjectId, subjectType }: AuditTrailDetailsViewProps) {
+  const [subject, setSubject] = useState<AdminAuditSubjectDetails | null>(null);
+  const [logs, setLogs] = useState<AdminAuditActivityLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDetail = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const result =
+        subjectType === "customers"
+          ? await getAdminAuditCustomerLogs(subjectId)
+          : await getAdminAuditInternalUserLogs(subjectId);
+      setSubject(result.subject);
+      setLogs(result.logs);
+    } catch (e) {
+      setSubject(null);
+      setLogs([]);
+      setError(e instanceof AdminApiError ? e.message : "Could not load audit details.");
+    } finally {
+      setLoading(false);
+    }
+  }, [subjectId, subjectType]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
+
+  const logGroups = useMemo(() => groupLogsByDay(logs), [logs]);
+
+  const exportScope = subjectType === "customers" ? "customers" : "internal";
+  const runExport = async (format: "csv" | "json" | "pdf") => {
+    const filename = `audit-logs-${subjectId}`;
+    await exportTableWithApiFallback(
+      filename,
+      format,
+      () => exportViaAuditApi(filename, format, { scope: exportScope }),
+      logs,
+      AUDIT_LOG_EXPORT_COLUMNS,
+    );
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
-          <Link href="/dashboard/audit-trail" className="inline-flex items-center gap-1 text-primary-text">
+          <Link
+            href="/dashboard/audit-trail"
+            className="inline-flex items-center gap-1 text-primary-text hover:underline"
+          >
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
             Audit Trail
           </Link>
@@ -66,43 +120,75 @@ export function AuditTrailDetailsView() {
           <span className="text-primary-text">Audit Trail Details</span>
         </div>
 
-        <button
-          type="button"
-          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
-        >
-          Action
-          <ArrowDown2 size={12} variant="Outline" color="currentColor" />
-        </button>
+        <div className="flex items-center gap-2">
+          <TableExportMenu
+            label="Export"
+            disabled={loading || logs.length === 0}
+            onExportCsv={() => runExport("csv")}
+            onExportPdf={() => runExport("pdf")}
+            onExportJson={() => runExport("json")}
+          />
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
+          >
+            Action
+            <ArrowDown2 size={12} variant="Outline" color="currentColor" />
+          </button>
+        </div>
       </div>
 
-      <section>
-        <h2 className="text-[18px] font-semibold text-primary-text">User Details</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
-          <table className="w-full min-w-200 border-collapse text-left text-sm">
-            <thead>
-              <tr className="text-zinc-500">
-                <th className="border-b border-outline px-4 py-3 font-medium">Name</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Role</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Phone Number</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Email Address</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Date Added</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-4 py-4 text-primary-text">{userDetails.name}</td>
-                <td className="px-4 py-4 text-zinc-500">{userDetails.role}</td>
-                <td className="px-4 py-4 text-zinc-500">{userDetails.phoneNumber}</td>
-                <td className="px-4 py-4 text-zinc-500">{userDetails.emailAddress}</td>
-                <td className="px-4 py-4 text-zinc-500">{userDetails.dateAdded}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {loading ? (
+        <p className="text-sm text-zinc-500">Loading audit details…</p>
+      ) : error ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {error}{" "}
+          <button type="button" className="font-semibold underline" onClick={() => void loadDetail()}>
+            Retry
+          </button>{" "}
+          <Link href="/dashboard/audit-trail" className="font-semibold underline">
+            Back to list
+          </Link>
+        </p>
+      ) : (
+        <>
+          <section>
+            <h2 className="text-[18px] font-semibold text-primary-text">User Details</h2>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
+              <table className="w-full min-w-200 border-collapse text-left text-sm">
+                <thead>
+                  <tr className="text-zinc-500">
+                    <th className="border-b border-outline px-4 py-3 font-medium">Name</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium">Role</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium">Phone Number</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium">Email Address</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium">Date Added</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="px-4 py-4 text-primary-text">{subject?.name ?? "—"}</td>
+                    <td className="px-4 py-4 text-zinc-500">{subject?.role ?? "—"}</td>
+                    <td className="px-4 py-4 text-zinc-500">{subject?.phoneNumber ?? "—"}</td>
+                    <td className="px-4 py-4 text-zinc-500">{subject?.emailAddress ?? "—"}</td>
+                    <td className="px-4 py-4 text-zinc-500">{subject?.dateAdded ?? "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-      <ActivityGroup title="Today - 10th March, 2026" items={todayActivities} />
-      <ActivityGroup title="Yesterday - 9th March, 2026" items={yesterdayActivities} />
+          {logs.length === 0 ? (
+            <p className="mt-6 text-sm text-zinc-500">No activity logs from API.</p>
+          ) : logGroups.length > 0 ? (
+            logGroups.map((group) => (
+              <ActivityGroup key={group.title} title={group.title} items={group.items} />
+            ))
+          ) : (
+            <ActivityGroup title="Activity" items={logs} />
+          )}
+        </>
+      )}
     </div>
   );
 }

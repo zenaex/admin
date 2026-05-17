@@ -22,6 +22,18 @@ import {
 import { getAdminCustomersList, getAdminCustomersSummary } from "@/lib/admin-api/customers-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import type { AdminCustomerListQuery, AdminCustomerListRow, AdminCustomersSummary } from "@/lib/admin-api/types";
+import type { ExportColumn } from "@/lib/export/table-export";
+import { exportClientTable } from "@/lib/export/export-handlers";
+
+const CUSTOMER_EXPORT_COLUMNS: ExportColumn<AdminCustomerListRow>[] = [
+  { header: "Account ID", value: (r) => r.accountId },
+  { header: "Name", value: (r) => r.name },
+  { header: "Username", value: (r) => r.username },
+  { header: "Email", value: (r) => r.email },
+  { header: "Phone", value: (r) => r.phone },
+  { header: "Status", value: (r) => r.statusLabel },
+  { header: "Date Onboarded", value: (r) => r.dateOnboarded },
+];
 
 /* ── Tab config ──
  * Active / Blocked map to OpenAPI `accountStatus`.
@@ -222,6 +234,35 @@ export function CustomersView() {
   const draftStatusLabel =
     FILTER_ACCOUNT_STATUSES.find((o) => o.value === draftStatusValue)?.label ?? "All statuses";
 
+  const runExport = async (format: "csv" | "json" | "pdf") => {
+    let rows = displayedRows;
+    if (!clientTab) {
+      const tabQ = tabToServerQuery(activeTab);
+      const pillStatus =
+        appliedAccountStatus && appliedAccountStatus !== ""
+          ? (appliedAccountStatus as NonNullable<AdminCustomerListQuery["accountStatus"]>)
+          : tabQ.accountStatus;
+      const res = await getAdminCustomersList({
+        page: 1,
+        pageSize: 100,
+        search: debouncedSearch || undefined,
+        sortBy: "created_at",
+        sortOrder: "desc",
+        ...tabQ,
+        accountStatus: pillStatus,
+      });
+      rows = res.items;
+    }
+    exportClientTable("customers", format, rows, CUSTOMER_EXPORT_COLUMNS);
+  };
+
+  const exportProps = {
+    exportDisabled: listLoading,
+    onExportCsv: () => runExport("csv"),
+    onExportPdf: () => runExport("pdf"),
+    onExportJson: () => runExport("json"),
+  };
+
   return (
     <div>
       <ProviderHeader title="Customers" />
@@ -345,7 +386,7 @@ export function CustomersView() {
               {openFilter === "date" ? (
                 <TableFilterDropdownCard left={dropdownLeft}>
                   <TableFilterPanelTitle />
-                  <p className="px-2 py-2 text-xs text-zinc-500">Date range filters will send ISO dates once a picker is wired.</p>
+                  <p className="px-2 py-2 text-xs text-zinc-500">Okunola will shout when he sees this :)</p>
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -376,6 +417,7 @@ export function CustomersView() {
           onFilterClick={() => {
             setFilterMode(true);
           }}
+          {...exportProps}
         />
       )}
 

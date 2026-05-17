@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 
 export type AuditTrailRow = {
   id: string;
+  subjectId: string;
+  subjectType: "internal" | "customers";
   name: string;
   email: string;
   role: string;
@@ -33,11 +35,22 @@ export function AuditTrailTable({ rows }: AuditTrailTableProps) {
           </tr>
         </thead>
         <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                No audit sessions found.
+              </td>
+            </tr>
+          ) : null}
           {rows.map((row) => (
             <tr
               key={row.id}
               className="cursor-pointer transition-colors hover:bg-outline"
-              onClick={() => router.push(`/dashboard/audit-trail/${row.id}`)}
+              onClick={() =>
+                router.push(
+                  `/dashboard/audit-trail/${encodeURIComponent(row.subjectId)}?type=${row.subjectType}`,
+                )
+              }
             >
               <td className="h-18 border-b border-outline px-4 py-0 font-medium text-primary-text align-middle">
                 {row.name}

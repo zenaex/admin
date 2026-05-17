@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { DocumentText, Document } from "iconsax-react";
 import type { DateRange } from "react-day-picker";
 import {
   ArrowUp,
@@ -30,6 +29,9 @@ import { CryptoExchangeChart } from "@/components/dashboard/crypto-exchange-char
 import { TopCustomers } from "@/components/dashboard/top-customers";
 import { DashboardStatsSection } from "@/components/dashboard/dashboard-stats-section";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
+import type { ExportColumn } from "@/lib/export/table-export";
+import { exportClientTable } from "@/lib/export/export-handlers";
 
 /* ── Trend badge ── */
 function Trend({
@@ -148,7 +150,21 @@ function DashboardGreetingToolbar({
   dateRange: DateRange | undefined;
   onDateRangeChange: (range: DateRange | undefined) => void;
 }) {
-  const [exportOpen, setExportOpen] = useState(false);
+  const runDashboardExport = (format: "csv" | "json" | "pdf") => {
+    const label = formatDateRangeLabel(dateRange);
+    const rows = [
+      { metric: "Total Transaction (NGN)", value: "₦140,813,000.00", period: label },
+      { metric: "Transaction Count", value: "50,000", period: label },
+      { metric: "Active Users", value: "12,400", period: label },
+    ];
+    const columns: ExportColumn<(typeof rows)[number]>[] = [
+      { header: "Metric", value: (r) => r.metric },
+      { header: "Value", value: (r) => r.value },
+      { header: "Period", value: (r) => r.period },
+    ];
+    exportClientTable("dashboard-summary", format, rows, columns);
+  };
+
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "period" | "currency">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
@@ -196,41 +212,11 @@ function DashboardGreetingToolbar({
               <DateRangePicker value={dateRange} onChange={onDateRangeChange} />
             </>
           ) : null}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors"
-            >
-              <ExportIcon size={16} />
-              Export
-            </button>
-            {exportOpen ? (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button
-                      type="button"
-                      onClick={() => setExportOpen(false)}
-                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50"
-                    >
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setExportOpen(false)}
-                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50"
-                    >
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : null}
-          </div>
+          <TableExportMenu
+            onExportCsv={() => runDashboardExport("csv")}
+            onExportPdf={() => runDashboardExport("pdf")}
+            onExportJson={() => runDashboardExport("json")}
+          />
         </div>
       </div>
 

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, Edit, DocumentText, Document } from "iconsax-react";
-import { Download, ListFilter } from "lucide-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, Edit } from "iconsax-react";
+import { ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
@@ -16,8 +16,10 @@ import {
   TableFilterPill,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
+import type { ExportColumn } from "@/lib/export/table-export";
+import { exportClientTable } from "@/lib/export/export-handlers";
 
-/* ── Types ── */
 type ProviderRow = {
   id: string;
   providerName: string;
@@ -105,7 +107,6 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
   );
   const [pendingToggle, setPendingToggle] = useState<{ id: string; value: boolean } | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -137,6 +138,20 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
   }, [providerSearch, providerStatuses, appliedCommission, appliedRowStatus]);
 
   const safePage = Math.min(page, Math.max(1, Math.ceil(filteredProviders.length / pageSize)));
+  const runProviderExport = (format: "csv" | "json" | "pdf") => {
+    const columns: ExportColumn<ProviderRow>[] = [
+      { header: "Provider", value: (r) => r.providerName },
+      { header: "Commission Type", value: (r) => r.commissionType },
+      { header: "Rate", value: (r) => r.commissionRate },
+      { header: "Cap", value: (r) => r.cap },
+      {
+        header: "Status",
+        value: (r) => ((providerStatuses[r.id] ?? r.status) ? "Active" : "Inactive"),
+      },
+    ];
+    exportClientTable("product-providers", format, filteredProviders, columns);
+  };
+
   const paginatedProviders = useMemo(
     () => filteredProviders.slice((safePage - 1) * pageSize, safePage * pageSize),
     [filteredProviders, safePage, pageSize],
@@ -324,33 +339,12 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
             >
               <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setExportOpen((o) => !o)}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-              >
-                <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-                Export
-              </button>
-              {exportOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                    <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                      <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                        <DocumentText size={18} variant="Outline" color="currentColor" />
-                        CSV
-                      </button>
-                      <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                        <Document size={18} variant="Outline" color="currentColor" />
-                        PDF
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            <TableExportMenu
+              disabled={filteredProviders.length === 0}
+              onExportCsv={() => runProviderExport("csv")}
+              onExportPdf={() => runProviderExport("pdf")}
+              onExportJson={() => runProviderExport("json")}
+            />
           </div>
         </div>
         )}

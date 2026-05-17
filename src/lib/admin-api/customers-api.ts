@@ -1,3 +1,4 @@
+import { getAdminAuditCustomerLogs as fetchAdminAuditCustomerLogs } from "@/lib/admin-api/audit-api";
 import { adminRequest } from "@/lib/admin-api/client";
 import type {
   AdminCustomerListQuery,
@@ -263,14 +264,8 @@ export async function getAdminCustomerWallets(accountId: string): Promise<AdminC
   };
 }
 
-export function normalizeAuditCustomerLogs(data: unknown): Record<string, unknown>[] {
-  const arr = extractItemsArray(data);
-  return arr.map((x) => asRecord(x) ?? {}).filter((o) => Object.keys(o).length > 0);
-}
-
+/** Returns raw log objects for customer detail audit tab (see `audit-api` for normalized entries). */
 export async function getAdminAuditCustomerLogs(accountId: string): Promise<Record<string, unknown>[]> {
-  const data = await adminRequest<unknown>(`/admin/audit/customers/${encodeURIComponent(accountId)}/logs`, {
-    method: "GET",
-  });
-  return normalizeAuditCustomerLogs(data);
+  const { logs } = await fetchAdminAuditCustomerLogs(accountId);
+  return logs.map((l) => l.raw);
 }

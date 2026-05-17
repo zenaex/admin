@@ -7,6 +7,16 @@ import { CommunicationHeader } from "@/components/communication/communication-he
 import { CommunicationPagination } from "@/components/communication/communication-pagination";
 import { CommunicationRow, CommunicationTable } from "@/components/communication/communication-table";
 import { CommunicationToolbar } from "@/components/communication/communication-toolbar";
+import type { ExportColumn } from "@/lib/export/table-export";
+import { exportClientTable } from "@/lib/export/export-handlers";
+
+const COMMUNICATION_EXPORT_COLUMNS: ExportColumn<CommunicationRow>[] = [
+  { header: "Campaign", value: (r) => r.campaign },
+  { header: "Start Date", value: (r) => r.startDate },
+  { header: "End Date", value: (r) => r.endDate },
+  { header: "Last Modified", value: (r) => r.lastModified },
+  { header: "Status", value: (r) => r.status },
+];
 import {
   TableFilterApplyClear,
   TableFilterDropdownCard,
@@ -113,6 +123,17 @@ export function CommunicationView() {
     const start = (safePage - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
   }, [filteredRows, safePage, pageSize]);
+
+  const runExport = (format: "csv" | "json" | "pdf") => {
+    exportClientTable("communications", format, filteredRows, COMMUNICATION_EXPORT_COLUMNS);
+  };
+
+  const exportProps = {
+    exportDisabled: filteredRows.length === 0,
+    onExportCsv: () => runExport("csv"),
+    onExportPdf: () => runExport("pdf"),
+    onExportJson: () => runExport("json"),
+  };
 
   return (
     <div>
@@ -229,6 +250,7 @@ export function CommunicationView() {
             setTableSearch("");
             setFilterMode(true);
           }}
+          {...exportProps}
         />
       )}
       <CommunicationTable rows={paginatedRows} />

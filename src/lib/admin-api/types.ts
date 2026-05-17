@@ -183,3 +183,146 @@ export type AdminCustomerWalletsResponse = {
   totalCount?: number;
   nextPageToken?: string;
 };
+
+/** Query for `GET /admin/transactions` and `GET /admin/transactions/wallet` (common params; not all documented in OpenAPI). */
+export type AdminTransactionListQuery = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  channel?: string;
+  type?: string;
+  fromDate?: string;
+  toDate?: string;
+};
+
+/** Normalized row for global transactions list UI. */
+export type AdminTransactionListRow = {
+  id: string;
+  refNo: string;
+  customerName: string;
+  channel: string;
+  amount: string;
+  provider: string;
+  status: string;
+  date: string;
+  /** ISO or raw timestamp for sorting merged lists. */
+  dateSortKey: string;
+  raw: Record<string, unknown>;
+};
+
+export type AdminTransactionListResult = {
+  items: AdminTransactionListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/** `GET /admin/referrals/summary` */
+export type AdminReferralsSummary = {
+  totalReferrers?: number;
+  totalReferralsMade?: number;
+  pendingReferrals?: number;
+  totalRewardsEarned?: string;
+};
+
+/** Query for `GET /admin/referrals` */
+export type AdminReferralListQuery = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: "" | "qualified" | "pending";
+  fromDate?: string;
+  toDate?: string;
+};
+
+export type AdminReferralListRow = {
+  accountId: string;
+  name: string;
+  email: string;
+  phone: string;
+  referralCode: string;
+  referralMade: number;
+  totalRewardsEarned: string;
+  raw: Record<string, unknown>;
+};
+
+export type AdminReferralListResult = {
+  items: AdminReferralListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/** `POST /admin/referrals/config` */
+export type AdminReferralConfigBody = {
+  minTransactionAmount: string;
+  currency: string;
+  maxDaysFromOnboarding: number;
+  cycleSize: number;
+  allowedProducts: string[];
+  rewardAmount: string;
+  rewardCurrency: string;
+};
+
+export type AdminReferredUserRow = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  referralCode: string;
+  date: string;
+  status: string;
+  raw: Record<string, unknown>;
+};
+
+/** Row for audit trail list (internal users or customer sessions). */
+export type AdminAuditTrailRow = {
+  id: string;
+  subjectId: string;
+  subjectType: "internal" | "customers";
+  name: string;
+  email: string;
+  role: string;
+  action: string;
+  sessionIn: string;
+  sessionOut: string;
+  raw: Record<string, unknown>;
+};
+
+export type AdminAuditActivityLogEntry = {
+  id: string;
+  time: string;
+  message: string;
+  userAgent: string;
+  ip: string;
+  raw: Record<string, unknown>;
+};
+
+export type AdminAuditSubjectDetails = {
+  name: string;
+  role: string;
+  phoneNumber: string;
+  emailAddress: string;
+  dateAdded: string;
+};
+
+export type AdminReferralDetailResult = {
+  referrer: {
+    accountId: string;
+    name: string;
+    username: string;
+    email: string;
+    phone: string;
+  };
+  stats: {
+    totalReferralsMade: string;
+    onboardedReferredUsers: string;
+    pendingReferredUsers: string;
+    totalRewardsEarned: string;
+  };
+  referred: AdminReferredUserRow[];
+  referredTotal: number;
+  page: number;
+  pageSize: number;
+};
