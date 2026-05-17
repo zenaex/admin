@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays } from "lucide-react";
 
 import { AuditTrailHeader } from "@/components/audit-trail/audit-trail-header";
@@ -18,162 +18,46 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { AdminApiError } from "@/lib/admin-api/client";
+import {
+  getAdminAuditCustomerSessions,
+  getAdminAuditInternalUserSessions,
+} from "@/lib/admin-api/audit-api";
+import type { AdminAuditTrailRow } from "@/lib/admin-api/types";
+import type { ExportColumn } from "@/lib/export/table-export";
+import {
+  exportClientTable,
+  exportTableWithApiFallback,
+  exportViaAuditApi,
+} from "@/lib/export/export-handlers";
 
-const INTERNAL_BASE_ROWS: Omit<AuditTrailRow, "id">[] = [
-  {
-    name: "Adeboye Temidayo",
-    email: "Adeboye.temidayo@zaneax.com",
-    role: "Superadmin",
-    action: "Approved wallet transaction",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-  {
-    name: "Chioma N.",
-    email: "chioma.n@zaneax.com",
-    role: "Admin",
-    action: "Added a user",
-    sessionIn: "Jan 6, 2026 | 10:15AM",
-    sessionOut: "Jan 6, 2026 | 11:02AM",
-  },
-  {
-    name: "Ibrahim Sule",
-    email: "ibrahim.s@zaneax.com",
-    role: "Tech Support",
-    action: "Deactivated a user",
-    sessionIn: "Jan 5, 2026 | 2:40PM",
-    sessionOut: "Jan 5, 2026 | 4:12PM",
-  },
-  {
-    name: "Grace Okoro",
-    email: "grace.o@zaneax.com",
-    role: "Admin",
-    action: "Approved wallet transaction",
-    sessionIn: "Jan 5, 2026 | 8:10AM",
-    sessionOut: "Jan 5, 2026 | 9:45AM",
-  },
-  {
-    name: "Tunde Bakare",
-    email: "tunde.b@zaneax.com",
-    role: "Superadmin",
-    action: "Updated role permissions",
-    sessionIn: "Jan 4, 2026 | 3:22PM",
-    sessionOut: "Jan 4, 2026 | 3:55PM",
-  },
-  {
-    name: "Amaka Eze",
-    email: "amaka.e@zaneax.com",
-    role: "Tech Support",
-    action: "Reset MFA device",
-    sessionIn: "Jan 4, 2026 | 11:05AM",
-    sessionOut: "Jan 4, 2026 | 11:30AM",
-  },
-  {
-    name: "Kingsley O.",
-    email: "kingsley.o@zaneax.com",
-    role: "Admin",
-    action: "Exported audit report",
-    sessionIn: "Jan 3, 2026 | 4:50PM",
-    sessionOut: "Jan 3, 2026 | 5:10PM",
-  },
-  {
-    name: "Yewande A.",
-    email: "yewande.a@zaneax.com",
-    role: "Superadmin",
-    action: "Approved wallet transaction",
-    sessionIn: "Jan 3, 2026 | 9:00AM",
-    sessionOut: "Jan 3, 2026 | 10:12AM",
-  },
+const AUDIT_EXPORT_COLUMNS: ExportColumn<AdminAuditTrailRow>[] = [
+  { header: "Name", value: (r) => r.name },
+  { header: "Email", value: (r) => r.email },
+  { header: "Role", value: (r) => r.role },
+  { header: "Action", value: (r) => r.action },
+  { header: "Session In", value: (r) => r.sessionIn },
+  { header: "Session Out", value: (r) => r.sessionOut },
 ];
 
-const CUSTOMER_BASE_ROWS: Omit<AuditTrailRow, "id">[] = [
-  {
-    name: "Adeboye Temidayo",
-    email: "Adeboye.temidayo@zaneax.com",
-    role: "@Kashmadupe",
-    action: "Approved wallet transaction",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-  {
-    name: "Azuka Adefemi",
-    email: "Azuka.adefemi@zaneax.com",
-    role: "@Kashmadupe",
-    action: "Added a user",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-  {
-    name: "Babangida Tunde",
-    email: "Babangida.tunde@zaneax.com",
-    role: "@Kashmadupe",
-    action: "Deactivated a user",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-  {
-    name: "Chiamaka Ngozi",
-    email: "Chiamaka.ngozi@zaneax.com",
-    role: "@Kashmadupe",
-    action: "Added a user",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-  {
-    name: "Chiroma Ikechukwu",
-    email: "Chiroma.ikechukwu@zaneax.com",
-    role: "@Kashmadupe",
-    action: "Approved wallet transaction",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-  {
-    name: "Chizoba Adekunle",
-    email: "Chizoba.adekunle@zaneax.com",
-    role: "@Kashmadupe",
-    action: "Approved wallet transaction",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-  {
-    name: "Lala Jibola",
-    email: "Lala.jibola@zaneax.com",
-    role: "@Kashmadupe",
-    action: "Approved wallet transaction",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-  {
-    name: "Lala Serubawon",
-    email: "Lala.serubawon@zaneax.com",
-    role: "@Kashmadupe",
-    action: "Approved wallet transaction",
-    sessionIn: "Jan 6, 2026 | 9:32AM",
-    sessionOut: "Jan 6, 2026 | 9:32AM",
-  },
-];
-
-function buildMockRows(
-  count: number,
-  baseRows: Omit<AuditTrailRow, "id">[],
-  idPrefix: string,
-): AuditTrailRow[] {
-  return Array.from({ length: count }, (_, i) => {
-    const base = baseRows[i % baseRows.length];
-    return {
-      ...base,
-      id: `${idPrefix}-row-${i}`,
-      name: i < baseRows.length ? base.name : `${base.name} (${i + 1})`,
-    };
-  });
+function toTableRow(row: AdminAuditTrailRow): AuditTrailRow {
+  return {
+    id: row.id,
+    subjectId: row.subjectId,
+    subjectType: row.subjectType,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    action: row.action,
+    sessionIn: row.sessionIn,
+    sessionOut: row.sessionOut,
+  };
 }
-
-const INTERNAL_ROWS = buildMockRows(180, INTERNAL_BASE_ROWS, "internal");
-const CUSTOMER_ROWS = buildMockRows(180, CUSTOMER_BASE_ROWS, "customer");
 
 export function AuditTrailView() {
   const [tab, setTab] = useState<AuditTrailTabId>("internal");
   const [tableSearch, setTableSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "role" | "action" | "session">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
@@ -182,25 +66,23 @@ export function AuditTrailView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
 
-  const activeRows = tab === "customers" ? CUSTOMER_ROWS : INTERNAL_ROWS;
-
-  const roleOptions = useMemo(
-    () => Array.from(new Set(activeRows.map((r) => r.role))).sort(),
-    [activeRows],
-  );
-  const actionOptions = useMemo(
-    () => Array.from(new Set(activeRows.map((r) => r.action))).sort(),
-    [activeRows],
-  );
-  const roleFilterOptions = useMemo(() => ["All roles", ...roleOptions], [roleOptions]);
-  const actionFilterOptions = useMemo(() => ["All actions", ...actionOptions], [actionOptions]);
+  const [internalRows, setInternalRows] = useState<AdminAuditTrailRow[]>([]);
+  const [customerRows, setCustomerRows] = useState<AdminAuditTrailRow[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
 
   const [draftRole, setDraftRole] = useState("All roles");
   const [draftAction, setDraftAction] = useState("All actions");
-  const [draftSessionLabel, setDraftSessionLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [draftSessionLabel, setDraftSessionLabel] = useState("Date range (picker coming soon)");
   const [appliedRole, setAppliedRole] = useState<string | null>(null);
   const [appliedAction, setAppliedAction] = useState<string | null>(null);
-  const [appliedSessionLabel, setAppliedSessionLabel] = useState<string | null>(null);
+
+  const activeApiRows = tab === "customers" ? customerRows : internalRows;
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(tableSearch.trim()), 320);
+    return () => window.clearTimeout(t);
+  }, [tableSearch]);
 
   useEffect(() => {
     setDraftRole("All roles");
@@ -219,31 +101,84 @@ export function AuditTrailView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  const loadSessions = useCallback(async () => {
+    setListError(null);
+    setListLoading(true);
+    try {
+      if (tab === "customers") {
+        const rows = await getAdminAuditCustomerSessions();
+        setCustomerRows(rows);
+      } else {
+        const rows = await getAdminAuditInternalUserSessions();
+        setInternalRows(rows);
+      }
+    } catch (e) {
+      if (tab === "customers") setCustomerRows([]);
+      else setInternalRows([]);
+      setListError(e instanceof AdminApiError ? e.message : "Could not load audit trail.");
+    } finally {
+      setListLoading(false);
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    void loadSessions();
+  }, [loadSessions]);
+
+  const roleOptions = useMemo(
+    () => Array.from(new Set(activeApiRows.map((r) => r.role))).filter((r) => r !== "—").sort(),
+    [activeApiRows],
+  );
+  const actionOptions = useMemo(
+    () => Array.from(new Set(activeApiRows.map((r) => r.action))).filter((a) => a !== "—").sort(),
+    [activeApiRows],
+  );
+  const roleFilterOptions = useMemo(() => ["All roles", ...roleOptions], [roleOptions]);
+  const actionFilterOptions = useMemo(() => ["All actions", ...actionOptions], [actionOptions]);
+
   const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase();
-    return activeRows.filter((r) => {
+    const q = debouncedSearch.toLowerCase();
+    return activeApiRows.filter((r) => {
       if (appliedRole && appliedRole !== "All roles" && r.role !== appliedRole) return false;
-      if (appliedAction && appliedAction !== "All actions" && r.action !== appliedAction)
-        return false;
-      if (appliedSessionLabel && !r.sessionIn.includes("Jan 6, 2026")) return false;
+      if (appliedAction && appliedAction !== "All actions" && r.action !== appliedAction) return false;
       if (!q) return true;
       return (
         r.name.toLowerCase().includes(q) ||
         r.email.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q)
+        r.subjectId.toLowerCase().includes(q) ||
+        r.role.toLowerCase().includes(q)
       );
     });
-  }, [tableSearch, activeRows, appliedRole, appliedAction, appliedSessionLabel]);
+  }, [activeApiRows, appliedRole, appliedAction, debouncedSearch]);
 
   const totalItems = filteredRows.length;
-
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(page, totalPages);
 
   const paginatedRows = useMemo(() => {
     const start = (safePage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
+    return filteredRows.slice(start, start + pageSize).map(toTableRow);
   }, [filteredRows, safePage, pageSize]);
+
+  const exportScope = tab === "customers" ? "customers" : "internal";
+
+  const runExport = async (format: "csv" | "json" | "pdf") => {
+    const filename = `audit-trail-${exportScope}`;
+    await exportTableWithApiFallback(
+      filename,
+      format,
+      () => exportViaAuditApi(filename, format, { scope: exportScope }),
+      filteredRows,
+      AUDIT_EXPORT_COLUMNS,
+    );
+  };
+
+  const exportProps = {
+    exportDisabled: listLoading || filteredRows.length === 0,
+    onExportCsv: () => runExport("csv"),
+    onExportPdf: () => runExport("pdf"),
+    onExportJson: () => runExport("json"),
+  };
 
   return (
     <div>
@@ -255,6 +190,16 @@ export function AuditTrailView() {
           setPage(1);
         }}
       />
+
+      {listError ? (
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {listError}{" "}
+          <button type="button" className="font-semibold underline" onClick={() => void loadSessions()}>
+            Retry
+          </button>
+        </p>
+      ) : null}
+
       {filterMode ? (
         <TableFilterModeBar
           filterBarRef={filterBarRef}
@@ -347,17 +292,9 @@ export function AuditTrailView() {
               {openFilter === "session" ? (
                 <TableFilterDropdownCard left={dropdownLeft}>
                   <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftSessionLabel("From Jan 6, 2026 - To Jan 6, 2026");
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Jan 6, 2026 - Jan 6, 2026
-                    <CalendarDays size={16} />
-                  </button>
+                  <p className="px-2 py-2 text-xs text-zinc-500">
+                    Date range filters will send ISO dates once a picker is wired.
+                  </p>
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -367,7 +304,6 @@ export function AuditTrailView() {
               onApply={() => {
                 setAppliedRole(draftRole);
                 setAppliedAction(draftAction);
-                setAppliedSessionLabel(draftSessionLabel);
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -375,10 +311,9 @@ export function AuditTrailView() {
                 setTableSearch("");
                 setAppliedRole(null);
                 setAppliedAction(null);
-                setAppliedSessionLabel(null);
                 setDraftRole("All roles");
                 setDraftAction("All actions");
-                setDraftSessionLabel("From Jan 6, 2026 - To Jan 6, 2026");
+                setDraftSessionLabel("Date range (picker coming soon)");
                 setOpenFilter(null);
                 setFilterMode(false);
                 setPage(1);
@@ -390,18 +325,22 @@ export function AuditTrailView() {
         <AuditTrailToolbar
           tableSearch={tableSearch}
           onTableSearchChange={setTableSearch}
-          onFilterClick={() => {
-            setTableSearch("");
-            setFilterMode(true);
-          }}
+          onFilterClick={() => setFilterMode(true)}
+          {...exportProps}
         />
       )}
-      <AuditTrailTable rows={paginatedRows} />
+
+      {listLoading ? (
+        <p className="mt-4 text-center text-sm text-zinc-500">Loading audit trail…</p>
+      ) : (
+        <AuditTrailTable rows={paginatedRows} />
+      )}
+
       <AuditTrailPagination
         page={safePage}
         pageSize={pageSize}
         totalItems={totalItems}
-        onPageChange={(p) => setPage(p)}
+        onPageChange={setPage}
         onPageSizeChange={(size) => {
           setPageSize(size);
           setPage(1);

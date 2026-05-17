@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sms, Box, TickCircle, CloseCircle, Add, CloseSquare, Setting2, ArrowDown2, DocumentText, Document } from "iconsax-react";
-import { CalendarDays, Download, ListFilter } from "lucide-react";
+import { Sms, Box, TickCircle, CloseCircle, Add, CloseSquare, Setting2, ArrowDown2 } from "iconsax-react";
+import { CalendarDays, ListFilter } from "lucide-react";
 import { useMemo } from "react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import {
@@ -15,6 +15,9 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
+import type { ExportColumn } from "@/lib/export/table-export";
+import { exportClientTable } from "@/lib/export/export-handlers";
 
 /* ── QR Code SVG (static placeholder pattern) ── */
 function QrCodeSvg() {
@@ -438,6 +441,13 @@ const BASE_USERS: Omit<AuthUser, "id">[] = [
   { name: "Pascal Okoye",     role: "Tech Support",  status: "Active" },
 ];
 
+const AUTH_USER_EXPORT_COLUMNS: ExportColumn<AuthUser>[] = [
+  { header: "ID", value: (u) => u.id },
+  { header: "Name", value: (u) => u.name },
+  { header: "Role", value: (u) => u.role },
+  { header: "Status", value: (u) => u.status },
+];
+
 const ALL_USERS: AuthUser[] = Array.from({ length: 55 }, (_, i) => ({
   ...BASE_USERS[i % BASE_USERS.length],
   id: `user-${i}`,
@@ -543,7 +553,6 @@ function UsersTab() {
 export function SettingsAuthenticationTab() {
   const [subTab, setSubTab] = useState<AuthSubTab>("general");
   const [showCreateMfa, setShowCreateMfa] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "mfa" | "role">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
@@ -563,6 +572,10 @@ export function SettingsAuthenticationTab() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const runAuthUsersExport = (format: "csv" | "json" | "pdf") => {
+    exportClientTable("authentication-users", format, ALL_USERS, AUTH_USER_EXPORT_COLUMNS);
+  };
 
   return (
     <div>
@@ -600,33 +613,14 @@ export function SettingsAuthenticationTab() {
           ) : null}
 
           {/* Export */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-            >
-              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              Export
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          {subTab === "users" ? (
+            <TableExportMenu
+              disabled={ALL_USERS.length === 0}
+              onExportCsv={() => runAuthUsersExport("csv")}
+              onExportPdf={() => runAuthUsersExport("pdf")}
+              onExportJson={() => runAuthUsersExport("json")}
+            />
+          ) : null}
 
           {/* Create MFA */}
           <button

@@ -29,6 +29,21 @@ import {
   uiStatusToApiStatus,
 } from "@/lib/admin-api/transactions-api";
 import type { AdminTransactionListRow } from "@/lib/admin-api/types";
+import type { ExportColumn } from "@/lib/export/table-export";
+import {
+  exportTableWithApiFallback,
+  exportViaTransactionsApi,
+} from "@/lib/export/export-handlers";
+
+const TX_EXPORT_COLUMNS: ExportColumn<AdminTransactionListRow>[] = [
+  { header: "Reference", value: (r) => r.refNo },
+  { header: "Customer", value: (r) => r.customerName },
+  { header: "Channel", value: (r) => r.channel },
+  { header: "Amount", value: (r) => r.amount },
+  { header: "Provider", value: (r) => r.provider },
+  { header: "Status", value: (r) => r.status },
+  { header: "Date", value: (r) => r.date },
+];
 
 type AmountFilter = "Less than ₦20,000" | "Less than ₦100,000" | "Greater than ₦100,000";
 type TxStatusFilter = "Successful" | "Pending" | "Failed";
@@ -221,6 +236,34 @@ export function TransactionsView() {
     setPage(1);
   };
 
+  const exportBody = useMemo(
+    () => ({
+      search: debouncedSearch || undefined,
+      status: appliedStatus ? uiStatusToApiStatus(appliedStatus) : undefined,
+      channel: activeTab !== "All" && !isWalletTab(activeTab) ? activeTab : undefined,
+      type: isWalletTab(activeTab) ? activeTab.toLowerCase() : undefined,
+    }),
+    [activeTab, appliedStatus, debouncedSearch],
+  );
+
+  const runExport = async (format: "csv" | "json" | "pdf") => {
+    const filename = `transactions-${activeTab.toLowerCase().replace(/\s+/g, "-")}`;
+    await exportTableWithApiFallback(
+      filename,
+      format,
+      () => exportViaTransactionsApi(filename, format, exportBody),
+      clientFiltered,
+      TX_EXPORT_COLUMNS,
+    );
+  };
+
+  const exportProps = {
+    exportDisabled: listLoading || clientFiltered.length === 0,
+    onExportCsv: () => runExport("csv"),
+    onExportPdf: () => runExport("pdf"),
+    onExportJson: () => runExport("json"),
+  };
+
   return (
     <div>
       <ProviderHeader title="Transactions" />
@@ -388,6 +431,7 @@ export function TransactionsView() {
           tableSearch={search}
           onTableSearchChange={setSearch}
           onFilterClick={() => setFilterMode(true)}
+          {...exportProps}
         />
       )}
 

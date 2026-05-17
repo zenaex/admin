@@ -276,6 +276,37 @@ export type AdminReferredUserRow = {
   raw: Record<string, unknown>;
 };
 
+/** Row for audit trail list (internal users or customer sessions). */
+export type AdminAuditTrailRow = {
+  id: string;
+  subjectId: string;
+  subjectType: "internal" | "customers";
+  name: string;
+  email: string;
+  role: string;
+  action: string;
+  sessionIn: string;
+  sessionOut: string;
+  raw: Record<string, unknown>;
+};
+
+export type AdminAuditActivityLogEntry = {
+  id: string;
+  time: string;
+  message: string;
+  userAgent: string;
+  ip: string;
+  raw: Record<string, unknown>;
+};
+
+export type AdminAuditSubjectDetails = {
+  name: string;
+  role: string;
+  phoneNumber: string;
+  emailAddress: string;
+  dateAdded: string;
+};
+
 export type AdminReferralDetailResult = {
   referrer: {
     accountId: string;

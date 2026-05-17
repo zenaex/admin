@@ -1,8 +1,8 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Edit2, PasswordCheck, Forbidden, Trash, DocumentText, Document } from "iconsax-react";
-import { CalendarDays, Download, ListFilter } from "lucide-react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Edit2, PasswordCheck, Forbidden, Trash } from "iconsax-react";
+import { CalendarDays, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
@@ -11,6 +11,8 @@ import { InputField } from "@/components/input-field";
 import { NotificationDrawerTrigger } from "@/components/notifications/notification-drawer";
 import { postInvitation, postPasswordResetApprove, postPasswordResetDecline } from "@/lib/admin-api/auth-api";
 import { AdminApiError } from "@/lib/admin-api/client";
+import { getAdminSettingsPasswordResetRequests } from "@/lib/admin-api/settings-api";
+import type { AdminSettingsPasswordResetRequestRow } from "@/lib/admin-api/types";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getAccessToken } from "@/lib/auth/token-storage";
@@ -24,6 +26,9 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
+import type { ExportColumn } from "@/lib/export/table-export";
+import { exportClientTable } from "@/lib/export/export-handlers";
 
 /* ── Tab config ── */
 type AdminTab = "Team" | "Roles & Permission" | "Pending Invites" | "Password resets";
@@ -42,6 +47,24 @@ type TeamMember = {
   status: MemberStatus;
   dateOnboarded: string;
 };
+
+const TEAM_EXPORT_COLUMNS: ExportColumn<TeamMember>[] = [
+  { header: "ID", value: (m) => m.id },
+  { header: "Name", value: (m) => m.name },
+  { header: "Email", value: (m) => m.email },
+  { header: "Phone", value: (m) => m.phone },
+  { header: "Role", value: (m) => m.role },
+  { header: "Status", value: (m) => m.status },
+  { header: "Date Onboarded", value: (m) => m.dateOnboarded },
+];
+
+type RoleExportRow = { name: string; members: number; description: string };
+
+const ROLE_EXPORT_COLUMNS: ExportColumn<RoleExportRow>[] = [
+  { header: "Role", value: (r) => r.name },
+  { header: "Members", value: (r) => String(r.members) },
+  { header: "Description", value: (r) => r.description },
+];
 
 /* ── Seed data ── */
 const BASE_MEMBERS: Omit<TeamMember, "id">[] = [
@@ -119,7 +142,6 @@ export function AdminManagementView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [teamExportOpen, setTeamExportOpen] = useState(false);
 
   const [teamFilterMode, setTeamFilterMode] = useState(false);
   const [teamOpenFilter, setTeamOpenFilter] = useState<null | "role" | "status" | "date">(null);
@@ -177,6 +199,10 @@ export function AdminManagementView() {
     () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
     [filtered, safePage, pageSize],
   );
+
+  const runTeamExport = (format: "csv" | "json" | "pdf") => {
+    exportClientTable("admin-team", format, filtered, TEAM_EXPORT_COLUMNS);
+  };
 
   return (
     <div>
@@ -367,33 +393,12 @@ export function AdminManagementView() {
               >
                 <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
               </button>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setTeamExportOpen((o) => !o)}
-                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-                >
-                  <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-                  Export
-                </button>
-                {teamExportOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setTeamExportOpen(false)} />
-                    <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                      <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                        <button type="button" onClick={() => setTeamExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                          <DocumentText size={18} variant="Outline" color="currentColor" />
-                          CSV
-                        </button>
-                        <button type="button" onClick={() => setTeamExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                          <Document size={18} variant="Outline" color="currentColor" />
-                          PDF
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+              <TableExportMenu
+                disabled={filtered.length === 0}
+                onExportCsv={() => runTeamExport("csv")}
+                onExportPdf={() => runTeamExport("pdf")}
+                onExportJson={() => runTeamExport("json")}
+              />
               <button
                 type="button"
                 className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
@@ -516,7 +521,6 @@ const ROLE_TEMPLATE_FILTER = ["All templates", ...ROLES.map((r) => r.name)];
 
 function RolesPermissionTab() {
   const [roleSearch, setRoleSearch] = useState("");
-  const [exportOpen, setExportOpen] = useState(false);
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "role">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
@@ -546,6 +550,15 @@ function RolesPermissionTab() {
       return r.name.toLowerCase().includes(q);
     });
   }, [roleSearch, appliedRoleTemplate]);
+
+  const runRoleExport = (format: "csv" | "json" | "pdf") => {
+    const rows: RoleExportRow[] = filteredRoles.map((r) => ({
+      name: r.name,
+      members: r.members,
+      description: r.description,
+    }));
+    exportClientTable("admin-roles", format, rows, ROLE_EXPORT_COLUMNS);
+  };
 
   return (
     <>
@@ -627,33 +640,12 @@ function RolesPermissionTab() {
           >
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-            >
-              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              Export
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <TableExportMenu
+            disabled={filteredRoles.length === 0}
+            onExportCsv={() => runRoleExport("csv")}
+            onExportPdf={() => runRoleExport("pdf")}
+            onExportJson={() => runRoleExport("json")}
+          />
           <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90">
             <Add size={18} variant="Outline" color="currentColor" />
             Role
@@ -794,57 +786,81 @@ function InviteAdminForm() {
   );
 }
 
-/**
- * Demo rows until the backend exposes a list endpoint (e.g. pending password-reset requests).
- * Replace this array with a GET-driven fetch when that API is available.
- */
-const DEMO_PASSWORD_RESET_ROWS = [
-  { requestId: "demo-req-1", email: "pending.user@example.com", createdAt: "Jan 10, 2026" },
-];
-
 function PasswordResetsTab() {
+  const [rows, setRows] = useState<AdminSettingsPasswordResetRequestRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | { requestId: string; kind: "approve" | "decline" }>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(18);
 
-  const approve = async (requestId: string) => {
-    setError(null);
-    setMessage(null);
-    setBusy({ requestId, kind: "approve" });
+  const load = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
     try {
-      await postPasswordResetApprove({ requestId });
-      setMessage(`Request ${requestId} approved. The user will receive a reset link by email.`);
+      const list = await getAdminSettingsPasswordResetRequests();
+      setRows(list);
+      setPage(1);
     } catch (e) {
-      setError(e instanceof AdminApiError ? e.message : "Approve failed.");
+      setRows([]);
+      setLoadError(e instanceof AdminApiError ? e.message : "Could not load password reset requests.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(rows.length, 1) / pageSize)));
+  const paginatedRows = useMemo(
+    () => rows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [rows, safePage, pageSize],
+  );
+
+  const runAction = async (requestId: string, kind: "approve" | "decline") => {
+    setActionError(null);
+    setMessage(null);
+    setBusy({ requestId, kind });
+    try {
+      if (kind === "approve") {
+        await postPasswordResetApprove({ requestId });
+        setMessage("Password reset approved. The user will receive a reset link by email.");
+      } else {
+        await postPasswordResetDecline({ requestId });
+        setMessage("Password reset request declined.");
+      }
+      await load();
+    } catch (e) {
+      setActionError(e instanceof AdminApiError ? e.message : kind === "approve" ? "Approve failed." : "Decline failed.");
     } finally {
       setBusy(null);
     }
   };
 
-  const decline = async (requestId: string) => {
-    setError(null);
-    setMessage(null);
-    setBusy({ requestId, kind: "decline" });
-    try {
-      await postPasswordResetDecline({ requestId });
-      setMessage(`Request ${requestId} declined.`);
-    } catch (e) {
-      setError(e instanceof AdminApiError ? e.message : "Decline failed.");
-    } finally {
-      setBusy(null);
-    }
-  };
+  if (loading) {
+    return <p className="mt-6 text-sm text-zinc-500">Loading password reset requests…</p>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+        {loadError}{" "}
+        <button type="button" className="font-semibold underline" onClick={() => void load()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6 space-y-4">
-      <p className="text-sm text-zinc-500">
-        Demo rows below; replace with a GET list from the API when available. Actions call{" "}
-        <code className="text-xs">POST /admin/password-reset/approve</code> and{" "}
-        <code className="text-xs">POST /admin/password-reset/decline</code>.
-      </p>
-      {error ? (
+      {actionError ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          {error}
+          {actionError}
         </p>
       ) : null}
       {message ? (
@@ -857,44 +873,72 @@ function PasswordResetsTab() {
           <thead>
             <tr className="bg-outline text-xs text-zinc-400">
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Request ID</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Name</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Email</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Role</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Requested</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Action</th>
             </tr>
           </thead>
           <tbody>
-            {DEMO_PASSWORD_RESET_ROWS.map((row) => {
-              const rowBusy = busy?.requestId === row.requestId;
-              return (
-              <tr key={row.requestId} className="hover:bg-zinc-50">
-                <td className="border-b border-zinc-100 px-4 py-3 font-mono text-xs">{row.requestId}</td>
-                <td className="border-b border-zinc-100 px-4 py-3">{row.email}</td>
-                <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.createdAt}</td>
-                <td className="border-b border-zinc-100 px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      disabled={rowBusy}
-                      onClick={() => approve(row.requestId)}
-                    >
-                      {rowBusy && busy?.kind === "approve" ? "Approving…" : "Approve"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={rowBusy}
-                      onClick={() => decline(row.requestId)}
-                    >
-                      {rowBusy && busy?.kind === "decline" ? "Declining…" : "Decline"}
-                    </Button>
-                  </div>
+            {paginatedRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="border-b border-zinc-100 px-4 py-10 text-center text-zinc-500">
+                  No pending password reset requests.
                 </td>
               </tr>
-            );
-            })}
+            ) : (
+              paginatedRows.map((row) => {
+                const rowBusy = busy?.requestId === row.requestId;
+                return (
+                  <tr key={row.requestId} className="hover:bg-zinc-50">
+                    <td className="border-b border-zinc-100 px-4 py-3 font-mono text-xs">{row.requestId}</td>
+                    <td className="border-b border-zinc-100 px-4 py-3 font-medium text-primary-text">
+                      {row.name ?? "—"}
+                    </td>
+                    <td className="border-b border-zinc-100 px-4 py-3">{row.email ?? "—"}</td>
+                    <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.role ?? "—"}</td>
+                    <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500 whitespace-nowrap">
+                      {row.dateRequested ?? "—"}
+                    </td>
+                    <td className="border-b border-zinc-100 px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          disabled={Boolean(busy)}
+                          onClick={() => void runAction(row.requestId, "approve")}
+                        >
+                          {rowBusy && busy?.kind === "approve" ? "Approving…" : "Approve"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          disabled={Boolean(busy)}
+                          onClick={() => void runAction(row.requestId, "decline")}
+                        >
+                          {rowBusy && busy?.kind === "decline" ? "Declining…" : "Decline"}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
+      {rows.length > 0 ? (
+        <AuditTrailPagination
+          page={safePage}
+          pageSize={pageSize}
+          totalItems={rows.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -904,7 +948,6 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [exportOpen, setExportOpen] = useState(false);
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "role" | "date">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
@@ -951,6 +994,10 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
     () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
     [filtered, safePage, pageSize],
   );
+
+  const runPendingExport = (format: "csv" | "json" | "pdf") => {
+    exportClientTable("admin-pending-invites", format, filtered, TEAM_EXPORT_COLUMNS);
+  };
 
   return (
     <>
@@ -1084,33 +1131,12 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
           >
             <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
-            >
-              <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-              Export
-            </button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-36 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-lg">
-                  <div className="overflow-hidden rounded-xl border border-dashed border-zinc-300">
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <DocumentText size={18} variant="Outline" color="currentColor" />
-                      CSV
-                    </button>
-                    <button type="button" onClick={() => setExportOpen(false)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-primary-text transition-colors hover:bg-zinc-50">
-                      <Document size={18} variant="Outline" color="currentColor" />
-                      PDF
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <TableExportMenu
+            disabled={filtered.length === 0}
+            onExportCsv={() => runPendingExport("csv")}
+            onExportPdf={() => runPendingExport("pdf")}
+            onExportJson={() => runPendingExport("json")}
+          />
         </div>
       </div>
       )}
