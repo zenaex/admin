@@ -88,6 +88,7 @@ OpenAPI lists these routes but does not document query params or response schema
 
 | Method | Endpoint | Application in product | Main usage locations |
 |---|---|---|---|
+| GET | `/admin/transactions/summary` | Stat cards (deposits, withdrawals, transaction count, users) | `src/components/transactions/transactions-view.tsx` |
 | GET | `/admin/transactions` | Product transaction list (Crypto, Giftcard, Utility, E-sim, E-trade tabs) | `src/components/transactions/transactions-view.tsx` |
 | GET | `/admin/transactions/wallet` | Wallet transaction list (Deposit, Withdrawal tabs) | `src/components/transactions/transactions-view.tsx` |
 | GET | `/admin/transactions/{reference}` | Transaction detail + log tab | `src/components/transactions/transaction-details-view.tsx` |

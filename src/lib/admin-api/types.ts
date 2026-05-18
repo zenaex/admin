@@ -218,6 +218,14 @@ export type AdminTransactionListResult = {
   pageSize: number;
 };
 
+/** Normalized metrics for `GET /admin/transactions/summary`. */
+export type AdminTransactionsSummary = {
+  totalAmountDeposited?: number | string;
+  totalAmountWithdrawn?: number | string;
+  totalTransactions?: number;
+  totalUsers?: number;
+};
+
 /** `GET /admin/referrals/summary` */
 export type AdminReferralsSummary = {
   totalReferrers?: number;
