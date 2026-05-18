@@ -21,14 +21,14 @@ import {
 } from "@/components/ui/table-filter-bar";
 import { AdminApiError } from "@/lib/admin-api/client";
 import {
-  filterRowsByChannelTab,
-  filterWalletTabRows,
   getAdminTransactionsList,
+  getAdminTransactionsSummary,
   getAdminWalletTransactionsList,
   mergeTransactionListResults,
+  tabChannelToApiChannel,
   uiStatusToApiStatus,
 } from "@/lib/admin-api/transactions-api";
-import type { AdminTransactionListRow } from "@/lib/admin-api/types";
+import type { AdminTransactionListRow, AdminTransactionsSummary } from "@/lib/admin-api/types";
 import type { ExportColumn } from "@/lib/export/table-export";
 import {
   exportTableWithApiFallback,
@@ -62,7 +62,6 @@ const TX_TABS = [
 type TxTab = (typeof TX_TABS)[number]["id"];
 
 const WALLET_TABS: TxTab[] = ["Deposit", "Withdrawal"];
-const PRODUCT_TABS: TxTab[] = ["Crypto", "Giftcard", "Utility", "E-sim", "E-trade"];
 
 function isWalletTab(tab: TxTab): boolean {
   return WALLET_TABS.includes(tab);
@@ -93,6 +92,20 @@ function matchesAmountFilter(row: AdminTransactionListRow, applied: AmountFilter
   if (applied === "Less than ₦20,000") return amt < 20000;
   if (applied === "Less than ₦100,000") return amt < 100000;
   return amt > 100000;
+}
+
+function formatCount(n: number | undefined): string {
+  if (n === undefined || Number.isNaN(n)) return "—";
+  return n.toLocaleString();
+}
+
+function formatMetricAmount(v: number | string | undefined): string {
+  if (v === undefined) return "—";
+  if (typeof v === "string" && v.trim()) return v.trim();
+  if (typeof v === "number" && Number.isFinite(v)) {
+    return `₦${v.toLocaleString()}`;
+  }
+  return "—";
 }
 
 function matchesStatusFilter(row: AdminTransactionListRow, applied: TxStatusFilter | null): boolean {
@@ -128,6 +141,9 @@ export function TransactionsView() {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
+  const [summary, setSummary] = useState<AdminTransactionsSummary | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
   const mergeTab = activeTab === "All";
 
   useEffect(() => {
@@ -147,55 +163,80 @@ export function TransactionsView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  const loadSummary = useCallback(async () => {
+    setSummaryError(null);
+    try {
+      const s = await getAdminTransactionsSummary();
+      setSummary(s);
+    } catch (e) {
+      setSummary(null);
+      setSummaryError(e instanceof AdminApiError ? e.message : "Could not load transaction metrics.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
+
   const loadList = useCallback(async () => {
     setListError(null);
     setListLoading(true);
     try {
       const statusParam = appliedStatus ? uiStatusToApiStatus(appliedStatus) : undefined;
-      const channelParam =
-        activeTab !== "All" && !isWalletTab(activeTab) ? activeTab : undefined;
-      const baseQuery = {
-        search: debouncedSearch || undefined,
-        status: statusParam,
-        channel: channelParam,
-        type: channelParam,
-      };
+      const searchParam = debouncedSearch || undefined;
 
       if (mergeTab) {
         const fetchSize = 100;
         const [product, wallet] = await Promise.all([
-          getAdminTransactionsList({ ...baseQuery, page: 1, pageSize: fetchSize }),
-          getAdminWalletTransactionsList({ ...baseQuery, page: 1, pageSize: fetchSize }),
+          getAdminTransactionsList({
+            search: searchParam,
+            status: statusParam,
+            page: 1,
+            pageSize: fetchSize,
+          }),
+          getAdminWalletTransactionsList({
+            search: searchParam,
+            status: statusParam,
+            page: 1,
+            pageSize: fetchSize,
+          }),
         ]);
         const merged = mergeTransactionListResults(product, wallet);
         setListRows(merged.items);
         setListTotal(merged.total);
       } else if (isWalletTab(activeTab)) {
+        const walletType =
+          activeTab === "Deposit" ? "deposit" : activeTab === "Withdrawal" ? "withdrawal" : undefined;
         const res = await getAdminWalletTransactionsList({
-          ...baseQuery,
+          search: searchParam,
+          status: statusParam,
+          type: walletType,
           page,
           pageSize,
         });
-        const filtered =
-          activeTab === "Deposit" || activeTab === "Withdrawal"
-            ? filterWalletTabRows(res.items, activeTab)
-            : res.items;
-        setListRows(filtered);
+        setListRows(res.items);
         setListTotal(res.total);
       } else {
         const res = await getAdminTransactionsList({
-          ...baseQuery,
+          search: searchParam,
+          status: statusParam,
+          channel: tabChannelToApiChannel(activeTab),
           page,
           pageSize,
         });
-        const filtered = filterRowsByChannelTab(res.items, activeTab);
-        setListRows(filtered);
+        setListRows(res.items);
         setListTotal(res.total);
       }
     } catch (e) {
       setListRows([]);
       setListTotal(0);
-      setListError(e instanceof AdminApiError ? e.message : "Could not load transactions.");
+      setListError(
+        e instanceof AdminApiError
+          ? e.status === 0
+            ? "API URL is not configured. Set NEXT_PUBLIC_ADMIN_API_URL in .env.local and restart the dev server."
+            : e.message
+          : "Could not load transactions.",
+      );
     } finally {
       setListLoading(false);
     }
@@ -209,12 +250,9 @@ export function TransactionsView() {
     return listRows.filter((row) => {
       const matchAmount = matchesAmountFilter(row, appliedAmount);
       const matchStatus = matchesStatusFilter(row, appliedStatus);
-      if (!mergeTab && PRODUCT_TABS.includes(activeTab)) {
-        return matchAmount && matchStatus && filterRowsByChannelTab([row], activeTab).length > 0;
-      }
       return matchAmount && matchStatus;
     });
-  }, [listRows, appliedAmount, appliedStatus, activeTab, mergeTab]);
+  }, [listRows, appliedAmount, appliedStatus]);
 
   const paginationTotal = mergeTab ? clientFiltered.length : listTotal;
   const paginatedRows = useMemo(() => {
@@ -240,8 +278,15 @@ export function TransactionsView() {
     () => ({
       search: debouncedSearch || undefined,
       status: appliedStatus ? uiStatusToApiStatus(appliedStatus) : undefined,
-      channel: activeTab !== "All" && !isWalletTab(activeTab) ? activeTab : undefined,
-      type: isWalletTab(activeTab) ? activeTab.toLowerCase() : undefined,
+      channel:
+        activeTab !== "All" && !isWalletTab(activeTab) ? tabChannelToApiChannel(activeTab) : undefined,
+      type: isWalletTab(activeTab)
+        ? activeTab === "Deposit"
+          ? "deposit"
+          : activeTab === "Withdrawal"
+            ? "withdrawal"
+            : undefined
+        : undefined,
     }),
     [activeTab, appliedStatus, debouncedSearch],
   );
@@ -268,38 +313,38 @@ export function TransactionsView() {
     <div>
       <ProviderHeader title="Transactions" />
 
+      {summaryError ? (
+        <p className="mt-4 text-sm text-amber-800" role="status">
+          {summaryError}
+        </p>
+      ) : null}
+
       <div className="mt-6 flex min-w-0 gap-3">
         <StatCard
           label="Total Amount Deposited"
-          value="—"
+          value={formatMetricAmount(summary?.totalAmountDeposited)}
           accentColor="#BCEB0F"
           icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Amount Withdrawn"
-          value="—"
+          value={formatMetricAmount(summary?.totalAmountWithdrawn)}
           accentColor="#3B82F6"
           icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Number of Transactions"
-          value="—"
+          value={formatCount(summary?.totalTransactions)}
           accentColor="#EF4444"
           icon={<ChartSquare size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Number of Users"
-          value="—"
+          value={formatCount(summary?.totalUsers)}
           accentColor="#013220"
           icon={<ProfileTick size={20} variant="Outline" color="#0B294F" />}
         />
       </div>
-
-      {mergeTab ? (
-        <p className="mt-3 text-xs text-zinc-500">
-          All tab merges up to 100 product and 100 wallet transactions, then paginates locally.
-        </p>
-      ) : null}
 
       <div className="mt-10 mb-6">
         <UnderlineTabs tabs={TX_TABS} active={activeTab} onChange={handleTabChange} />
