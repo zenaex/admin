@@ -91,11 +91,13 @@ OpenAPI lists these routes but does not document query params or response schema
 | GET | `/admin/transactions/summary` | Stat cards (deposits, withdrawals, transaction count, users) | `src/components/transactions/transactions-view.tsx` |
 | GET | `/admin/transactions` | Product transaction list (Crypto, Giftcard, Utility, E-sim, E-trade tabs) | `src/components/transactions/transactions-view.tsx` |
 | GET | `/admin/transactions/wallet` | Wallet transaction list (Deposit, Withdrawal tabs) | `src/components/transactions/transactions-view.tsx` |
-| GET | `/admin/transactions/{reference}` | Transaction detail + log tab | `src/components/transactions/transaction-details-view.tsx` |
+| GET | `/admin/transactions/{reference}` | Transaction detail: API → `mapApiDetailToTransactionModel` → existing channel layouts (Giftcard, Crypto, Utility, E-sim, Withdrawal, E-trade) | `transaction-detail-mapper.ts`, `transaction-details-view.tsx` |
 
 | POST | `/admin/transactions/export` | CSV/PDF/JSON export (API with client fallback) | `transactions-view.tsx`, `src/lib/admin-api/export-api.ts` |
 
-**Not wired in UI (optional later):** `POST /admin/transactions/{reference}/sensitive`.
+**Detail UI:** [`transaction-details-view.tsx`](src/components/transactions/transaction-details-view.tsx) fetches detail from the API and maps into `TransactionDetailModel` via [`transaction-detail-mapper.ts`](src/lib/admin-api/transaction-detail-mapper.ts). Demo ids (`demo-*` / `TRANSACTION_DETAIL_BY_ID`) fall back to mocks on API error. Transaction log tab uses API `logs` / `timeline` / `events` when present, else design fallback entries.
+
+**Not wired in UI (optional later):** `POST /admin/transactions/{reference}/sensitive`; giftcard approve/reject API (actions remain client-side).
 
 ---
 

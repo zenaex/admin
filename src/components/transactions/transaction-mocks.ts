@@ -404,9 +404,31 @@ export const TRANSACTION_DETAIL_BY_ID: Record<string, TransactionDetailModel> = 
   }),
 };
 
+export function isDemoTransactionId(id?: string | null): boolean {
+  if (!id?.trim()) return false;
+  const key = id.trim();
+  if (TRANSACTION_DETAIL_BY_ID[key]) return true;
+  if (key.startsWith("demo-")) return true;
+  return false;
+}
+
 export function getTransactionDetailModel(id?: string | null): TransactionDetailModel {
-  if (id && TRANSACTION_DETAIL_BY_ID[id]) {
-    return TRANSACTION_DETAIL_BY_ID[id];
+  if (!id?.trim()) return FALLBACK_TRANSACTION_DETAIL_MODEL;
+  const key = id.trim();
+  if (TRANSACTION_DETAIL_BY_ID[key]) {
+    return TRANSACTION_DETAIL_BY_ID[key];
+  }
+  for (const model of Object.values(TRANSACTION_DETAIL_BY_ID)) {
+    if (model.transactionId === key || model.sessionId === key) {
+      return model;
+    }
+  }
+  for (const row of TRANSACTION_DEMO_TABLE_ROWS) {
+    if (row.id === key || row.refNo === key) {
+      if (TRANSACTION_DETAIL_BY_ID[row.id]) {
+        return TRANSACTION_DETAIL_BY_ID[row.id];
+      }
+    }
   }
   return FALLBACK_TRANSACTION_DETAIL_MODEL;
 }

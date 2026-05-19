@@ -15,7 +15,7 @@ This document describes the **admin** web app in this repository: stack, routing
 | React | **19.x** (see `package.json`) |
 | Next | **16.2.1** (see `package.json`) |
 
-Scripts: `npm run dev`, `npm run build`, `npm run start`, `npm run lint`.
+Scripts (pnpm): `pnpm dev`, `pnpm build`, `pnpm start`, `pnpm lint`. Lockfile: `pnpm-lock.yaml` (`packageManager`: pnpm@10.10.0).
 
 ---
 
@@ -133,7 +133,7 @@ Reusable building blocks used across auth and dashboard:
 
 - **`vercel.json`** defines a **rewrite** rule sending all paths `/(.*)` to `/`. Treat this as intentional for your hosting setup (e.g. SPA-style hosting); if client-side routing misbehaves in production, validate that this matches how Next.js expects to serve App Router routes.
 
-- **Build:** Run `npm run build` locally before deploy. Past issues included type/build errors when files under `src/pages/` were interpreted as Pages Router pages without proper exports; consolidating auth views under `src/pages/auth/` and removing duplicate root `src/pages/*.tsx` files addresses that class of problem.
+- **Build:** Run `pnpm build` locally before deploy. Past issues included type/build errors when files under `src/pages/` were interpreted as Pages Router pages without proper exports; consolidating auth views under `src/pages/auth/` and removing duplicate root `src/pages/*.tsx` files addresses that class of problem.
 
 ---
 
@@ -155,7 +155,7 @@ docs/
 ## 10. Maintenance notes
 
 - Prefer **`src/app/`** for new routes; put large page UIs in **`src/components/`** or a dedicated folder (e.g. `src/pages/auth/` for auth) to avoid mixing with Next’s optional **`pages/`** directory at the project root (this project uses `src/app` only for routing).  
-- After structural moves, run **`npm run lint`** and **`npm run build`**.
+- After structural moves, run **`pnpm lint`** and **`pnpm build`**.
 
 ---
 
