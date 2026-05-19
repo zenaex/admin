@@ -115,6 +115,105 @@ function humanizeLabel(s: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
+function isValidEmail(s: string): boolean {
+  const v = s.trim();
+  return v.includes("@") && v.length > 3 && !/^[-–—=]+$/.test(v);
+}
+
+/** Walk nested objects for any email-shaped string (audit sessions often omit top-level email). */
+function findEmailDeep(v: unknown, depth = 0): string {
+  if (depth > 6) return "";
+  if (typeof v === "string" && isValidEmail(v)) return v.trim();
+  const r = asRecord(v);
+  if (!r) return "";
+  for (const [key, val] of Object.entries(r)) {
+    if (/email/i.test(key) && typeof val === "string" && isValidEmail(val)) return val.trim();
+  }
+  for (const val of Object.values(r)) {
+    const found = findEmailDeep(val, depth + 1);
+    if (found) return found;
+  }
+  return "";
+}
+
+function accountIdFromRecord(o: Record<string, unknown>): string {
+  return pickString(o, [
+    "accountId",
+    "account_id",
+    "customerId",
+    "customer_id",
+    "userId",
+    "user_id",
+    "uuid",
+    "id",
+  ]);
+}
+
+/** Index parallel `customers` / `accounts` / `users` arrays from the same audit payload. */
+function buildAccountLookupMap(data: unknown): Map<string, Record<string, unknown>> {
+  const map = new Map<string, Record<string, unknown>>();
+  const roots: Record<string, unknown>[] = [];
+  const r = asRecord(data);
+  if (r) {
+    roots.push(r);
+    const dataInner = asRecord(r.data);
+    if (dataInner) roots.push(dataInner);
+  }
+  for (const root of roots) {
+    for (const key of ["customers", "accounts", "users", "profiles", "subjects", "items"]) {
+      const arr = root[key];
+      if (!Array.isArray(arr)) continue;
+      for (const item of arr) {
+        const rec = asRecord(item);
+        if (!rec) continue;
+        const id = accountIdFromRecord(rec);
+        if (!id) continue;
+        const prev = map.get(id) ?? {};
+        map.set(id, { ...prev, ...rec });
+      }
+    }
+  }
+  return map;
+}
+
+function extractCustomerAuditItems(data: unknown): unknown[] {
+  const lookup = buildAccountLookupMap(data);
+  const r = asRecord(data);
+  let sessions: unknown[] = [];
+
+  if (r) {
+    for (const key of ["sessions", "auditSessions", "sessionList", "session_list"]) {
+      const val = r[key];
+      if (Array.isArray(val)) {
+        sessions = val;
+        break;
+      }
+    }
+    if (sessions.length === 0) {
+      const dataInner = asRecord(r.data);
+      if (dataInner) {
+        for (const key of ["sessions", "auditSessions", "items", "content"]) {
+          const val = dataInner[key];
+          if (Array.isArray(val)) {
+            sessions = val;
+            break;
+          }
+        }
+      }
+    }
+  }
+  if (sessions.length === 0) sessions = extractItemsArray(data);
+
+  return sessions.map((raw) => {
+    const o = asRecord(raw);
+    if (!o) return raw;
+    const id = accountIdFromRecord(o);
+    const match = id ? lookup.get(id) : undefined;
+    if (match) return { ...match, ...o };
+    return raw;
+  });
+}
+
 function pickEmail(o: Record<string, unknown>, flat: Record<string, unknown>): string {
   return (
     pickString(flat, [
@@ -125,17 +224,64 @@ function pickEmail(o: Record<string, unknown>, flat: Record<string, unknown>): s
       "customerEmail",
       "primaryEmail",
       "contactEmail",
+      "mail",
+      "eMail",
     ]) ||
     pickNestedString(o, [
       ["customer", "email"],
       ["customer", "emailAddress"],
       ["user", "email"],
+      ["user", "emailAddress"],
       ["account", "email"],
       ["profile", "email"],
       ["subject", "email"],
-      ["admin", "email"],
-    ])
+      ["contact", "email"],
+      ["credentials", "email"],
+      ["auth", "email"],
+    ]) ||
+    findEmailDeep(flat) ||
+    findEmailDeep(o)
   );
+}
+
+async function buildCustomerEmailLookup(accountIds: string[]): Promise<Map<string, string>> {
+  const needed = new Set(accountIds.filter(Boolean));
+  const found = new Map<string, string>();
+  if (needed.size === 0) return found;
+
+  let page = 1;
+  const pageSize = 100;
+  while (page <= 40) {
+    const body = await adminRequest<unknown>(
+      `/admin/customers?page=${page}&pageSize=${pageSize}`,
+      { method: "GET" },
+    );
+    const batch = extractItemsArray(body);
+    if (batch.length === 0) break;
+
+    for (const raw of batch) {
+      const o = asRecord(raw);
+      if (!o) continue;
+      const id = accountIdFromRecord(o);
+      const email = pickEmail(o, flattenAuditSources(o));
+      if (id && email) found.set(id, email);
+    }
+
+    if (found.size >= needed.size) break;
+    if (batch.length < pageSize) break;
+    page += 1;
+  }
+
+  return found;
+}
+
+function applyEmailLookup(rows: AdminAuditTrailRow[], lookup: Map<string, string>): AdminAuditTrailRow[] {
+  if (lookup.size === 0) return rows;
+  return rows.map((row) => {
+    if (row.email && row.email !== "—") return row;
+    const email = lookup.get(row.subjectId);
+    return email ? { ...row, email } : row;
+  });
 }
 
 function pickAction(
@@ -289,7 +435,9 @@ export function normalizeAuditSessionList(
   data: unknown,
   subjectType: AdminAuditTrailRow["subjectType"],
 ): AdminAuditTrailRow[] {
-  return extractItemsArray(data)
+  const items =
+    subjectType === "customers" ? extractCustomerAuditItems(data) : extractItemsArray(data);
+  return items
     .map((row, idx) => normalizeAuditSessionRow(row, subjectType, idx))
     .filter((x): x is AdminAuditTrailRow => x !== null);
 }
@@ -303,7 +451,17 @@ export async function getAdminAuditInternalUserSessions(): Promise<AdminAuditTra
 /** `GET /admin/audit/customers` — customer sessions for audit trail list. */
 export async function getAdminAuditCustomerSessions(): Promise<AdminAuditTrailRow[]> {
   const body = await adminRequest<unknown>("/admin/audit/customers", { method: "GET" });
-  return normalizeAuditSessionList(body, "customers");
+  let rows = normalizeAuditSessionList(body, "customers");
+
+  const missingIds = rows
+    .filter((r) => !r.email || r.email === "—")
+    .map((r) => r.subjectId);
+  if (missingIds.length > 0) {
+    const lookup = await buildCustomerEmailLookup(missingIds);
+    rows = applyEmailLookup(rows, lookup);
+  }
+
+  return rows;
 }
 
 export function normalizeAuditActivityLogs(data: unknown): AdminAuditActivityLogEntry[] {
@@ -433,8 +591,23 @@ export async function getAdminAuditCustomerLogs(accountId: string): Promise<{
     `/admin/audit/customers/${encodeURIComponent(accountId)}/logs`,
     { method: "GET" },
   );
+  let subject = extractAuditSubjectDetails(body, "customers");
+  if (!subject.emailAddress || subject.emailAddress === "—") {
+    try {
+      const profile = await adminRequest<unknown>(
+        `/admin/customers/${encodeURIComponent(accountId)}`,
+        { method: "GET" },
+      );
+      const pr = asRecord(profile);
+      const flat = pr ? flattenAuditSources(pr) : {};
+      const email = pr ? pickEmail(pr, flat) : "";
+      if (email) subject = { ...subject, emailAddress: email };
+    } catch {
+      /* profile optional */
+    }
+  }
   return {
-    subject: extractAuditSubjectDetails(body, "customers"),
+    subject,
     logs: normalizeAuditActivityLogs(body),
   };
 }
