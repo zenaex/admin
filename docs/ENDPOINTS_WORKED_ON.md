@@ -122,7 +122,7 @@ Source module: `src/lib/admin-api/audit-api.ts`
 | Method | Endpoint | Application in product | Main usage locations |
 |---|---|---|---|
 | GET | `/admin/audit/internal-users` | Internal Users tab — session list | `src/components/audit-trail/audit-trail-view.tsx` |
-| GET | `/admin/audit/customers` | Customers tab — session list | `src/components/audit-trail/audit-trail-view.tsx` |
+| GET | `/admin/audit/customers` | Customers tab — session list (email/action from nested `customer` + session fields) | `src/components/audit-trail/audit-trail-view.tsx` |
 | GET | `/admin/audit/internal-users/{adminId}/logs` | Internal user activity detail | `src/components/audit-trail/audit-trail-details-view.tsx` |
 | GET | `/admin/audit/customers/{accountId}/logs` | Customer activity detail + customer detail Audit Log tab | `audit-trail-details-view.tsx`, `customers-details-view.tsx` |
 

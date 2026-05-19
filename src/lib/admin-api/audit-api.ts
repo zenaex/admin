@@ -17,19 +17,87 @@ function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
 
+function pickNestedString(o: Record<string, unknown>, paths: string[][]): string {
+  for (const path of paths) {
+    let cur: unknown = o;
+    for (const key of path) {
+      const rec = asRecord(cur);
+      if (!rec) {
+        cur = undefined;
+        break;
+      }
+      cur = rec[key];
+    }
+    if (typeof cur === "string" && cur.trim()) return cur.trim();
+  }
+  return "";
+}
+
+/** Merge nested customer/user/session objects so list rows pick up email and action. */
+function flattenAuditSources(o: Record<string, unknown>): Record<string, unknown> {
+  const nested = [
+    asRecord(o.metadata),
+    asRecord(o.lastLog),
+    asRecord(o.lastActivity),
+    asRecord(o.latestActivity),
+    asRecord(o.recentActivity),
+    asRecord(o.session),
+    asRecord(o.subject),
+    asRecord(o.profile),
+    asRecord(o.account),
+    asRecord(o.customer),
+    asRecord(o.user),
+    asRecord(o.admin),
+  ].filter((x): x is Record<string, unknown> => x !== null);
+
+  const flat: Record<string, unknown> = {};
+  for (const n of nested) Object.assign(flat, n);
+  Object.assign(flat, o);
+  return flat;
+}
+
 function extractItemsArray(data: unknown): unknown[] {
   if (Array.isArray(data)) return data;
   const r = asRecord(data);
   if (!r) return [];
   const inner =
-    r.data ?? r.items ?? r.results ?? r.sessions ?? r.users ?? r.rows ?? r.records ?? r.logs;
+    r.data ??
+    r.items ??
+    r.results ??
+    r.sessions ??
+    r.users ??
+    r.rows ??
+    r.records ??
+    r.logs ??
+    r.content ??
+    r.accounts ??
+    r.customers ??
+    r.auditSessions;
   if (Array.isArray(inner)) return inner;
   const dataInner = asRecord(r.data);
   if (dataInner) {
-    const nested = dataInner.items ?? dataInner.sessions ?? dataInner.users ?? dataInner.results;
+    const nested =
+      dataInner.items ??
+      dataInner.sessions ??
+      dataInner.users ??
+      dataInner.results ??
+      dataInner.content ??
+      dataInner.customers ??
+      dataInner.accounts;
     if (Array.isArray(nested)) return nested;
   }
   return [];
+}
+
+function extractLogsArray(data: unknown): unknown[] {
+  const r = asRecord(data);
+  if (r) {
+    for (const key of ["logs", "activities", "events", "auditLogs", "audit_logs", "entries", "history"]) {
+      const val = r[key];
+      if (Array.isArray(val)) return val;
+    }
+  }
+  return extractItemsArray(data);
 }
 
 function formatDisplayDate(isoOrAny: string): string {
@@ -41,10 +109,84 @@ function formatDisplayDate(isoOrAny: string): string {
   return isoOrAny;
 }
 
-function humanizeRole(s: string): string {
-  if (!s) return "—";
+function humanizeLabel(s: string): string {
+  if (!s) return "";
   const t = s.replace(/_/g, " ").trim();
   return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function pickEmail(o: Record<string, unknown>, flat: Record<string, unknown>): string {
+  return (
+    pickString(flat, [
+      "email",
+      "emailAddress",
+      "email_address",
+      "userEmail",
+      "customerEmail",
+      "primaryEmail",
+      "contactEmail",
+    ]) ||
+    pickNestedString(o, [
+      ["customer", "email"],
+      ["customer", "emailAddress"],
+      ["user", "email"],
+      ["account", "email"],
+      ["profile", "email"],
+      ["subject", "email"],
+      ["admin", "email"],
+    ])
+  );
+}
+
+function pickAction(
+  o: Record<string, unknown>,
+  flat: Record<string, unknown>,
+  sessionInRaw: string,
+  sessionOutRaw: string,
+): string {
+  const fromLastLog = pickNestedString(o, [
+    ["lastLog", "message"],
+    ["lastLog", "action"],
+    ["lastLog", "description"],
+    ["lastActivity", "message"],
+    ["lastActivity", "action"],
+    ["lastActivity", "type"],
+    ["latestActivity", "message"],
+    ["recentActivity", "message"],
+  ]);
+
+  const explicit =
+    pickString(flat, [
+      "action",
+      "lastAction",
+      "last_action",
+      "lastActivity",
+      "last_activity",
+      "activity",
+      "activityType",
+      "activity_type",
+      "event",
+      "eventType",
+      "event_type",
+      "description",
+      "message",
+      "summary",
+      "title",
+      "operation",
+      "lastOperation",
+      "recentAction",
+      "sessionAction",
+      "session_action",
+      "logType",
+      "log_type",
+      "type",
+    ]) || fromLastLog;
+
+  if (explicit) return humanizeLabel(explicit);
+
+  if (sessionInRaw && sessionOutRaw) return "Session ended";
+  if (sessionInRaw) return "Active session";
+  return "";
 }
 
 export function normalizeAuditSessionRow(
@@ -55,52 +197,82 @@ export function normalizeAuditSessionRow(
   const o = asRecord(raw);
   if (!o) return null;
 
+  const flat = flattenAuditSources(o);
+
   const subjectId =
-    pickString(o, ["adminId", "accountId", "userId", "id", "uuid"]) ||
+    (subjectType === "customers"
+      ? pickString(flat, ["accountId", "account_id", "customerId", "customer_id", "userId", "user_id"])
+      : pickString(flat, ["adminId", "admin_id", "userId", "user_id"])) ||
+    pickString(flat, ["id", "uuid"]) ||
     (subjectType === "internal" ? pickString(o, ["admin_id"]) : pickString(o, ["account_id"])) ||
     "";
   if (!subjectId) return null;
 
-  const first = pickString(o, ["firstName", "first_name"]);
-  const last = pickString(o, ["lastName", "last_name"]);
+  const rowKey =
+    pickString(flat, ["sessionId", "session_id", "logId", "log_id"]) ||
+    `${subjectId}-${idx}`;
+
+  const first =
+    pickString(flat, ["firstName", "first_name"]) ||
+    pickNestedString(o, [["customer", "firstName"], ["user", "firstName"]]);
+  const last =
+    pickString(flat, ["lastName", "last_name"]) ||
+    pickNestedString(o, [["customer", "lastName"], ["user", "lastName"]]);
+  const emailForName = pickEmail(o, flat);
   const name =
     [first, last].filter(Boolean).join(" ").trim() ||
-    pickString(o, ["name", "fullName", "displayName", "customerName", "adminName"]) ||
-    pickString(o, ["email"]) ||
+    pickString(flat, ["name", "fullName", "displayName", "customerName", "adminName"]) ||
+    pickNestedString(o, [["customer", "name"], ["customer", "fullName"], ["user", "name"]]) ||
+    emailForName ||
     subjectId;
 
-  const email = pickString(o, ["email", "emailAddress"]) || "—";
+  const email = pickEmail(o, flat) || "—";
 
   const roleRaw =
-    pickString(o, ["role", "userRole", "adminRole"]) ||
-    pickString(o, ["username", "userName", "handle"]) ||
+    pickString(flat, ["role", "userRole", "adminRole", "accountRole"]) ||
+    pickString(flat, ["username", "userName", "handle"]) ||
+    pickNestedString(o, [["customer", "username"], ["user", "username"]]) ||
     "";
   const role =
     subjectType === "customers" && roleRaw && !roleRaw.startsWith("@")
       ? `@${roleRaw}`
       : roleRaw
-        ? humanizeRole(roleRaw)
-        : "—";
-
-  const action =
-    pickString(o, [
-      "action",
-      "lastAction",
-      "last_action",
-      "activity",
-      "description",
-      "event",
-      "message",
-    ]) || "—";
+        ? humanizeLabel(roleRaw)
+        : email.includes("@")
+          ? `@${email.split("@")[0]}`
+          : "—";
 
   const sessionInRaw =
-    pickString(o, ["sessionIn", "session_in", "loginAt", "startedAt", "createdAt", "sessionStart"]) ||
-    "";
+    pickString(flat, [
+      "sessionIn",
+      "session_in",
+      "loginAt",
+      "login_at",
+      "startedAt",
+      "started_at",
+      "createdAt",
+      "created_at",
+      "sessionStart",
+      "session_start",
+    ]) || "";
   const sessionOutRaw =
-    pickString(o, ["sessionOut", "session_out", "logoutAt", "endedAt", "sessionEnd"]) || "";
+    pickString(flat, [
+      "sessionOut",
+      "session_out",
+      "logoutAt",
+      "logout_at",
+      "endedAt",
+      "ended_at",
+      "sessionEnd",
+      "session_end",
+      "lastSeenAt",
+      "last_seen_at",
+    ]) || "";
+
+  const action = pickAction(o, flat, sessionInRaw, sessionOutRaw) || "—";
 
   return {
-    id: `${subjectType}:${subjectId}`,
+    id: `${subjectType}:${rowKey}`,
     subjectId,
     subjectType,
     name,
@@ -135,22 +307,39 @@ export async function getAdminAuditCustomerSessions(): Promise<AdminAuditTrailRo
 }
 
 export function normalizeAuditActivityLogs(data: unknown): AdminAuditActivityLogEntry[] {
-  const arr = extractItemsArray(data);
+  const arr = extractLogsArray(data);
   return arr
     .map((raw, idx) => {
       const o = asRecord(raw);
       if (!o) return null;
-      const id = pickString(o, ["id", "logId", "uuid"]) || `log-${idx}`;
+      const flat = flattenAuditSources(o);
+      const id = pickString(flat, ["id", "logId", "uuid"]) || `log-${idx}`;
       const timeRaw =
-        pickString(o, ["timestamp", "createdAt", "created_at", "time", "date"]) || "";
+        pickString(flat, ["timestamp", "createdAt", "created_at", "time", "date", "occurredAt"]) ||
+        "";
       const message =
-        pickString(o, ["message", "action", "description", "event", "activity"]) || "—";
-      const userAgent = pickString(o, ["userAgent", "user_agent", "device", "browser"]) || "—";
-      const ip = pickString(o, ["ip", "ipAddress", "ip_address", "clientIp"]) || "—";
+        pickString(flat, [
+          "message",
+          "action",
+          "description",
+          "event",
+          "activity",
+          "title",
+          "summary",
+          "activityType",
+          "activity_type",
+          "eventType",
+          "event_type",
+          "type",
+        ]) || "—";
+      const userAgent =
+        pickString(flat, ["userAgent", "user_agent", "device", "browser", "client"]) || "—";
+      const ip =
+        pickString(flat, ["ip", "ipAddress", "ip_address", "clientIp", "client_ip"]) || "—";
       return {
         id,
         time: timeRaw ? formatDisplayDate(timeRaw) : "—",
-        message,
+        message: humanizeLabel(message) || message,
         userAgent,
         ip,
         raw: o,
@@ -178,32 +367,44 @@ export function extractAuditSubjectDetails(
     asRecord(r.user) ??
     asRecord(r.admin) ??
     asRecord(r.customer) ??
+    asRecord(r.account) ??
     asRecord(r.subject) ??
+    asRecord(r.profile) ??
     r;
 
-  const first = pickString(user, ["firstName", "first_name"]);
-  const last = pickString(user, ["lastName", "last_name"]);
+  const flat = flattenAuditSources({ ...user, ...r });
+
+  const first = pickString(flat, ["firstName", "first_name"]);
+  const last = pickString(flat, ["lastName", "last_name"]);
+  const email = pickEmail(r, flat);
   const name =
     [first, last].filter(Boolean).join(" ").trim() ||
-    pickString(user, ["name", "fullName", "displayName"]) ||
+    pickString(flat, ["name", "fullName", "displayName", "customerName"]) ||
+    email ||
     "—";
 
-  const roleRaw = pickString(user, ["role", "userRole", "adminRole", "username"]);
+  const roleRaw =
+    pickString(flat, ["role", "userRole", "adminRole", "username", "handle"]) || "";
   const role =
     subjectType === "customers" && roleRaw && !roleRaw.startsWith("@")
       ? `@${roleRaw}`
       : roleRaw
-        ? humanizeRole(roleRaw)
-        : "—";
+        ? humanizeLabel(roleRaw)
+        : email.includes("@")
+          ? `@${email.split("@")[0]}`
+          : "—";
 
   const dateRaw =
-    pickString(user, ["createdAt", "created_at", "dateAdded", "onboardedAt"]) || "";
+    pickString(flat, ["createdAt", "created_at", "dateAdded", "onboardedAt", "joinedAt"]) || "";
 
   return {
     name,
     role,
-    phoneNumber: pickString(user, ["phone", "phoneNumber", "mobile"]) || "—",
-    emailAddress: pickString(user, ["email", "emailAddress"]) || "—",
+    phoneNumber:
+      pickString(flat, ["phone", "phoneNumber", "mobile", "msisdn"]) ||
+      pickNestedString(r, [["customer", "phone"], ["user", "phone"]]) ||
+      "—",
+    emailAddress: email || "—",
     dateAdded: dateRaw ? formatDisplayDate(dateRaw) : "—",
   };
 }
