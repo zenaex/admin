@@ -20,26 +20,20 @@ function GiftcardImagePlaceholder() {
   );
 }
 
-function RejectionAttachmentPreview({ code }: { code: string }) {
+function RejectionAttachmentPreview({ code, message }: { code: string; message?: string }) {
   return (
     <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white">
       <div className="flex min-h-[220px] items-center justify-center bg-zinc-100/80">
         <div className="h-12 w-16 rounded-md border border-zinc-300 bg-zinc-200/80" aria-hidden />
       </div>
       <div className="space-y-2 px-4 py-4">
-        <div className="flex items-center gap-2 text-sm text-zinc-700">
-          <span className="font-semibold text-zinc-500">Code:</span>
-          <span className="font-semibold text-primary-text">{code}</span>
-        </div>
-        <p className="text-sm font-semibold text-red-600">This code has already been redeemed.</p>
-        <Link
-          href="#"
-          className="inline-flex text-sm font-semibold underline underline-offset-2"
-          style={{ color: LINK }}
-          onClick={(e) => e.preventDefault()}
-        >
-          Get more info
-        </Link>
+        {code ? (
+          <div className="flex items-center gap-2 text-sm text-zinc-700">
+            <span className="font-semibold text-zinc-500">Code:</span>
+            <span className="font-semibold text-primary-text">{code}</span>
+          </div>
+        ) : null}
+        {message ? <p className="text-sm font-semibold text-red-600">{message}</p> : null}
       </div>
     </div>
   );
@@ -94,7 +88,12 @@ function row2LastHeader(approvalStatus: TxApprovalStatus) {
   return "Provider";
 }
 
-export function GiftcardTransactionDetails({ approvalStatus, model, device }: GiftcardTransactionDetailsProps) {
+export function GiftcardTransactionDetails({
+  approvalStatus,
+  model,
+  device,
+  rejectionMessage,
+}: GiftcardTransactionDetailsProps) {
   const showRejectionAttachment = approvalStatus === "Rejected";
 
   return (
@@ -150,7 +149,7 @@ export function GiftcardTransactionDetails({ approvalStatus, model, device }: Gi
           <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
             Rejection Attachment
           </h2>
-          <RejectionAttachmentPreview code={model.code} />
+          <RejectionAttachmentPreview code={model.code} message={rejectionMessage} />
         </section>
       ) : null}
 

@@ -1,4 +1,5 @@
 import { adminRequest } from "@/lib/admin-api/client";
+import { normalizeAdminSettingsProfile } from "@/lib/admin-api/settings-profile-map";
 import { policyDtoToUi, uiStateToPolicyDto, type AdminPasswordPolicyUiState } from "@/lib/admin-api/settings-policy-map";
 import type {
   AdminSettingsChangePasswordBody,
@@ -9,14 +10,16 @@ import type {
 } from "@/lib/admin-api/types";
 
 export async function getAdminSettingsProfile(): Promise<AdminSettingsProfile> {
-  return adminRequest<AdminSettingsProfile>("/admin/settings/profile", { method: "GET" });
+  const data = await adminRequest<unknown>("/admin/settings/profile", { method: "GET" });
+  return normalizeAdminSettingsProfile(data);
 }
 
 export async function patchAdminSettingsProfile(body: AdminSettingsProfilePatchBody): Promise<AdminSettingsProfile> {
-  return adminRequest<AdminSettingsProfile>("/admin/settings/profile", {
+  const data = await adminRequest<unknown>("/admin/settings/profile", {
     method: "PATCH",
     body: JSON.stringify(body),
   });
+  return normalizeAdminSettingsProfile(data);
 }
 
 export async function postAdminSettingsChangePassword(body: AdminSettingsChangePasswordBody): Promise<unknown> {

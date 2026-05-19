@@ -44,7 +44,7 @@ Source module: `src/lib/admin-api/settings-api.ts`
 
 | Method | Endpoint | Application in product | Main usage locations |
 |---|---|---|---|
-| GET | `/admin/settings/profile` | Fetch current admin profile for Settings > Profile tab | `src/components/settings/settings-profile-tab.tsx` |
+| GET | `/admin/settings/profile` | Fetch current admin profile for Settings > Profile tab (normalized via `settings-profile-map.ts`; missing fields blank) | `src/components/settings/settings-profile-tab.tsx` |
 | PATCH | `/admin/settings/profile` | Update profile fields (`firstName`, `lastName`, `phoneNumber`, `department`) | `src/components/settings/settings-profile-tab.tsx` |
 | POST | `/admin/settings/change-password` | Change own password from Settings > Password | `src/components/settings/settings-password-reset.tsx` |
 | GET | `/admin/settings/password-reset-requests` | Fetch pending reset requests (super admin) | `src/components/settings/settings-reset-requests.tsx`, `src/components/user-mgt/admin-management-view.tsx` (Password resets tab) |
@@ -95,7 +95,7 @@ OpenAPI lists these routes but does not document query params or response schema
 
 | POST | `/admin/transactions/export` | CSV/PDF/JSON export (API with client fallback) | `transactions-view.tsx`, `src/lib/admin-api/export-api.ts` |
 
-**Detail UI:** [`transaction-details-view.tsx`](src/components/transactions/transaction-details-view.tsx) fetches detail from the API and maps into `TransactionDetailModel` via [`transaction-detail-mapper.ts`](src/lib/admin-api/transaction-detail-mapper.ts). Demo ids (`demo-*` / `TRANSACTION_DETAIL_BY_ID`) fall back to mocks on API error. Transaction log tab uses API `logs` / `timeline` / `events` when present, else design fallback entries.
+**Detail UI:** [`transaction-details-view.tsx`](src/components/transactions/transaction-details-view.tsx) fetches detail from the API and maps into `TransactionDetailModel` via [`transaction-detail-mapper.ts`](src/lib/admin-api/transaction-detail-mapper.ts). Missing API fields render blank. Transaction log tab uses API `logs` / `timeline` / `events` when present; otherwise shows an empty state.
 
 **Not wired in UI (optional later):** `POST /admin/transactions/{reference}/sensitive`; giftcard approve/reject API (actions remain client-side).
 
