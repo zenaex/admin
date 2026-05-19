@@ -105,21 +105,20 @@ export function AuditTrailView() {
     setListError(null);
     setListLoading(true);
     try {
-      if (tab === "customers") {
-        const rows = await getAdminAuditCustomerSessions();
-        setCustomerRows(rows);
-      } else {
-        const rows = await getAdminAuditInternalUserSessions();
-        setInternalRows(rows);
-      }
+      const [internal, customers] = await Promise.all([
+        getAdminAuditInternalUserSessions(),
+        getAdminAuditCustomerSessions(),
+      ]);
+      setInternalRows(internal);
+      setCustomerRows(customers);
     } catch (e) {
-      if (tab === "customers") setCustomerRows([]);
-      else setInternalRows([]);
+      setInternalRows([]);
+      setCustomerRows([]);
       setListError(e instanceof AdminApiError ? e.message : "Could not load audit trail.");
     } finally {
       setListLoading(false);
     }
-  }, [tab]);
+  }, []);
 
   useEffect(() => {
     void loadSessions();
