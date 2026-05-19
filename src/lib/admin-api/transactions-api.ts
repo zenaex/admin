@@ -703,6 +703,18 @@ export function filterRowsByChannelTab(
   });
 }
 
+export {
+  asRecord,
+  formatDisplayDate,
+  formatPersonName,
+  pickNestedRecord,
+  pickNestedString,
+  pickNum,
+  pickProviderLabel,
+  pickString,
+  unwrapTransactionRecord,
+};
+
 export function filterWalletTabRows(
   items: AdminTransactionListRow[],
   tab: "Deposit" | "Withdrawal",
