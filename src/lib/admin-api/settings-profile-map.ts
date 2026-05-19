@@ -67,7 +67,11 @@ function unwrapProfilePayload(data: unknown): Record<string, unknown> {
   if (!root) return {};
   for (const key of ["profile", "user", "admin", "account", "data", "payload", "result"]) {
     const inner = asRecord(root[key]);
-    if (inner && (pickString(inner, ["email", "firstName", "first_name", "employeeId", "employee_id"]) || pickNestedString(inner, [["user", "email"]]))) {
+    if (
+      inner &&
+      (pickString(inner, ["email", "firstName", "first_name", "id", "employeeId", "employee_id"]) ||
+        pickNestedString(inner, [["user", "email"]]))
+    ) {
       return inner;
     }
   }
@@ -114,7 +118,18 @@ export function normalizeAdminSettingsProfile(data: unknown): AdminSettingsProfi
       "staff_id",
       "personnelId",
       "personnel_id",
-    ]) || pickNestedString(o, [["user", "employeeId"], ["admin", "employeeId"]]),
+      "id",
+      "adminId",
+      "admin_id",
+      "userId",
+      "user_id",
+    ]) ||
+      pickNestedString(o, [
+        ["user", "employeeId"],
+        ["user", "id"],
+        ["admin", "employeeId"],
+        ["admin", "id"],
+      ]),
   );
   const dateJoined = formatJoinedDate(
     pickString(o, [
