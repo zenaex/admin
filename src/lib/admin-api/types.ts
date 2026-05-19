@@ -57,6 +57,7 @@ export type ApiErrorBody = {
 
 /** `GET /admin/settings/profile` — tolerate extra/renamed fields from backend. */
 export type AdminSettingsProfile = {
+  /** Displayed as Employee ID; mapped from API `id` when no dedicated employee field. */
   employeeId?: string;
   firstName?: string;
   lastName?: string;
