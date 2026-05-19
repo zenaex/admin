@@ -11,8 +11,11 @@ import type { AdminSettingsProfile } from "@/lib/admin-api/types";
 function displayName(p: AdminSettingsProfile): string {
   const fn = p.firstName?.trim() ?? "";
   const ln = p.lastName?.trim() ?? "";
-  const combined = [fn, ln].filter(Boolean).join(" ");
-  return combined || "—";
+  return [fn, ln].filter(Boolean).join(" ");
+}
+
+function displayField(value?: string): string {
+  return value?.trim() ?? "";
 }
 
 export function SettingsProfileTab() {
@@ -157,13 +160,13 @@ export function SettingsProfileTab() {
               <tbody>
                 <tr>
                   <td className="border-r border-outline px-4 py-5 font-medium text-black underline underline-offset-2">
-                    {profile.employeeId ?? "—"}
+                    {displayField(profile.employeeId)}
                   </td>
                   <td className="border-r border-outline px-4 py-5 text-primary-text">{displayName(profile)}</td>
-                  <td className="border-r border-outline px-4 py-5 text-zinc-500">{profile.email ?? "—"}</td>
-                  <td className="border-r border-outline px-4 py-5 text-zinc-500">{profile.phoneNumber ?? "—"}</td>
-                  <td className="border-r border-outline px-4 py-5 text-zinc-500">{profile.department ?? "—"}</td>
-                  <td className="border-r border-outline px-4 py-5 text-zinc-500">{profile.role ?? "—"}</td>
+                  <td className="border-r border-outline px-4 py-5 text-zinc-500">{displayField(profile.email)}</td>
+                  <td className="border-r border-outline px-4 py-5 text-zinc-500">{displayField(profile.phoneNumber)}</td>
+                  <td className="border-r border-outline px-4 py-5 text-zinc-500">{displayField(profile.department)}</td>
+                  <td className="border-r border-outline px-4 py-5 text-zinc-500">{displayField(profile.role)}</td>
                 </tr>
               </tbody>
             </table>
@@ -175,7 +178,7 @@ export function SettingsProfileTab() {
             </div>
             <div className="h-16 rounded-b-xl bg-white">
               <hr className="my-2 w-full border-t border-outline" />
-              <p className="h-10 px-4 text-sm text-primary-text">{profile.dateJoined ?? "—"}</p>
+              <p className="h-10 px-4 text-sm text-primary-text">{displayField(profile.dateJoined)}</p>
             </div>
           </div>
         </>

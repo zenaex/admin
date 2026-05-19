@@ -11,14 +11,14 @@ import {
 } from "@/lib/admin-api/transactions-api";
 import type { TxApprovalStatus } from "@/components/transactions/transaction-details/types";
 import {
-  FALLBACK_TRANSACTION_DETAIL_MODEL,
+  EMPTY_TRANSACTION_DETAIL_MODEL,
   type CryptoDetailVariant,
   type DepositDetailVariant,
   type EsimTransactionOutcome,
   type TransactionDetailChannel,
   type TransactionDetailModel,
   type UtilityDetailVariant,
-} from "@/components/transactions/transaction-mocks";
+} from "@/components/transactions/transaction-detail-model";
 
 export type TransactionLogEntry = {
   step: number;
@@ -51,20 +51,27 @@ function readStatusRaw(o: Record<string, unknown>): string {
   return pickString(o, ["status", "state", "outcome", "transactionStatus", "paymentStatus"]);
 }
 
-function mapOutcome(statusRaw: string): EsimTransactionOutcome {
+function mapOutcome(statusRaw: string): EsimTransactionOutcome | null {
+  if (!statusRaw.trim()) return null;
   const k = statusRaw.toLowerCase();
   if (k.includes("fail") || k.includes("reject")) return "Failed";
   if (k.includes("pending")) return "Pending";
   if (k.includes("success") || k.includes("complete") || k.includes("approve")) return "Successful";
-  return "Successful";
+  return null;
 }
 
-function mapGiftcardApproval(statusRaw: string): TxApprovalStatus {
+function mapGiftcardApproval(statusRaw: string): TxApprovalStatus | null {
+  if (!statusRaw.trim()) return null;
   const k = statusRaw.toLowerCase();
   if (k.includes("reject") || k.includes("fail")) return "Rejected";
   if (k.includes("pending")) return "Pending";
   if (k.includes("success") || k.includes("approve")) return "Approved";
-  return "Pending";
+  return null;
+}
+
+function detailProvider(o: Record<string, unknown>): string {
+  const p = pickProviderLabel(o);
+  return p === "—" ? "" : p;
 }
 
 function formatAmountFromRecord(o: Record<string, unknown>): string {
@@ -77,7 +84,14 @@ function formatAmountFromRecord(o: Record<string, unknown>): string {
     (amountBlock ? pickString(amountBlock, ["currency", "code"]) : "") ||
     "";
   if (amountNum !== undefined) {
-    const prefix = currency && currency !== "NGN" && currency !== "₦" ? `${currency} ` : currency === "NGN" ? "₦" : currency ? `${currency} ` : "₦";
+    const prefix =
+      currency && currency !== "NGN" && currency !== "₦"
+        ? `${currency} `
+        : currency === "NGN"
+          ? "₦"
+          : currency
+            ? `${currency} `
+            : "₦";
     return `${prefix}${amountNum.toLocaleString()}`.replace(/^₦₦/, "₦");
   }
   return (
@@ -198,6 +212,18 @@ function detectChannel(o: Record<string, unknown>): {
   };
 }
 
+function pickFromBlocks(
+  o: Record<string, unknown>,
+  blocks: Record<string, unknown>[],
+  keys: string[],
+): string {
+  for (const block of blocks) {
+    const v = pickString(block, keys);
+    if (v) return v;
+  }
+  return pickString(o, keys);
+}
+
 export function extractTransactionLogEntries(raw: Record<string, unknown>): TransactionLogEntry[] {
   const o = unwrapTransactionRecord(raw);
   for (const key of ["logs", "timeline", "events", "transactionLog", "transaction_log", "history"]) {
@@ -227,9 +253,11 @@ export function mapApiDetailToTransactionModel(
   reference: string,
 ): TransactionDetailModel {
   const o = unwrapTransactionRecord(raw);
-  const base = { ...FALLBACK_TRANSACTION_DETAIL_MODEL };
+  const base = { ...EMPTY_TRANSACTION_DETAIL_MODEL };
   const statusRaw = readStatusRaw(o);
   const outcome = mapOutcome(statusRaw);
+  const giftcardStatus = mapGiftcardApproval(statusRaw);
+  const hasMappedStatus = outcome !== null;
   const routing = detectChannel(o);
 
   const customerBlock = pickNestedRecord(o, [
@@ -241,6 +269,19 @@ export function mapApiDetailToTransactionModel(
     "customerDetails",
     "userDetails",
   ]);
+  const recipientBlock = pickNestedRecord(o, [
+    "recipient",
+    "beneficiary",
+    "destination",
+    "receiver",
+    "payee",
+  ]);
+  const deviceBlock = pickNestedRecord(o, ["device", "deviceInfo", "device_info", "clientDevice"]);
+  const productBlock = pickNestedRecord(o, ["product", "service", "plan"]);
+  const metaBlock = pickNestedRecord(o, ["metadata", "meta", "details"]);
+  const detailBlocks = [o, recipientBlock, customerBlock, productBlock, metaBlock].filter(
+    (b): b is Record<string, unknown> => Boolean(b),
+  );
 
   const referenceNo =
     pickString(o, [
@@ -266,19 +307,20 @@ export function mapApiDetailToTransactionModel(
       ["user", "fullName"],
     ]) ||
     (customerBlock ? formatPersonName(customerBlock) : "") ||
-    formatPersonName(o) ||
-    base.customerName;
+    formatPersonName(o);
 
-  const provider = pickProviderLabel(o);
-  const amountFormatted = formatAmountFromRecord(o) || base.amount;
+  const provider = detailProvider(o);
+  const amountFormatted = formatAmountFromRecord(o);
 
   const dateInitiatedRaw =
     pickString(o, ["createdAt", "created_at", "initiatedAt", "initiated_at", "date", "timestamp"]) || "";
   const dateCompletedRaw =
-    pickString(o, ["completedAt", "completed_at", "updatedAt", "updated_at"]) || dateInitiatedRaw;
+    pickString(o, ["completedAt", "completed_at", "updatedAt", "updated_at"]) || "";
 
-  const datedInitiated = dateInitiatedRaw ? formatDisplayDate(dateInitiatedRaw) : base.datedInitiated;
-  const dateCompleted = dateCompletedRaw ? formatDisplayDate(dateCompletedRaw) : base.dateCompleted;
+  const datedInitiated = dateInitiatedRaw ? formatDisplayDate(dateInitiatedRaw) : "";
+  const dateCompleted = dateCompletedRaw
+    ? formatDisplayDate(dateCompletedRaw)
+    : datedInitiated;
 
   const currency =
     pickString(o, ["currency", "asset", "currencyCode", "pair", "symbol"]) ||
@@ -287,103 +329,143 @@ export function mapApiDetailToTransactionModel(
       ["crypto", "currency"],
       ["product", "currency"],
     ]) ||
-    base.currency;
+    "";
 
   const feeNum = pickNum(o, ["fee", "ourFee", "our_fee", "serviceFee", "transactionFee"]);
-  const fee =
+  const feeRaw =
     pickString(o, ["fee", "ourFee", "our_fee", "serviceFee", "transactionFee"]) ||
-    (feeNum !== undefined ? `₦${feeNum.toLocaleString()}` : "") ||
-    base.ourFee;
+    (feeNum !== undefined ? String(feeNum) : "");
+  const fee =
+    feeRaw && !feeRaw.startsWith("₦") && !feeRaw.startsWith("$") && feeNum !== undefined
+      ? `₦${feeNum.toLocaleString()}`
+      : feeRaw;
 
-  const rate =
-    pickString(o, ["rate", "rateGiven", "rate_given", "exchangeRate", "conversionRate"]) || base.rateGiven;
+  const rate = pickString(o, ["rate", "rateGiven", "rate_given", "exchangeRate", "conversionRate"]) || "";
 
+  const balanceAfterNum = pickNum(o, ["balanceAfter", "balance_after"]);
   const balanceAfter =
     pickString(o, ["balanceAfter", "balance_after", "balanceAfterTransaction"]) ||
-    (pickNum(o, ["balanceAfter", "balance_after"]) !== undefined
-      ? formatAmountFromRecord({ amount: pickNum(o, ["balanceAfter", "balance_after"]), currency: "NGN" })
-      : "") ||
-    base.balanceAfter;
+    (balanceAfterNum !== undefined
+      ? formatAmountFromRecord({ amount: balanceAfterNum, currency: "NGN" })
+      : "");
 
   const bankBlock = pickNestedRecord(o, ["bank", "bankAccount", "account", "beneficiary", "destination"]);
+
+  const uploadedRaw = pickString(o, ["dateUploaded", "uploadedAt", "uploaded_at"]);
+  const product =
+    pickString(o, ["product", "productName", "product_name"]) ||
+    pickNestedString(o, [["product", "name"], ["product", "title"], ["service", "name"]]) ||
+    "";
+  const plan =
+    pickString(o, ["plan", "planName", "plan_name", "bundle"]) ||
+    pickNestedString(o, [["product", "plan"], ["plan", "name"]]) ||
+    "";
+  const cashback = pickString(o, ["cashback", "cashBack", "cash_back", "reward"]) || "";
 
   const model: TransactionDetailModel = {
     ...base,
     ...routing,
+    hasMappedStatus,
     transactionId: referenceNo,
     sessionId: pickString(o, ["sessionId", "session_id"]) || referenceNo,
     customerName,
-    provider: provider !== "—" ? provider : base.provider,
-    giftcardProvider: provider !== "—" ? provider : base.giftcardProvider,
-    esimProvider: provider !== "—" ? provider : base.esimProvider,
+    provider,
+    giftcardProvider: provider,
+    esimProvider: provider,
     amount: amountFormatted,
     amountUsd: amountFormatted,
     amountSent: pickString(o, ["amountSent", "amount_sent"]) || amountFormatted,
-    amountEquivalent:
-      pickString(o, ["amountEquivalent", "amount_equivalent", "equivalentAmount"]) || amountFormatted,
-    amountPaidOut:
-      pickString(o, ["amountPaidOut", "amount_paid_out", "paidOut", "payoutAmount"]) || amountFormatted,
+    amountEquivalent: pickString(o, ["amountEquivalent", "amount_equivalent", "equivalentAmount"]) || "",
+    amountPaidOut: pickString(o, ["amountPaidOut", "amount_paid_out", "paidOut", "payoutAmount"]) || "",
     datedInitiated,
     dateCompleted,
-    dateUploaded: pickString(o, ["dateUploaded", "uploadedAt", "uploaded_at"])
-      ? formatDisplayDate(pickString(o, ["dateUploaded", "uploadedAt", "uploaded_at"]))
-      : datedInitiated,
+    dateUploaded: uploadedRaw ? formatDisplayDate(uploadedRaw) : "",
     currency,
     rateGiven: rate,
-    ourFee: typeof fee === "string" && fee && !fee.startsWith("₦") && !fee.startsWith("$") ? `₦${fee}` : fee,
-    balanceAfter: balanceAfter || base.balanceAfter,
-    coinReceived: pickString(o, ["coinReceived", "coin_received", "receivedCoin", "toCurrency"]) || base.coinReceived,
-    defaultOutcome: outcome,
-    esimOutcome: outcome,
-    giftcardInitialStatus: mapGiftcardApproval(statusRaw),
-    code: pickString(o, ["code", "cardCode", "card_code", "giftcardCode"]) || base.code,
-    country: pickString(o, ["country", "countryCode", "country_name"]) || base.country,
-    giftcardType: pickString(o, ["giftcardType", "giftcard_type", "cardType", "type"]) || base.giftcardType,
-    typeGift: pickString(o, ["typeGift", "giftType", "cardFormat"]) || base.typeGift,
-    typeDeposit: pickString(o, ["typeDeposit", "type", "transactionType"]) || base.typeDeposit,
-    opsInCharge:
-      pickString(o, ["opsInCharge", "ops_in_charge", "assignedTo", "reviewer", "adminName"]) || base.opsInCharge,
-    rateFeeGiven: pickString(o, ["rateFeeGiven", "rate_fee", "rate"]) || rate || base.rateFeeGiven,
-    balanceAfterGift:
-      pickString(o, ["balanceAfterGift", "balance_after_gift"]) || balanceAfter || base.balanceAfterGift,
-    esimChannelLabel:
-      routing.channel === "Esim"
-        ? readChannelRaw(o) || "E-sim"
-        : base.esimChannelLabel,
-    esimCoverage: pickString(o, ["coverage", "esimCoverage", "region"]) || base.esimCoverage,
-    esimDataAllowance:
-      pickString(o, ["dataAllowance", "data_allowance", "allowance", "plan"]) || base.esimDataAllowance,
-    esimValidity: pickString(o, ["validity", "esimValidity", "duration"]) || base.esimValidity,
+    ourFee: fee,
+    balanceAfter,
+    coinReceived: pickString(o, ["coinReceived", "coin_received", "receivedCoin", "toCurrency"]) || "",
+    defaultOutcome: outcome ?? base.defaultOutcome,
+    esimOutcome: outcome ?? base.esimOutcome,
+    giftcardInitialStatus: giftcardStatus ?? base.giftcardInitialStatus,
+    code: pickString(o, ["code", "cardCode", "card_code", "giftcardCode"]) || "",
+    country: pickString(o, ["country", "countryCode", "country_name"]) || "",
+    giftcardType: pickString(o, ["giftcardType", "giftcard_type", "cardType"]) || "",
+    typeGift: pickString(o, ["typeGift", "giftType", "cardFormat"]) || "",
+    typeDeposit: pickString(o, ["typeDeposit", "transactionType", "transaction_type"]) || "",
+    opsInCharge: pickString(o, ["opsInCharge", "ops_in_charge", "assignedTo", "reviewer", "adminName"]) || "",
+    rateFeeGiven: pickString(o, ["rateFeeGiven", "rate_fee"]) || rate,
+    balanceAfterGift: pickString(o, ["balanceAfterGift", "balance_after_gift"]) || balanceAfter,
+    esimChannelLabel: routing.channel === "Esim" ? readChannelRaw(o) || "" : "",
+    esimCoverage: pickString(o, ["coverage", "esimCoverage", "region"]) || "",
+    esimDataAllowance: pickString(o, ["dataAllowance", "data_allowance", "allowance"]) || plan,
+    esimValidity: pickString(o, ["validity", "esimValidity", "duration"]) || "",
     esimPriceUsd:
       pickString(o, ["priceUsd", "price_usd", "usdAmount"]) ||
-      (currency.includes("USD") || currency.startsWith("$") ? amountFormatted : base.esimPriceUsd),
+      (currency.includes("USD") || currency.startsWith("$") ? amountFormatted : ""),
     esimPriceNgn:
       pickString(o, ["priceNgn", "price_ngn", "ngnAmount"]) ||
-      (amountFormatted.includes("₦") ? amountFormatted : base.esimPriceNgn),
-    esimBalanceAfter: balanceAfter || base.esimBalanceAfter,
+      (amountFormatted.includes("₦") ? amountFormatted : ""),
+    esimBalanceAfter: balanceAfter,
     withdrawalAmount: amountFormatted,
-    withdrawalFee: pickString(o, ["withdrawalFee", "fee"]) || base.withdrawalFee,
+    withdrawalFee: pickString(o, ["withdrawalFee"]) || fee,
     withdrawalBankName:
       pickString(o, ["bankName", "bank_name"]) ||
       (bankBlock ? pickString(bankBlock, ["bankName", "name", "bank"]) : "") ||
-      base.withdrawalBankName,
+      "",
     withdrawalAccountName:
       pickString(o, ["accountName", "account_name"]) ||
       (bankBlock ? pickString(bankBlock, ["accountName", "name"]) : "") ||
-      base.withdrawalAccountName,
+      "",
     withdrawalAccountNumber:
       pickString(o, ["accountNumber", "account_number"]) ||
       (bankBlock ? pickString(bankBlock, ["accountNumber", "number"]) : "") ||
-      base.withdrawalAccountNumber,
-    withdrawalBalanceAfter: balanceAfter || base.withdrawalBalanceAfter,
+      "",
+    withdrawalBalanceAfter: balanceAfter,
     withdrawalTimestamp: datedInitiated,
-    etradeSymbol: pickString(o, ["symbol", "etradeSymbol", "stockSymbol"]) || base.etradeSymbol,
-    etradeSide: pickString(o, ["side", "etradeSide", "orderSide"]) || base.etradeSide,
-    etradeQuantity: pickString(o, ["quantity", "etradeQuantity", "shares"]) || base.etradeQuantity,
-    etradeAmountNgn: amountFormatted.includes("₦") ? amountFormatted : base.etradeAmountNgn,
-    etradeFee: pickString(o, ["fee", "etradeFee"]) || base.etradeFee,
-    etradeBalanceAfter: balanceAfter || base.etradeBalanceAfter,
+    etradeSymbol: pickString(o, ["symbol", "etradeSymbol", "stockSymbol"]) || "",
+    etradeSide: pickString(o, ["side", "etradeSide", "orderSide"]) || "",
+    etradeQuantity: pickString(o, ["quantity", "etradeQuantity", "shares"]) || "",
+    etradeAmountNgn: amountFormatted.includes("₦") ? amountFormatted : "",
+    etradeFee: pickString(o, ["etradeFee"]) || fee,
+    etradeBalanceAfter: balanceAfter,
     etradeTimestamp: datedInitiated,
+    rejectionMessage:
+      pickString(o, [
+        "rejectionMessage",
+        "rejection_message",
+        "rejectionReason",
+        "rejection_reason",
+        "declineReason",
+      ]) || "",
+    product,
+    plan,
+    cashback,
+    walletAddress: pickFromBlocks(o, detailBlocks, [
+      "walletAddress",
+      "wallet_address",
+      "address",
+      "toAddress",
+      "to_address",
+    ]),
+    network: pickFromBlocks(o, detailBlocks, ["network", "chain", "blockchain"]),
+    networkFee: pickFromBlocks(o, detailBlocks, ["networkFee", "network_fee", "gasFee", "gas_fee"]),
+    meterNumber: pickFromBlocks(o, detailBlocks, ["meterNumber", "meter_number", "meterNo", "meter_no"]),
+    address: pickFromBlocks(o, detailBlocks, ["address", "streetAddress", "street_address", "location"]),
+    accountName: pickFromBlocks(o, detailBlocks, ["accountName", "account_name", "name", "recipientName"]),
+    phoneNumber: pickFromBlocks(o, detailBlocks, ["phoneNumber", "phone_number", "phone", "msisdn"]),
+    smartcardNo: pickFromBlocks(o, detailBlocks, ["smartcardNo", "smartcard_no", "smartCard", "cardNumber"]),
+    bettingId: pickFromBlocks(o, detailBlocks, ["bettingId", "betting_id", "betId", "customerId"]),
+    device: (deviceBlock ? pickString(deviceBlock, ["device", "name", "model"]) : "") || pickString(o, ["device"]),
+    deviceId:
+      (deviceBlock ? pickString(deviceBlock, ["deviceId", "device_id", "id"]) : "") ||
+      pickString(o, ["deviceId", "device_id"]),
+    location:
+      (deviceBlock ? pickString(deviceBlock, ["location", "city", "address"]) : "") ||
+      pickString(o, ["location"]),
+    locationCoordinate:
+      (deviceBlock ? pickString(deviceBlock, ["locationCoordinate", "coordinates", "geo"]) : "") ||
+      pickString(o, ["locationCoordinate", "coordinates", "lat", "lng"]),
   };
 
   if (routing.depositDetailVariant === "utility_betting" || channelKey(readChannelRaw(o)).includes("bet")) {

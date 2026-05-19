@@ -15,58 +15,14 @@ import {
 } from "@/lib/admin-api/transaction-detail-mapper";
 import { AdminApiError } from "@/lib/admin-api/client";
 import { getAdminTransactionDetail } from "@/lib/admin-api/transactions-api";
-import {
-  getTransactionDetailModel,
-  isDemoTransactionId,
-  type CryptoDetailVariant,
-  type EsimTransactionOutcome,
-  type TransactionDetailModel,
-} from "@/components/transactions/transaction-mocks";
+import type {
+  CryptoDetailVariant,
+  EsimTransactionOutcome,
+  TransactionDetailModel,
+  UtilityDetailVariant,
+} from "@/components/transactions/transaction-detail-model";
 
-const RECIPIENT_DATA = {
-  walletAddress: "12324235334252526",
-  network: "Tron",
-  networkFee: "$2.10",
-};
-
-const RECIPIENT_TV = {
-  smartcardNo: "472242353543",
-  accountName: "Okunola Roscoly",
-};
-
-const RECIPIENT_UTILITY_DATA = {
-  phoneNumber: "472242353543",
-};
-
-const RECIPIENT_UTILITY_ELECTRICITY = {
-  address: "10, Olajolo Stree, Ajah, Lagos",
-  meterNumber: "472242353543",
-  accountName: "Okunola Roscoly",
-};
-
-const RECIPIENT_UTILITY_BETTING = {
-  bettingId: "472242353543",
-  accountName: "Okunola Roscoly",
-};
-
-const TX_TIMESTAMP = "Jan 6, 2026 | 9:32AM";
-
-const DEVICE_DATA = {
-  device: "Iphone 15pro",
-  deviceId: "c83738d83yedhd",
-  location: "Ijebu Igbo, Ogun State",
-  locationCoordinate: "Lat: 40'748944",
-};
-
-/** Device row for giftcard (physical card) detail ??? matches product copy. */
-const DEVICE_DATA_GIFT = {
-  device: "iPhone 15pro",
-  deviceId: "cd3738d83yedhd",
-  location: "Ijebu Igbo, Ogun State",
-  locationCoordinate: "Lat: 40.748944",
-};
-
-/* ?????? Tab config ?????? */
+/* Tab config */
 type DetailTab = "Transaction Details" | "Transaction Log";
 const TABS: DetailTab[] = ["Transaction Details", "Transaction Log"];
 
@@ -96,15 +52,13 @@ function initialApprovalFor(tx: TransactionDetailModel): TxApprovalStatus {
 export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
   const reference = id?.trim() ?? "";
 
-  const [tx, setTx] = useState<TransactionDetailModel>(() => getTransactionDetailModel(reference));
+  const [tx, setTx] = useState<TransactionDetailModel | null>(null);
   const [logEntries, setLogEntries] = useState<TransactionLogEntry[]>([]);
   const [loading, setLoading] = useState(Boolean(reference));
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<DetailTab>("Transaction Details");
-  const [approvalStatus, setApprovalStatus] = useState<TxApprovalStatus>(() =>
-    initialApprovalFor(getTransactionDetailModel(reference)),
-  );
+  const [approvalStatus, setApprovalStatus] = useState<TxApprovalStatus>("Pending");
   const [actionOpen, setActionOpen] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -125,17 +79,9 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
       setLogEntries(extractTransactionLogEntries(raw));
       setApprovalStatus(initialApprovalFor(mapped));
     } catch (e) {
-      if (isDemoTransactionId(reference)) {
-        const mock = getTransactionDetailModel(reference);
-        setTx(mock);
-        setLogEntries([]);
-        setApprovalStatus(initialApprovalFor(mock));
-        setError(null);
-      } else {
-        setTx(getTransactionDetailModel(reference));
-        setLogEntries([]);
-        setError(e instanceof AdminApiError ? e.message : "Could not load transaction.");
-      }
+      setTx(null);
+      setLogEntries([]);
+      setError(e instanceof AdminApiError ? e.message : "Could not load transaction.");
     } finally {
       setLoading(false);
     }
@@ -145,7 +91,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
     void loadDetail();
   }, [loadDetail]);
 
-  const isGiftcard = tx.channel === "Giftcard";
+  const isGiftcard = tx?.channel === "Giftcard";
 
   const handleApproveConfirm = () => {
     setShowApproveConfirm(false);
@@ -217,15 +163,17 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
             Back to list
           </Link>
         </div>
-      ) : (
+      ) : tx ? (
         <>
-      <StatusBanner
-        {...(tx.channel === "Giftcard"
-          ? { variant: "giftcard" as const, status: approvalStatus }
-          : tx.channel === "Esim"
-            ? { variant: "esim" as const, outcome: tx.esimOutcome }
-            : { variant: "default" as const, outcome: tx.defaultOutcome })}
-      />
+      {tx.hasMappedStatus ? (
+        <StatusBanner
+          {...(tx.channel === "Giftcard"
+            ? { variant: "giftcard" as const, status: approvalStatus }
+            : tx.channel === "Esim"
+              ? { variant: "esim" as const, outcome: tx.esimOutcome }
+              : { variant: "default" as const, outcome: tx.defaultOutcome })}
+        />
+      ) : null}
 
       <div className="mt-6">
         <UnderlineTabs
@@ -287,7 +235,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
         />
       )}
         </>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -388,7 +336,7 @@ function CryptoCurrencyCell({ value }: { value: string }) {
   );
 }
 
-function DepositDeviceSection() {
+function DepositDeviceSection({ tx }: { tx: TransactionDetailModel }) {
   return (
     <section className="mt-8">
       <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
@@ -396,10 +344,37 @@ function DepositDeviceSection() {
       </h2>
       <TxDataBlockTable
         headers={["Device", "Device ID", "Location", "Location Coordinate"]}
-        row={[DEVICE_DATA.device, DEVICE_DATA.deviceId, DEVICE_DATA.location, DEVICE_DATA.locationCoordinate]}
+        row={[tx.device, tx.deviceId, tx.location, tx.locationCoordinate]}
       />
     </section>
   );
+}
+
+function WalletAddressCell({ address }: { address: string }) {
+  if (!address.trim()) {
+    return <span className="text-sm" style={{ color: TEXT }} />;
+  }
+  return (
+    <Link
+      href="#"
+      className="underline underline-offset-2 hover:opacity-80"
+      style={{ color: LINK }}
+      onClick={(e) => e.preventDefault()}
+    >
+      {address}
+    </Link>
+  );
+}
+
+function utilityTypeLabel(variant: UtilityDetailVariant): string {
+  switch (variant) {
+    case "electricity":
+      return "Electricity";
+    case "data":
+      return "Data";
+    case "tv":
+      return "TV";
+  }
 }
 
 function cryptoTypeLabel(variant: CryptoDetailVariant): string {
@@ -429,17 +404,7 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
       {completedParts.length > 1 ? ` | ${completedParts.slice(1).join(" | ")}` : ""}
     </span>
   );
-  const walletLink = (
-    <Link
-      key="w"
-      href="#"
-      className="underline underline-offset-2 hover:opacity-80"
-      style={{ color: LINK }}
-      onClick={(e) => e.preventDefault()}
-    >
-      {RECIPIENT_DATA.walletAddress}
-    </Link>
-  );
+  const walletLink = <WalletAddressCell key="w" address={tx.walletAddress} />;
 
   const customerHeader = variant === "swap" ? "Customer" : "Customer Names";
   const channelLabel = tx.channel === "Deposit" || tx.channel === "Crypto" ? tx.channel : "Crypto";
@@ -485,11 +450,11 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
     variant === "swap"
       ? {
           headers: ["Wallet Address", "Network", "Coin Received", "Network Fee"] as const,
-          row: [walletLink, RECIPIENT_DATA.network, tx.coinReceived, RECIPIENT_DATA.networkFee] as ReactNode[],
+          row: [walletLink, tx.network, tx.coinReceived, tx.networkFee] as ReactNode[],
         }
       : {
           headers: ["Wallet Address", "Network", "Network Fee"] as const,
-          row: [walletLink, RECIPIENT_DATA.network, RECIPIENT_DATA.networkFee] as ReactNode[],
+          row: [walletLink, tx.network, tx.networkFee] as ReactNode[],
         };
 
   return (
@@ -512,27 +477,13 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
         <TxDataBlockTable headers={[...recipient.headers]} row={recipient.row} />
       </section>
 
-      <DepositDeviceSection />
+      <DepositDeviceSection tx={tx} />
     </>
   );
 }
 
-function UtilityDataTransactionIdLink() {
-  return (
-    <Link
-      href="#"
-      className="underline underline-offset-2 hover:opacity-80"
-      style={{ color: LINK }}
-      onClick={(e) => e.preventDefault()}
-    >
-      ...52525
-    </Link>
-  );
-}
-
 function EsimTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
-  const timestamp =
-    tx.esimOutcome === "Pending" ? "Jan 5, 2025 | 9:32AM" : "Jan 6, 2026 | 9:32AM";
+  const timestamp = tx.datedInitiated;
 
   return (
     <>
@@ -572,7 +523,7 @@ function EsimTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
         />
       </section>
 
-      <DepositDeviceSection />
+      <DepositDeviceSection tx={tx} />
     </>
   );
 }
@@ -613,7 +564,7 @@ function WithdrawalTransactionDetailsContent({ tx }: { tx: TransactionDetailMode
           ]}
         />
       </section>
-      <DepositDeviceSection />
+      <DepositDeviceSection tx={tx} />
     </>
   );
 }
@@ -654,7 +605,7 @@ function EtradeTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
           ]}
         />
       </section>
-      <DepositDeviceSection />
+      <DepositDeviceSection tx={tx} />
     </>
   );
 }
@@ -668,8 +619,8 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
 
   if (v === "utility") {
     const u = tx.utilityDetailVariant;
-    const tsElectricityData = "Jan 6, 2028 | 9:32AM";
-    const tsTv = "Jan 6, 2026 | 9:32AM";
+    const timestamp = tx.datedInitiated;
+    const typeLabel = utilityTypeLabel(u);
 
     if (u === "electricity") {
       return (
@@ -691,19 +642,19 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
                 <TransactionIdLink key="txid" id={tx.transactionId} />,
                 tx.customerName,
                 "Utility",
-                "Electricity",
-                "EKEDC",
-                "???30,000.00",
+                typeLabel,
+                tx.product,
+                tx.amount,
               ]}
             />
             <TxDataBlockTable
               className="mt-6"
               headers={["Timestamp", "Fee", "Provider", "Balance after"]}
               row={[
-                <TimeStampCell key="ts" value={tsElectricityData} />,
-                "???30.00",
-                "Ringo",
-                "???50,000.00",
+                <TimeStampCell key="ts" value={timestamp} />,
+                tx.ourFee,
+                tx.provider,
+                tx.balanceAfter,
               ]}
             />
           </section>
@@ -714,15 +665,11 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             </h2>
             <TxDataBlockTable
               headers={["Address", "Meter Number", "Account Name"]}
-              row={[
-                RECIPIENT_UTILITY_ELECTRICITY.address,
-                RECIPIENT_UTILITY_ELECTRICITY.meterNumber,
-                RECIPIENT_UTILITY_ELECTRICITY.accountName,
-              ]}
+              row={[tx.address, tx.meterNumber, tx.accountName]}
             />
           </section>
 
-          <DepositDeviceSection />
+          <DepositDeviceSection tx={tx} />
         </>
       );
     }
@@ -737,24 +684,24 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             <TxDataBlockTable
               headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Amount"]}
               row={[
-                <UtilityDataTransactionIdLink key="txid" />,
+                <TransactionIdLink key="txid" id={tx.transactionId} />,
                 tx.customerName,
                 "Utility",
-                "Data",
-                "MTN",
-                "???30,000.00",
+                typeLabel,
+                tx.product,
+                tx.amount,
               ]}
             />
             <TxDataBlockTable
               className="mt-6"
               headers={["Plan", "Timestamp", "Fee", "Cashback", "Provider", "Balance After"]}
               row={[
-                "30gb",
-                <TimeStampCell key="ts" value={tsElectricityData} />,
-                "???30.00",
-                "???30.00",
-                "Ringo",
-                "???30,000.00",
+                tx.plan,
+                <TimeStampCell key="ts" value={timestamp} />,
+                tx.ourFee,
+                tx.cashback,
+                tx.provider,
+                tx.balanceAfter,
               ]}
             />
           </section>
@@ -763,10 +710,10 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
               Recipient Details
             </h2>
-            <TxDataBlockTable headers={["Phone Number"]} row={[RECIPIENT_UTILITY_DATA.phoneNumber]} />
+            <TxDataBlockTable headers={["Phone Number"]} row={[tx.phoneNumber]} />
           </section>
 
-          <DepositDeviceSection />
+          <DepositDeviceSection tx={tx} />
         </>
       );
     }
@@ -784,20 +731,20 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               <TransactionIdLink key="txid" id={tx.transactionId} />,
               tx.customerName,
               "Utility",
-              "TV",
-              "DSTV",
-              "DSTV Compact plus",
+              typeLabel,
+              tx.product,
+              tx.plan,
             ]}
           />
           <TxDataBlockTable
             className="mt-6"
             headers={["Timestamp", "Amount", "Fee", "Provider", "Balance After"]}
             row={[
-              <TimeStampCell key="ts" value={tsTv} />,
-              "???20,000.00",
-              "???30.00",
-              "Ringo",
-              "???30,000.00",
+              <TimeStampCell key="ts" value={timestamp} />,
+              tx.amount,
+              tx.ourFee,
+              tx.provider,
+              tx.balanceAfter,
             ]}
           />
         </section>
@@ -808,11 +755,11 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
           </h2>
           <TxDataBlockTable
             headers={["Smartcard No", "Account Name"]}
-            row={[RECIPIENT_TV.smartcardNo, RECIPIENT_TV.accountName]}
+            row={[tx.smartcardNo, tx.accountName]}
           />
         </section>
 
-        <DepositDeviceSection />
+        <DepositDeviceSection tx={tx} />
       </>
     );
   }
@@ -838,18 +785,18 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             tx.customerName,
             "Utility",
             "Betting",
-            "Sporty bet",
-            "???30,000.00",
+            tx.product,
+            tx.amount,
           ]}
         />
         <TxDataBlockTable
           className="mt-6"
           headers={["Timestamp", "Fee", "Provider", "Balance After"]}
           row={[
-            <TimeStampCell key="ts" value={TX_TIMESTAMP} />,
-            "???30.00",
-            "Ringo",
-            "???30,000.00",
+            <TimeStampCell key="ts" value={tx.datedInitiated} />,
+            tx.ourFee,
+            tx.provider,
+            tx.balanceAfter,
           ]}
         />
       </section>
@@ -860,11 +807,11 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
         </h2>
         <TxDataBlockTable
           headers={["Betting ID", "Account Name"]}
-          row={[RECIPIENT_UTILITY_BETTING.bettingId, RECIPIENT_UTILITY_BETTING.accountName]}
+          row={[tx.bettingId, tx.accountName]}
         />
       </section>
 
-      <DepositDeviceSection />
+      <DepositDeviceSection tx={tx} />
     </>
   );
 }
@@ -900,11 +847,12 @@ function TransactionDetailsTab({
             provider: tx.giftcardProvider,
           }}
           device={{
-            device: DEVICE_DATA_GIFT.device,
-            deviceId: DEVICE_DATA_GIFT.deviceId,
-            location: DEVICE_DATA_GIFT.location,
-            locationCoordinate: DEVICE_DATA_GIFT.locationCoordinate,
+            device: tx.device,
+            deviceId: tx.deviceId,
+            location: tx.location,
+            locationCoordinate: tx.locationCoordinate,
           }}
+          rejectionMessage={tx.rejectionMessage}
         />
       );
     case "Withdrawal":
@@ -917,21 +865,20 @@ function TransactionDetailsTab({
 }
 
 /* ?????? Transaction Log Tab ?????? */
-const LOG_ENTRIES = [
-  { step: 1, title: "Ralph Edwards Initiated the Transaction", date: "Jan 6, 2026 | 9:32AM" },
-  { step: 2, title: "System verifying Giftcard", date: "Jan 6, 2026 | 9:32AM" },
-  { step: 3, title: "Giftcard verified by system and approved manually by Ezekiel Olajolo", date: "Jan 6, 2026 | 9:32AM" },
-  { step: 4, title: "Funds sent to customers wallet", date: "Jan 6, 2026 | 9:32AM" },
-  { step: 5, title: "Transaction Completed", date: "Jan 6, 2026 | 9:32AM" },
-];
-
 function TransactionLogTab({ entries }: { entries: TransactionLogEntry[] }) {
-  const display = entries.length > 0 ? entries : LOG_ENTRIES;
+  if (entries.length === 0) {
+    return (
+      <section className="mt-6 rounded-xl border border-outline bg-white px-6 py-8">
+        <p className="text-sm text-zinc-500">No log entries for this transaction.</p>
+      </section>
+    );
+  }
+
   return (
     <section className="mt-6 rounded-xl border border-outline bg-white px-6 py-8">
       <div className="relative">
-        {display.map((entry, idx) => {
-          const isLast = idx === display.length - 1;
+        {entries.map((entry, idx) => {
+          const isLast = idx === entries.length - 1;
           return (
             <div key={entry.step} className="relative flex gap-4">
               <div className="flex flex-col items-center">

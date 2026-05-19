@@ -27,4 +27,5 @@ export type GiftcardTransactionDetailsProps = {
   approvalStatus: TxApprovalStatus;
   model: GiftcardDetailModel;
   device: GiftcardDeviceModel;
+  rejectionMessage?: string;
 };
