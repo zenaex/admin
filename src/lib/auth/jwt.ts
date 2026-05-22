@@ -19,17 +19,46 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
   }
 }
 
-export function isLikelySuperAdminFromToken(accessToken: string | null): boolean {
-  if (!accessToken) return false;
+export function getRoleFromToken(accessToken: string | null): string {
+  if (!accessToken) return "";
   const p = decodeJwtPayload(accessToken);
-  if (!p) return false;
-  const role = String(p.role ?? p.adminRole ?? p["admin_role"] ?? "").toLowerCase();
+  if (!p) return "";
+  const raw = p.role ?? p.adminRole ?? p["admin_role"] ?? p.roles;
+  if (Array.isArray(raw) && raw.length) return String(raw[0]).toLowerCase();
+  if (typeof raw === "string" && raw.trim()) return raw.trim().toLowerCase();
+  return "";
+}
+
+export function isLikelySuperAdminFromToken(accessToken: string | null): boolean {
+  const role = getRoleFromToken(accessToken);
+  if (!role) return false;
   return (
     role.includes("super") ||
     role === "super_admin" ||
     role === "superadmin" ||
     role === "super admin"
   );
+}
+
+export function isLikelyOpsManagerFromToken(accessToken: string | null): boolean {
+  const role = getRoleFromToken(accessToken);
+  if (!role) return false;
+  return (
+    role === "ops_manager" ||
+    role === "operations" ||
+    role.includes("ops_manager") ||
+    (role.includes("ops") && role.includes("manager"))
+  );
+}
+
+/** UI hint only — backend enforces `super_admin` for customer deactivate. */
+export function canDeactivateCustomer(accessToken: string | null): boolean {
+  return isLikelySuperAdminFromToken(accessToken);
+}
+
+/** UI hint only — backend enforces `ops_manager` or `super_admin`. */
+export function canSuspendOrReactivateCustomer(accessToken: string | null): boolean {
+  return isLikelyOpsManagerFromToken(accessToken) || isLikelySuperAdminFromToken(accessToken);
 }
 
 export type AdminProfileHints = {

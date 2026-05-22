@@ -1,5 +1,6 @@
 import { getAdminAuditCustomerLogs as fetchAdminAuditCustomerLogs } from "@/lib/admin-api/audit-api";
 import { adminRequest } from "@/lib/admin-api/client";
+import { normalizeTransactionListResponse } from "@/lib/admin-api/transactions-api";
 import type {
   AdminCustomerListQuery,
   AdminCustomerListResult,
@@ -47,21 +48,60 @@ export async function getAdminCustomersSummary(query?: { fromDate?: string; toDa
   return adminRequest<AdminCustomersSummary>(`/admin/customers/summary${qs}`, { method: "GET" });
 }
 
+function firstArrayFromRecord(rec: Record<string, unknown>): unknown[] | null {
+  for (const key of [
+    "items",
+    "transactions",
+    "walletTransactions",
+    "wallet_transactions",
+    "customers",
+    "users",
+    "results",
+    "rows",
+    "records",
+    "list",
+    "content",
+    "data",
+  ]) {
+    const v = rec[key];
+    if (Array.isArray(v)) return v;
+  }
+  return null;
+}
+
 function extractItemsArray(data: unknown): unknown[] {
   if (Array.isArray(data)) return data;
   const r = asRecord(data);
   if (!r) return [];
+  if (Array.isArray(r.content)) return r.content;
+
+  const fromTop = firstArrayFromRecord(r);
+  if (fromTop) return fromTop;
+
   const inner =
-    r.data ?? r.items ?? r.results ?? r.customers ?? r.rows ?? r.records ?? r.list ?? r.users;
+    r.data ??
+    r.items ??
+    r.results ??
+    r.transactions ??
+    r.walletTransactions ??
+    r.wallet_transactions ??
+    r.customers ??
+    r.rows ??
+    r.records ??
+    r.list ??
+    r.users;
   if (Array.isArray(inner)) return inner;
+
   const dataInner = asRecord(r.data);
   if (dataInner) {
-    const nested =
-      dataInner.items ??
-      dataInner.customers ??
-      dataInner.results ??
-      dataInner.rows;
-    if (Array.isArray(nested)) return nested;
+    const nested = firstArrayFromRecord(dataInner);
+    if (nested) return nested;
+  }
+
+  const payloadInner = asRecord(r.payload);
+  if (payloadInner) {
+    const nested = firstArrayFromRecord(payloadInner);
+    if (nested) return nested;
   }
   return [];
 }
@@ -70,9 +110,16 @@ function extractTotal(data: unknown, fallback: number): number {
   const r = asRecord(data);
   if (!r) return fallback;
   const meta = asRecord(r.meta);
+  const dataInner = asRecord(r.data);
+  const pagination =
+    asRecord(r.pagination) ?? (dataInner ? asRecord(dataInner.pagination) : null);
   const n =
-    pickNum(r, ["total", "totalCount", "count", "totalItems"]) ??
-    (meta ? pickNum(meta, ["total", "totalCount", "count"]) : undefined);
+    pickNum(r, ["total", "totalCount", "count", "totalItems", "totalElements"]) ??
+    (dataInner
+      ? pickNum(dataInner, ["total", "totalCount", "count", "totalItems", "totalElements"])
+      : undefined) ??
+    (pagination ? pickNum(pagination, ["total", "totalCount", "count", "totalElements"]) : undefined) ??
+    (meta ? pickNum(meta, ["total", "totalCount", "count", "totalElements"]) : undefined);
   if (n !== undefined && n >= 0) return n;
   return fallback;
 }
@@ -80,12 +127,19 @@ function extractTotal(data: unknown, fallback: number): number {
 function extractPageInfo(data: unknown, requestedPage: number, requestedPageSize: number) {
   const r = asRecord(data);
   const meta = r ? asRecord(r.meta) : null;
+  const dataInner = r ? asRecord(r.data) : null;
+  const pagination =
+    (r ? asRecord(r.pagination) : null) ?? (dataInner ? asRecord(dataInner.pagination) : null);
   const page =
     pickNum(r ?? {}, ["page", "currentPage"]) ??
+    (dataInner ? pickNum(dataInner, ["page", "currentPage"]) : undefined) ??
+    (pagination ? pickNum(pagination, ["page", "currentPage"]) : undefined) ??
     (meta ? pickNum(meta, ["page", "currentPage"]) : undefined) ??
     requestedPage;
   const pageSize =
     pickNum(r ?? {}, ["pageSize", "limit", "perPage"]) ??
+    (dataInner ? pickNum(dataInner, ["pageSize", "limit", "perPage"]) : undefined) ??
+    (pagination ? pickNum(pagination, ["pageSize", "limit", "perPage"]) : undefined) ??
     (meta ? pickNum(meta, ["pageSize", "limit", "perPage"]) : undefined) ??
     requestedPageSize;
   return { page, pageSize };
@@ -183,7 +237,50 @@ export async function getAdminCustomersList(query: AdminCustomerListQuery): Prom
 export async function getAdminCustomerProfile(accountId: string): Promise<Record<string, unknown>> {
   const data = await adminRequest<unknown>(`/admin/customers/${encodeURIComponent(accountId)}`, { method: "GET" });
   const r = asRecord(data);
-  return r ?? {};
+  if (!r) return {};
+  const inner =
+    asRecord(r.data) ?? asRecord(r.customer) ?? asRecord(r.profile) ?? asRecord(r.account);
+  return inner ?? r;
+}
+
+/** Map API password status (boolean or `passwordStatus` string) to Set / Not Set. */
+export function passwordStatusToSet(value: unknown): "Set" | "Not Set" {
+  if (value === true || value === 1) return "Set";
+  if (value === false || value === 0) return "Not Set";
+  if (typeof value === "string") {
+    const s = value.trim().toLowerCase().replace(/-/g, "_");
+    if (!s) return "Not Set";
+    if (s === "set" || s === "configured" || s === "enabled" || s === "active" || s === "yes" || s === "true") {
+      return "Set";
+    }
+    if (
+      s === "not_set" ||
+      s === "notset" ||
+      s === "unset" ||
+      s === "disabled" ||
+      s === "no" ||
+      s === "false" ||
+      (s.includes("not") && s.includes("set"))
+    ) {
+      return "Not Set";
+    }
+    if (s.includes("set")) return "Set";
+  }
+  return "Not Set";
+}
+
+export function pickCustomerPasswordStatus(profile: Record<string, unknown>): "Set" | "Not Set" {
+  const raw =
+    profile.passwordStatus ??
+    profile.password_status ??
+    profile.passwordSet ??
+    profile.password_set ??
+    profile.hasPassword ??
+    profile.isPasswordSet ??
+    profile.passcodeSet ??
+    profile.passcode_is_set ??
+    profile.hasPasscode;
+  return passwordStatusToSet(raw);
 }
 
 export async function getAdminCustomerKyc(accountId: string): Promise<unknown> {
@@ -195,7 +292,28 @@ export type AdminCustomerTransactionsQuery = {
   pageSize?: number;
   fromDate?: string;
   toDate?: string;
+  /** Used when transaction rows omit customer name (common on per-customer history). */
+  customerDisplayName?: string;
 };
+
+function mapTransactionRowToCustomerRow(
+  row: ReturnType<typeof normalizeTransactionListResponse>["items"][number],
+  customerDisplayName?: string,
+): AdminCustomerTransactionRow {
+  const fallbackName = customerDisplayName?.trim();
+  const customerName =
+    row.customerName === "—" && fallbackName ? fallbackName : row.customerName;
+  return {
+    id: row.id,
+    referenceNo: row.refNo,
+    customerName,
+    channel: row.channel,
+    amount: row.amount,
+    biller: row.provider,
+    status: row.status,
+    date: row.date,
+  };
+}
 
 export async function getAdminCustomerTransactions(
   accountId: string,
@@ -212,41 +330,14 @@ export async function getAdminCustomerTransactions(
   const body = await adminRequest<unknown>(`/admin/customers/${encodeURIComponent(accountId)}/transactions${qs}`, {
     method: "GET",
   });
-  const itemsRaw = extractItemsArray(body);
-  const items: AdminCustomerTransactionRow[] = itemsRaw
-    .map((row, idx) => {
-      const o = asRecord(row);
-      if (!o) return null;
-      const id = pickString(o, ["id", "transactionId", "txId"]) || `tx-${idx}`;
-      const referenceNo = pickString(o, ["reference", "referenceNo", "reference_number"]) || id;
-      const amountNum = pickNum(o, ["amount", "value", "totalAmount"]);
-      const currency = pickString(o, ["currency", "asset"]) || "";
-      const amount =
-        amountNum !== undefined
-          ? `${currency ? `${currency} ` : ""}${amountNum.toLocaleString()}`.trim()
-          : pickString(o, ["amountFormatted", "amount_display"]) || "—";
-      const channel = pickString(o, ["channel", "type", "category", "transactionType"]) || "—";
-      const biller = pickString(o, ["biller", "provider", "merchant", "description"]) || "—";
-      const statusRaw = pickString(o, ["status", "state"]) || "—";
-      const status = humanizeStatus(statusRaw);
-      const dateRaw = pickString(o, ["createdAt", "created_at", "date", "timestamp"]) || "";
-      const customerName = pickString(o, ["customerName", "customer_name", "userName", "name"]) || "—";
-      return {
-        id,
-        referenceNo,
-        customerName,
-        channel,
-        amount,
-        biller,
-        status,
-        date: dateRaw ? formatDisplayDate(dateRaw) : "—",
-      };
-    })
-    .filter((x): x is AdminCustomerTransactionRow => x !== null);
-
-  const total = extractTotal(body, items.length);
-  const { page: p, pageSize: ps } = extractPageInfo(body, page, pageSize);
-  return { items, total, page: p, pageSize: ps };
+  const normalized = normalizeTransactionListResponse(body, page, pageSize);
+  const displayName = query?.customerDisplayName?.trim();
+  return {
+    items: normalized.items.map((row) => mapTransactionRowToCustomerRow(row, displayName)),
+    total: normalized.total,
+    page: normalized.page,
+    pageSize: normalized.pageSize,
+  };
 }
 
 export async function getAdminCustomerWallets(accountId: string): Promise<AdminCustomerWalletsResponse> {

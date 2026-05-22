@@ -28,4 +28,9 @@ export type GiftcardTransactionDetailsProps = {
   model: GiftcardDetailModel;
   device: GiftcardDeviceModel;
   rejectionMessage?: string;
+  codeDisplay: string;
+  canRevealECode?: boolean;
+  onRevealECode?: () => void;
+  eCodeLoading?: boolean;
+  eCodeError?: string | null;
 };

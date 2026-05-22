@@ -37,6 +37,24 @@ export type AdminInvitationValidateResponse = {
 
 export type AdminInvitationAcceptBody = { token: string; password: string };
 
+/** Body for `POST /admin/users/admin/{adminId}/role`. */
+export type AdminChangeAdminRoleBody = {
+  newRole: string;
+};
+
+/** Body for `POST /admin/users/customer/{accountId}/suspend`. */
+export type AdminCustomerSuspendBody = {
+  reason: string;
+  notes: string;
+  suspendedUntil?: string;
+  customerMessage?: string;
+};
+
+/** Body for `POST /admin/users/customer/{accountId}/reactivate`. */
+export type AdminCustomerReactivateBody = {
+  reason: string;
+};
+
 export type AdminPasswordResetApproveBody = { requestId: string };
 
 export type AdminPasswordResetDeclineBody = { requestId: string };
@@ -217,6 +235,16 @@ export type AdminTransactionListResult = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+/** Body for `POST /admin/transactions/gift-cards/submissions/{id}/decline`. */
+export type AdminGiftcardDeclineBody = {
+  reason: string;
+};
+
+/** Normalized decrypted e-code from `POST .../e-code`. */
+export type AdminGiftcardECodeResult = {
+  code: string;
 };
 
 /** Normalized metrics for `GET /admin/transactions/summary`. */

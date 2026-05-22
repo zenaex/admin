@@ -14,7 +14,14 @@ import {
   type TransactionLogEntry,
 } from "@/lib/admin-api/transaction-detail-mapper";
 import { AdminApiError } from "@/lib/admin-api/client";
+import {
+  postGiftcardSubmissionApprove,
+  postGiftcardSubmissionDecline,
+  postGiftcardSubmissionECode,
+} from "@/lib/admin-api/giftcard-submissions-api";
 import { getAdminTransactionDetail } from "@/lib/admin-api/transactions-api";
+import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
+import { getAccessToken } from "@/lib/auth/token-storage";
 import type {
   CryptoDetailVariant,
   EsimTransactionOutcome,
@@ -63,6 +70,13 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [revealedCode, setRevealedCode] = useState<string | null>(null);
+  const [eCodeLoading, setECodeLoading] = useState(false);
+  const [eCodeError, setECodeError] = useState<string | null>(null);
+
+  const canRevealECode = isLikelySuperAdminFromToken(getAccessToken());
 
   const loadDetail = useCallback(async () => {
     if (!reference) {
@@ -93,16 +107,73 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
 
   const isGiftcard = tx?.channel === "Giftcard";
 
-  const handleApproveConfirm = () => {
-    setShowApproveConfirm(false);
-    setApprovalStatus("Approved");
-    setShowSuccessModal(true);
+  const giftcardCodeDisplay =
+    revealedCode ??
+    (tx?.code ? tx.code : canRevealECode && isGiftcard ? "••••••" : tx?.code ?? "");
+
+  const requireGiftcardSubmissionId = (): string | null => {
+    const id = tx?.giftcardSubmissionId?.trim();
+    if (!id) {
+      setActionError("Missing submission ID for this giftcard transaction.");
+      return null;
+    }
+    return id;
   };
 
-  const handleRejectSubmit = () => {
-    setShowRejectModal(false);
-    setApprovalStatus("Rejected");
-    setShowSuccessModal(true);
+  const handleApproveConfirm = async () => {
+    const submissionId = requireGiftcardSubmissionId();
+    if (!submissionId) return;
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await postGiftcardSubmissionApprove(submissionId);
+      setShowApproveConfirm(false);
+      await loadDetail();
+      setShowSuccessModal(true);
+    } catch (e) {
+      setActionError(e instanceof AdminApiError ? e.message : "Could not approve submission.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectSubmit = async (reason: string) => {
+    const submissionId = requireGiftcardSubmissionId();
+    if (!submissionId) return;
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await postGiftcardSubmissionDecline(submissionId, { reason });
+      setShowRejectModal(false);
+      await loadDetail();
+      setShowSuccessModal(true);
+    } catch (e) {
+      const msg = e instanceof AdminApiError ? e.message : "Could not decline submission.";
+      setActionError(msg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRevealECode = async () => {
+    const submissionId = requireGiftcardSubmissionId();
+    if (!submissionId) return;
+    setECodeError(null);
+    setECodeLoading(true);
+    try {
+      const { code } = await postGiftcardSubmissionECode(submissionId);
+      setRevealedCode(code);
+    } catch (e) {
+      setECodeError(
+        e instanceof AdminApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : "Could not load e-code.",
+      );
+    } finally {
+      setECodeLoading(false);
+    }
   };
 
   const handleSuccessDone = () => {
@@ -184,23 +255,45 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
       </div>
 
       {activeTab === "Transaction Details" && (
-        <TransactionDetailsTab approvalStatus={approvalStatus} tx={tx} />
+        <TransactionDetailsTab
+          approvalStatus={approvalStatus}
+          tx={tx}
+          giftcardCodeDisplay={giftcardCodeDisplay}
+          canRevealECode={canRevealECode}
+          onRevealECode={isGiftcard ? () => void handleRevealECode() : undefined}
+          eCodeLoading={eCodeLoading}
+          eCodeError={eCodeError}
+        />
       )}
       {activeTab === "Transaction Log" && <TransactionLogTab entries={logEntries} />}
+
+      {actionError && isGiftcard ? (
+        <p className="mt-4 text-sm text-red-600" role="alert">
+          {actionError}
+        </p>
+      ) : null}
 
       {isGiftcard && approvalStatus === "Pending" && (
         <div className="sticky bottom-0 z-40 -mx-8 mt-8 flex items-center justify-center gap-4 border-t border-zinc-100 bg-white px-6 py-5">
           <button
             type="button"
-            onClick={() => setShowRejectModal(true)}
-            className="h-12 min-w-[160px] rounded-full border border-zinc-200 bg-white px-8 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-50"
+            disabled={actionLoading}
+            onClick={() => {
+              setActionError(null);
+              setShowRejectModal(true);
+            }}
+            className="h-12 min-w-[160px] rounded-full border border-zinc-200 bg-white px-8 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-50 disabled:opacity-50"
           >
             No, Reject
           </button>
           <button
             type="button"
-            onClick={() => setShowApproveConfirm(true)}
-            className="h-12 min-w-[180px] rounded-full bg-primary-green px-8 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+            disabled={actionLoading}
+            onClick={() => {
+              setActionError(null);
+              setShowApproveConfirm(true);
+            }}
+            className="h-12 min-w-[180px] rounded-full bg-primary-green px-8 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             Yes, Approve
           </button>
@@ -208,18 +301,27 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
       )}
 
       {showRejectModal && (
-        <RejectModal onClose={() => setShowRejectModal(false)} onSubmit={handleRejectSubmit} />
+        <RejectModal
+          onClose={() => {
+            if (!actionLoading) setShowRejectModal(false);
+          }}
+          onSubmit={handleRejectSubmit}
+          loading={actionLoading}
+          error={actionError}
+        />
       )}
 
       {showApproveConfirm && (
         <ConfirmModal
           title="Approve"
           message="Are you sure you want to approve this giftcard transaction?"
-          confirmLabel="Approve"
+          confirmLabel={actionLoading ? "Approving…" : "Approve"}
           cancelLabel="Cancel"
           variant="approve"
-          onConfirm={handleApproveConfirm}
-          onCancel={() => setShowApproveConfirm(false)}
+          onConfirm={() => void handleApproveConfirm()}
+          onCancel={() => {
+            if (!actionLoading) setShowApproveConfirm(false);
+          }}
         />
       )}
 
@@ -820,9 +922,19 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
 function TransactionDetailsTab({
   approvalStatus,
   tx,
+  giftcardCodeDisplay,
+  canRevealECode,
+  onRevealECode,
+  eCodeLoading,
+  eCodeError,
 }: {
   approvalStatus: TxApprovalStatus;
   tx: TransactionDetailModel;
+  giftcardCodeDisplay: string;
+  canRevealECode: boolean;
+  onRevealECode?: () => void;
+  eCodeLoading: boolean;
+  eCodeError: string | null;
 }) {
   switch (tx.channel) {
     case "Esim":
@@ -853,6 +965,11 @@ function TransactionDetailsTab({
             locationCoordinate: tx.locationCoordinate,
           }}
           rejectionMessage={tx.rejectionMessage}
+          codeDisplay={giftcardCodeDisplay}
+          canRevealECode={canRevealECode}
+          onRevealECode={onRevealECode}
+          eCodeLoading={eCodeLoading}
+          eCodeError={eCodeError}
         />
       );
     case "Withdrawal":
@@ -900,10 +1017,28 @@ function TransactionLogTab({ entries }: { entries: TransactionLogEntry[] }) {
   );
 }
 
-function RejectModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => void }) {
+function RejectModal({
+  onClose,
+  onSubmit,
+  loading = false,
+  error = null,
+}: {
+  onClose: () => void;
+  onSubmit: (reason: string) => void;
+  loading?: boolean;
+  error?: string | null;
+}) {
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const buildReason = () => {
+    const base = reason.trim();
+    const extra = note.trim();
+    if (!base) return "";
+    if (extra) return `${base} — ${extra}`;
+    return base;
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -921,10 +1056,18 @@ function RejectModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: () 
           </button>
         </div>
 
+        {error ? (
+          <p className="mb-4 text-sm text-red-600" role="alert">
+            {error}
+          </p>
+        ) : null}
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onSubmit();
+            const payload = buildReason();
+            if (!payload) return;
+            void onSubmit(payload);
           }}
           className="space-y-5"
         >
@@ -978,22 +1121,24 @@ function RejectModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: () 
               className="sr-only"
               tabIndex={-1}
               aria-hidden
+              disabled
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-8 text-sm text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-50/80"
+            <div
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-6 text-sm text-zinc-400"
+              aria-disabled
             >
-              <DocumentUpload size={28} variant="Outline" color="currentColor" />
+              <DocumentUpload size={24} variant="Outline" color="currentColor" />
               <span className="font-medium">Upload Image</span>
-            </button>
+              <span className="text-center text-xs">Not supported yet — decline sends reason only.</span>
+            </div>
           </div>
 
           <button
             type="submit"
-            className="w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+            disabled={loading || !reason.trim()}
+            className="w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            Reject
+            {loading ? "Rejecting…" : "Reject"}
           </button>
         </form>
       </div>

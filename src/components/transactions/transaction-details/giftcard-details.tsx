@@ -88,13 +88,52 @@ function row2LastHeader(approvalStatus: TxApprovalStatus) {
   return "Provider";
 }
 
+function CodeCell({
+  codeDisplay,
+  canRevealECode,
+  onRevealECode,
+  eCodeLoading,
+  eCodeError,
+}: {
+  codeDisplay: string;
+  canRevealECode?: boolean;
+  onRevealECode?: () => void;
+  eCodeLoading?: boolean;
+  eCodeError?: string | null;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-semibold" style={{ color: TEXT }}>
+        {codeDisplay || "—"}
+      </span>
+      {canRevealECode && onRevealECode ? (
+        <button
+          type="button"
+          onClick={onRevealECode}
+          disabled={eCodeLoading}
+          className="w-fit text-left text-xs font-semibold text-primary-green underline underline-offset-2 hover:opacity-80 disabled:opacity-50"
+        >
+          {eCodeLoading ? "Loading…" : "Reveal e-code"}
+        </button>
+      ) : null}
+      {eCodeError ? <span className="text-xs font-medium text-red-600">{eCodeError}</span> : null}
+    </div>
+  );
+}
+
 export function GiftcardTransactionDetails({
   approvalStatus,
   model,
   device,
   rejectionMessage,
+  codeDisplay,
+  canRevealECode,
+  onRevealECode,
+  eCodeLoading,
+  eCodeError,
 }: GiftcardTransactionDetailsProps) {
   const showRejectionAttachment = approvalStatus === "Rejected";
+  const attachmentCode = codeDisplay || model.code;
 
   return (
     <>
@@ -109,7 +148,14 @@ export function GiftcardTransactionDetails({
             model.customerName,
             "Giftcard",
             model.typeLabel,
-            model.code,
+            <CodeCell
+              key="code"
+              codeDisplay={codeDisplay}
+              canRevealECode={canRevealECode}
+              onRevealECode={onRevealECode}
+              eCodeLoading={eCodeLoading}
+              eCodeError={eCodeError}
+            />,
             countryCell(model.country),
           ]}
         />
@@ -149,7 +195,7 @@ export function GiftcardTransactionDetails({
           <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
             Rejection Attachment
           </h2>
-          <RejectionAttachmentPreview code={model.code} message={rejectionMessage} />
+          <RejectionAttachmentPreview code={attachmentCode} message={rejectionMessage} />
         </section>
       ) : null}
 

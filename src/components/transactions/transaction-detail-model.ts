@@ -71,6 +71,8 @@ export type TransactionDetailModel = {
   balanceAfterGift: string;
   opsInCharge: string;
   giftcardInitialStatus: TxApprovalStatus;
+  /** UUID for `POST /admin/transactions/gift-cards/submissions/{id}/...`. */
+  giftcardSubmissionId: string;
   defaultOutcome: EsimTransactionOutcome;
   withdrawalAmount: string;
   withdrawalFee: string;
@@ -148,6 +150,7 @@ export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
   balanceAfterGift: "",
   opsInCharge: "",
   giftcardInitialStatus: "Pending",
+  giftcardSubmissionId: "",
   defaultOutcome: "Pending",
   withdrawalAmount: "",
   withdrawalFee: "",

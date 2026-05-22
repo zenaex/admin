@@ -1,20 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, Copy, DocumentDownload, Warning2, Forbidden2, CloseCircle, Forbidden } from "iconsax-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, Copy, DocumentDownload, Forbidden, Refresh } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import {
   getAdminAuditCustomerLogs,
   getAdminCustomerKyc,
   getAdminCustomerProfile,
   getAdminCustomerTransactions,
   getAdminCustomerWallets,
+  pickCustomerPasswordStatus,
 } from "@/lib/admin-api/customers-api";
 import { AdminApiError } from "@/lib/admin-api/client";
+import {
+  classifyCustomerAccountStatus,
+  postCustomerDeactivate,
+  postCustomerReactivate,
+  postCustomerSuspend,
+} from "@/lib/admin-api/users-api";
 import type { AdminCustomerTransactionRow, AdminCustomerWalletItem } from "@/lib/admin-api/types";
+import {
+  canDeactivateCustomer,
+  canSuspendOrReactivateCustomer,
+} from "@/lib/auth/jwt";
+import { getAccessToken } from "@/lib/auth/token-storage";
 
 type CustomerDetailTab = "Customer Details" | "Transaction History" | "KYC Details" | "Wallet" | "Audit Log";
 const TABS: CustomerDetailTab[] = ["Customer Details", "Transaction History", "KYC Details", "Wallet", "Audit Log"];
@@ -44,6 +57,32 @@ export type CustomerDetailsViewProps = {
   id: string;
 };
 
+type CustomerAccountAction = "suspend" | "deactivate" | "reactivate";
+
+const ACTION_COPY: Record<
+  CustomerAccountAction,
+  { title: string; message: string; confirmLabel: string; success: string }
+> = {
+  suspend: {
+    title: "Suspend account",
+    message: "Are you sure you want to suspend this customer account?",
+    confirmLabel: "Suspend",
+    success: "Customer account has been suspended.",
+  },
+  deactivate: {
+    title: "Deactivate account",
+    message: "Are you sure you want to deactivate this customer account? This blocks the account.",
+    confirmLabel: "Deactivate",
+    success: "Customer account has been deactivated.",
+  },
+  reactivate: {
+    title: "Reactivate account",
+    message: "Are you sure you want to reactivate this customer account?",
+    confirmLabel: "Reactivate",
+    success: "Customer account has been reactivated.",
+  },
+};
+
 export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps) {
   const [activeTab, setActiveTab] = useState<CustomerDetailTab>("Customer Details");
   const [actionOpen, setActionOpen] = useState(false);
@@ -51,6 +90,34 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  const [pendingAction, setPendingAction] = useState<CustomerAccountAction | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const token = getAccessToken();
+  const canDeactivate = canDeactivateCustomer(token);
+  const canSuspendReactivate = canSuspendOrReactivateCustomer(token);
+
+  const accountStatusRaw = useMemo(() => {
+    const p = profile ?? {};
+    return pickStr(p, ["accountStatus", "account_status", "status"]) || "";
+  }, [profile]);
+
+  const accountStatusKind = useMemo(
+    () => classifyCustomerAccountStatus(accountStatusRaw),
+    [accountStatusRaw],
+  );
+
+  const customerDisplayName = useMemo(() => {
+    const p = profile ?? {};
+    const first = pickStr(p, ["firstName", "first_name", "givenName"]);
+    const last = pickStr(p, ["lastName", "last_name", "familyName"]);
+    const fromParts = [first, last].filter(Boolean).join(" ").trim();
+    if (fromParts) return fromParts;
+    return pickStr(p, ["fullName", "full_name", "name", "customerName", "displayName"]) || "";
+  }, [profile]);
 
   const loadProfile = useCallback(async () => {
     setProfileError(null);
@@ -70,13 +137,102 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
     void loadProfile();
   }, [loadProfile]);
 
-  const ACTION_ITEMS = [
-    { label: "Account Statement", icon: <DocumentDownload size={16} variant="Outline" color="currentColor" /> },
-    { label: "Place on Lien", icon: <Warning2 size={16} variant="Outline" color="currentColor" /> },
-    { label: "PND Account", icon: <Forbidden2 size={16} variant="Outline" color="currentColor" /> },
-    { label: "Block Account", icon: <CloseCircle size={16} variant="Outline" color="currentColor" /> },
-    { label: "Deactivate Account", icon: <Forbidden size={16} variant="Outline" color="currentColor" /> },
-  ];
+  const actionMenuItems = useMemo(() => {
+    const items: { key: string; label: string; icon: ReactNode; disabled?: boolean; title?: string; onClick?: () => void }[] = [
+      {
+        key: "statement",
+        label: "Account Statement",
+        icon: <DocumentDownload size={16} variant="Outline" color="currentColor" />,
+        disabled: true,
+        title: "Coming soon",
+      },
+    ];
+
+    const showSuspendDeactivate =
+      accountStatusKind === "active" || accountStatusKind === "unknown";
+    const showReactivate =
+      accountStatusKind === "inactive" || accountStatusKind === "unknown";
+
+    if (showSuspendDeactivate && canSuspendReactivate) {
+      items.push({
+        key: "suspend",
+        label: "Suspend Account",
+        icon: <Forbidden size={16} variant="Outline" color="currentColor" />,
+        onClick: () => {
+          setActionError(null);
+          setPendingAction("suspend");
+          setActionOpen(false);
+        },
+      });
+    }
+    if (showSuspendDeactivate && canDeactivate) {
+      items.push({
+        key: "deactivate",
+        label: "Deactivate Account",
+        icon: <Forbidden size={16} variant="Outline" color="currentColor" />,
+        onClick: () => {
+          setActionError(null);
+          setPendingAction("deactivate");
+          setActionOpen(false);
+        },
+      });
+    }
+    if (showReactivate && canSuspendReactivate) {
+      items.push({
+        key: "reactivate",
+        label: "Reactivate Account",
+        icon: <Refresh size={16} variant="Outline" color="currentColor" />,
+        onClick: () => {
+          setActionError(null);
+          setPendingAction("reactivate");
+          setActionOpen(false);
+        },
+      });
+    }
+
+    return items;
+  }, [accountStatusKind, canDeactivate, canSuspendReactivate]);
+
+  const handleDeactivateConfirm = async () => {
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      await postCustomerDeactivate(accountId);
+      setPendingAction(null);
+      setSuccessMessage(ACTION_COPY.deactivate.success);
+      await loadProfile();
+    } catch (e) {
+      setActionError(e instanceof AdminApiError ? e.message : "Action failed.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSuspendReactivateSubmit = async (reason: string, notes?: string) => {
+    const action = pendingAction;
+    if (action !== "suspend" && action !== "reactivate") return;
+    setActionError(null);
+    setActionLoading(true);
+    try {
+      if (action === "suspend") {
+        await postCustomerSuspend(accountId, {
+          reason: reason.trim(),
+          notes: (notes ?? reason).trim(),
+        });
+      } else {
+        await postCustomerReactivate(accountId, { reason: reason.trim() });
+      }
+      setPendingAction(null);
+      setSuccessMessage(ACTION_COPY[action].success);
+      await loadProfile();
+    } catch (e) {
+      setActionError(e instanceof AdminApiError ? e.message : "Action failed.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const pendingCopy = pendingAction === "deactivate" ? ACTION_COPY.deactivate : null;
 
   return (
     <div>
@@ -93,8 +249,9 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
         <div className="relative">
           <button
             type="button"
+            disabled={actionLoading}
             onClick={() => setActionOpen((o) => !o)}
-            className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
+            className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text disabled:opacity-50"
           >
             Action
             <ArrowDown2 size={12} variant="Outline" color="currentColor" className={`transition-transform ${actionOpen ? "rotate-180" : ""}`} />
@@ -103,15 +260,23 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
             <>
               <div className="fixed inset-0 z-40" onClick={() => setActionOpen(false)} />
               <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
-                {ACTION_ITEMS.map(({ label, icon }) => (
+                {actionMenuItems.map(({ key, label, icon, disabled, title, onClick }) => (
                   <button
-                    key={label}
+                    key={key}
                     type="button"
-                    onClick={() => setActionOpen(false)}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50"
+                    disabled={disabled || actionLoading}
+                    title={title}
+                    onClick={() => {
+                      if (disabled) return;
+                      onClick?.();
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <span className="text-zinc-500">{icon}</span>
                     {label}
+                    {disabled && title ? (
+                      <span className="ml-auto text-[10px] text-zinc-400">{title}</span>
+                    ) : null}
                   </button>
                 ))}
               </div>
@@ -119,6 +284,12 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
           ) : null}
         </div>
       </div>
+
+      {actionError ? (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          {actionError}
+        </div>
+      ) : null}
 
       {profileError ? (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
@@ -138,10 +309,128 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
       {activeTab === "Customer Details" ? (
         <CustomerDetailsTab accountId={accountId} profile={profile} loading={profileLoading} />
       ) : null}
-      {activeTab === "Transaction History" ? <TransactionHistoryTab accountId={accountId} /> : null}
+      {activeTab === "Transaction History" ? (
+        <TransactionHistoryTab accountId={accountId} customerDisplayName={customerDisplayName} />
+      ) : null}
       {activeTab === "KYC Details" ? <KycDetailsTab accountId={accountId} /> : null}
       {activeTab === "Wallet" ? <WalletTab accountId={accountId} /> : null}
       {activeTab === "Audit Log" ? <AuditLogTab accountId={accountId} /> : null}
+
+      {pendingCopy ? (
+        <ConfirmModal
+          title={pendingCopy.title}
+          message={pendingCopy.message}
+          confirmLabel={actionLoading ? "Please wait…" : pendingCopy.confirmLabel}
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => void handleDeactivateConfirm()}
+          onCancel={() => {
+            if (!actionLoading) setPendingAction(null);
+          }}
+        />
+      ) : null}
+
+      {pendingAction === "suspend" || pendingAction === "reactivate" ? (
+        <CustomerAccountActionFormModal
+          action={pendingAction}
+          loading={actionLoading}
+          onClose={() => {
+            if (!actionLoading) setPendingAction(null);
+          }}
+          onSubmit={(reason, notes) => void handleSuspendReactivateSubmit(reason, notes)}
+        />
+      ) : null}
+
+      {successMessage ? (
+        <SuccessModal
+          message={successMessage}
+          confirmLabel="Done"
+          onContinue={() => setSuccessMessage(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CustomerAccountActionFormModal({
+  action,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  action: "suspend" | "reactivate";
+  loading: boolean;
+  onClose: () => void;
+  onSubmit: (reason: string, notes?: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const copy = ACTION_COPY[action];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-md rounded-2xl bg-white px-6 pb-8 pt-6 shadow-xl">
+        <h2 className="text-[17px] font-bold text-brand-navy">{copy.title}</h2>
+        <p className="mt-1 text-sm text-zinc-500">{copy.message}</p>
+        <form
+          className="mt-5 space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!reason.trim()) return;
+            if (action === "suspend" && !notes.trim()) return;
+            onSubmit(reason, notes);
+          }}
+        >
+          <div>
+            <label className="mb-2 block text-sm font-medium text-zinc-700">Reason</label>
+            <textarea
+              className="min-h-[80px] w-full resize-y rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-primary-text outline-none focus:border-zinc-400"
+              value={reason}
+              disabled={loading}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Required"
+              required
+            />
+          </div>
+          {action === "suspend" ? (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-zinc-700">Internal notes</label>
+              <textarea
+                className="min-h-[80px] w-full resize-y rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-primary-text outline-none focus:border-zinc-400"
+                value={notes}
+                disabled={loading}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Required"
+                required
+              />
+            </div>
+          ) : null}
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onClose}
+              className="flex-1 rounded-full bg-outline py-3 text-sm font-semibold text-primary-text hover:bg-zinc-200 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={
+                loading ||
+                !reason.trim() ||
+                (action === "suspend" && !notes.trim())
+              }
+              className={`flex-1 rounded-full py-3 text-sm font-semibold text-primary-text disabled:opacity-50 ${
+                action === "reactivate" ? "bg-primary-green hover:opacity-90" : "bg-red-600 text-white hover:bg-red-700"
+              }`}
+            >
+              {loading ? "Please wait…" : copy.confirmLabel}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -169,7 +458,7 @@ function CustomerDetailsTab({
   const onboard = pickStr(p, ["createdAt", "created_at", "dateOnboarded", "onboardedAt"]) || "";
   const displayId = pickStr(p, ["accountId", "id", "uuid"]) || accountId;
 
-  const passcode = boolToSet(p.passcodeSet ?? p.passcode_is_set ?? p.hasPasscode);
+  const password = pickCustomerPasswordStatus(p);
   const pin = boolToSet(p.transactionPinSet ?? p.pinSet ?? p.hasTransactionPin);
   const kycLevel = pickStr(p, ["kycLevel", "kyc_level", "kycTier"]) || "—";
   const acctStatus = pickStr(p, ["accountStatus", "account_status", "status"]) || "—";
@@ -211,7 +500,7 @@ function CustomerDetailsTab({
           <table className="w-full min-w-[800px] border-collapse text-left text-sm">
             <thead>
               <tr className="text-zinc-500">
-                <th className="border-b border-outline px-4 py-3 font-medium">Passcode</th>
+                <th className="border-b border-outline px-4 py-3 font-medium">Password</th>
                 <th className="border-b border-outline px-4 py-3 font-medium">Transaction PIN</th>
                 <th className="border-b border-outline px-4 py-3 font-medium">KYC Level</th>
                 <th className="border-b border-outline px-4 py-3 font-medium">Account Status</th>
@@ -222,7 +511,7 @@ function CustomerDetailsTab({
             <tbody>
               <tr>
                 <td className="border-r border-outline px-4 py-5">
-                  <SetBadge value={passcode} />
+                  <SetBadge value={password} />
                 </td>
                 <td className="border-r border-outline px-4 py-5">
                   <SetBadge value={pin} />
@@ -280,7 +569,13 @@ function TxStatusBadge({ status }: { status: string }) {
   );
 }
 
-function TransactionHistoryTab({ accountId }: { accountId: string }) {
+function TransactionHistoryTab({
+  accountId,
+  customerDisplayName,
+}: {
+  accountId: string;
+  customerDisplayName?: string;
+}) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
@@ -293,7 +588,11 @@ function TransactionHistoryTab({ accountId }: { accountId: string }) {
     setError(null);
     setLoading(true);
     try {
-      const res = await getAdminCustomerTransactions(accountId, { page, pageSize });
+      const res = await getAdminCustomerTransactions(accountId, {
+        page,
+        pageSize,
+        customerDisplayName: customerDisplayName || undefined,
+      });
       setRows(res.items);
       setTotal(res.total);
     } catch (e) {
@@ -303,7 +602,7 @@ function TransactionHistoryTab({ accountId }: { accountId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [accountId, page, pageSize]);
+  }, [accountId, page, pageSize, customerDisplayName]);
 
   useEffect(() => {
     void load();

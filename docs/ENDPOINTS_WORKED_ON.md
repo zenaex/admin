@@ -80,6 +80,22 @@ Source module: `src/lib/admin-api/customers-api.ts`
 
 ---
 
+## 4b) Admin user actions (customer + admin accounts)
+
+Source module: `src/lib/admin-api/users-api.ts`
+
+| Method | Endpoint | Application in product | Main usage locations |
+|---|---|---|---|
+| POST | `/admin/users/admin/{adminId}/role` | Change admin role (`{ newRole }` body); super_admin | `admin-management-view.tsx` (Team row menu — enabled when `adminId` is a real UUID) |
+| POST | `/admin/users/admin/{adminId}/deactivate` | Deactivate admin; super_admin | `admin-management-view.tsx` |
+| POST | `/admin/users/customer/{accountId}/deactivate` | Block/deactivate customer (no body); super_admin | `customers-details-view.tsx` Action menu |
+| POST | `/admin/users/customer/{accountId}/suspend` | Suspend customer; body `{ reason, notes }` required; ops_manager or super_admin | `customers-details-view.tsx` |
+| POST | `/admin/users/customer/{accountId}/reactivate` | Reactivate customer; body `{ reason }` required; ops_manager or super_admin | `customers-details-view.tsx` |
+
+Role gating uses JWT hints in `src/lib/auth/jwt.ts` (`canDeactivateCustomer`, `canSuspendOrReactivateCustomer`). Team table still uses demo `member-*` ids — Change role / Deactivate stay disabled until a real admin list API provides UUIDs.
+
+---
+
 ## 5) Admin Transactions
 
 Source module: `src/lib/admin-api/transactions-api.ts`
@@ -92,12 +108,15 @@ OpenAPI lists these routes but does not document query params or response schema
 | GET | `/admin/transactions` | Product transaction list (Crypto, Giftcard, Utility, E-sim, E-trade tabs) | `src/components/transactions/transactions-view.tsx` |
 | GET | `/admin/transactions/wallet` | Wallet transaction list (Deposit, Withdrawal tabs) | `src/components/transactions/transactions-view.tsx` |
 | GET | `/admin/transactions/{reference}` | Transaction detail: API → `mapApiDetailToTransactionModel` → existing channel layouts (Giftcard, Crypto, Utility, E-sim, Withdrawal, E-trade) | `transaction-detail-mapper.ts`, `transaction-details-view.tsx` |
+| POST | `/admin/transactions/gift-cards/submissions/{id}/approve` | Giftcard pending → approve (no body); `{id}` = submission UUID from detail (`submissionId` or top-level `id`) | `giftcard-submissions-api.ts`, `transaction-details-view.tsx` |
+| POST | `/admin/transactions/gift-cards/submissions/{id}/decline` | Giftcard pending → reject; body `{ "reason": "string" }` (required) | `giftcard-submissions-api.ts`, `transaction-details-view.tsx` |
+| POST | `/admin/transactions/gift-cards/submissions/{id}/e-code` | Super admin: reveal decrypted e-code (no body) | `giftcard-submissions-api.ts`, `giftcard-details.tsx` |
 
 | POST | `/admin/transactions/export` | CSV/PDF/JSON export (API with client fallback) | `transactions-view.tsx`, `src/lib/admin-api/export-api.ts` |
 
-**Detail UI:** [`transaction-details-view.tsx`](src/components/transactions/transaction-details-view.tsx) fetches detail from the API and maps into `TransactionDetailModel` via [`transaction-detail-mapper.ts`](src/lib/admin-api/transaction-detail-mapper.ts). Missing API fields render blank. Transaction log tab uses API `logs` / `timeline` / `events` when present; otherwise shows an empty state.
+**Detail UI:** [`transaction-details-view.tsx`](src/components/transactions/transaction-details-view.tsx) fetches detail from the API and maps into `TransactionDetailModel` via [`transaction-detail-mapper.ts`](src/lib/admin-api/transaction-detail-mapper.ts). Missing API fields render blank. Transaction log tab uses API `logs` / `timeline` / `events` when present; otherwise shows an empty state. Giftcard submission id is stored on `giftcardSubmissionId` (never the route `reference`).
 
-**Not wired in UI (optional later):** `POST /admin/transactions/{reference}/sensitive`; giftcard approve/reject API (actions remain client-side).
+**Not wired in UI (optional later):** `POST /admin/transactions/{reference}/sensitive`.
 
 ---
 

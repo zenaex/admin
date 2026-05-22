@@ -1,3 +1,4 @@
+import { resolveGiftcardSubmissionId } from "@/lib/admin-api/giftcard-submissions-api";
 import {
   asRecord,
   formatDisplayDate,
@@ -7,6 +8,9 @@ import {
   pickNum,
   pickProviderLabel,
   pickString,
+  flattenTransactionRecord,
+  readDateRaw,
+  readStatusRaw,
   unwrapTransactionRecord,
 } from "@/lib/admin-api/transactions-api";
 import type { TxApprovalStatus } from "@/components/transactions/transaction-details/types";
@@ -45,10 +49,6 @@ function readChannelRaw(o: Record<string, unknown>): string {
     ]) || pickString(o, ["type"]) ||
     ""
   );
-}
-
-function readStatusRaw(o: Record<string, unknown>): string {
-  return pickString(o, ["status", "state", "outcome", "transactionStatus", "paymentStatus"]);
 }
 
 function mapOutcome(statusRaw: string): EsimTransactionOutcome | null {
@@ -252,7 +252,7 @@ export function mapApiDetailToTransactionModel(
   raw: Record<string, unknown>,
   reference: string,
 ): TransactionDetailModel {
-  const o = unwrapTransactionRecord(raw);
+  const o = flattenTransactionRecord(raw);
   const base = { ...EMPTY_TRANSACTION_DETAIL_MODEL };
   const statusRaw = readStatusRaw(o);
   const outcome = mapOutcome(statusRaw);
@@ -312,10 +312,13 @@ export function mapApiDetailToTransactionModel(
   const provider = detailProvider(o);
   const amountFormatted = formatAmountFromRecord(o);
 
-  const dateInitiatedRaw =
-    pickString(o, ["createdAt", "created_at", "initiatedAt", "initiated_at", "date", "timestamp"]) || "";
-  const dateCompletedRaw =
-    pickString(o, ["completedAt", "completed_at", "updatedAt", "updated_at"]) || "";
+  const dateInitiatedRaw = readDateRaw(o);
+  const dateCompletedRaw = readDateRaw({
+    completedAt: o.completedAt,
+    completed_at: o.completed_at,
+    updatedAt: o.updatedAt,
+    updated_at: o.updated_at,
+  });
 
   const datedInitiated = dateInitiatedRaw ? formatDisplayDate(dateInitiatedRaw) : "";
   const dateCompleted = dateCompletedRaw
@@ -470,6 +473,14 @@ export function mapApiDetailToTransactionModel(
 
   if (routing.depositDetailVariant === "utility_betting" || channelKey(readChannelRaw(o)).includes("bet")) {
     model.depositDetailVariant = "utility_betting";
+  }
+
+  if (routing.channel === "Giftcard") {
+    try {
+      model.giftcardSubmissionId = resolveGiftcardSubmissionId(o);
+    } catch {
+      model.giftcardSubmissionId = "";
+    }
   }
 
   return model;
