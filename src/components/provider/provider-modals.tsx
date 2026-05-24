@@ -1,11 +1,14 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { CloseCircle, TickCircle } from "iconsax-react";
 
 type ConfirmModalProps = {
   title: string;
-  message: string;
+  message?: string;
+  /** Replaces default message paragraph when set */
+  children?: ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
   variant?: "danger" | "approve";
@@ -14,18 +17,25 @@ type ConfirmModalProps = {
 };
 
 export function ConfirmModal({
-  title, message, confirmLabel, cancelLabel = "Cancel",
-  variant = "danger", onConfirm, onCancel,
+  title,
+  message = "",
+  children,
+  confirmLabel,
+  cancelLabel = "Cancel",
+  variant = "danger",
+  onConfirm,
+  onCancel,
 }: ConfirmModalProps) {
   const iconColor = variant === "approve" ? "var(--color-secondary-green)" : "var(--color-failed)";
-  const confirmCls = variant === "approve"
-    ? "flex-1 rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
-    : "flex-1 rounded-full bg-red-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-red-700";
+  const confirmCls =
+    variant === "approve"
+      ? "flex-1 rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+      : "flex-1 rounded-full bg-red-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-red-700";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl mx-4">
+      <div className="relative mx-4 w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl">
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
         <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-outline">
@@ -33,12 +43,20 @@ export function ConfirmModal({
             className="flex h-14 w-14 items-center justify-center rounded-full border-[3px]"
             style={{ borderColor: iconColor }}
           >
-            <span className="text-[22px] font-bold leading-none" style={{ color: iconColor }}>!</span>
+            <span className="text-[22px] font-bold leading-none" style={{ color: iconColor }}>
+              !
+            </span>
           </div>
         </div>
 
         <h2 className="mb-2 text-center text-[20px] font-bold text-primary-text">{title}</h2>
-        <p className="mb-7 text-center text-sm text-zinc-400">{message}</p>
+        {children ? (
+          <div className="mb-7">{children}</div>
+        ) : message ? (
+          <p className="mb-7 text-center text-sm text-zinc-400">{message}</p>
+        ) : (
+          <div className="mb-7" />
+        )}
 
         <div className="flex gap-3">
           <button
@@ -65,8 +83,14 @@ type AddProductModalProps = {
 
 const COMMISSION_TYPES = ["Flat", "Percentage", "% capped @"];
 const PRODUCT_OPTIONS = [
-  "EKEDC Postpaid", "Spectranet Data", "Global 139", "MTN Airtime",
-  "Glo Airtime", "IKEDC Postpaid", "DSTV Subscription", "Startimes",
+  "EKEDC Postpaid",
+  "Spectranet Data",
+  "Global 139",
+  "MTN Airtime",
+  "Glo Airtime",
+  "IKEDC Postpaid",
+  "DSTV Subscription",
+  "Startimes",
 ];
 
 export function AddProductModal({ product, onClose, onSuccess }: AddProductModalProps) {
@@ -85,8 +109,7 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-2xl bg-white px-6 pb-7 pt-5 shadow-xl mx-4">
-        {/* Header */}
+      <div className="relative mx-4 w-full max-w-sm rounded-2xl bg-white px-6 pb-7 pt-5 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-[17px] font-bold text-primary-text">Add Product</h2>
           <button
@@ -100,7 +123,6 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Product */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-primary-text">Product</label>
             <div className="relative">
@@ -110,18 +132,25 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
                 onChange={(e) => setForm((f) => ({ ...f, product: e.target.value }))}
               >
                 {PRODUCT_OPTIONS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
                 ))}
               </select>
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M3 5l4 4 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </span>
             </div>
           </div>
 
-          {/* Commission Type */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-primary-text">Commission Type</label>
             <div className="relative">
@@ -131,18 +160,25 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
                 onChange={(e) => setForm((f) => ({ ...f, commissionType: e.target.value }))}
               >
                 {COMMISSION_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </select>
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M3 5l4 4 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </span>
             </div>
           </div>
 
-          {/* Commission Rate */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-primary-text">Commission Rate</label>
             <input
@@ -154,7 +190,6 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
             />
           </div>
 
-          {/* CAP */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-primary-text">CAP</label>
             <input
@@ -179,29 +214,38 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
 }
 
 type SuccessModalProps = {
-  message: string;
+  message?: string;
+  /** Replaces default message when set */
+  children?: ReactNode;
   confirmLabel?: string;
   onContinue: () => void;
 };
 
-export function SuccessModal({ message, confirmLabel = "Continue", onContinue }: SuccessModalProps) {
+export function SuccessModal({
+  message,
+  children,
+  confirmLabel = "Continue",
+  onContinue,
+}: SuccessModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onContinue} />
-      <div className="relative w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl mx-4">
-        {/* Drag handle */}
+      <div className="relative mx-4 w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl">
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
-        {/* Success icon */}
         <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-outline">
           <TickCircle size={56} variant="Outline" color="var(--color-secondary-green)" />
         </div>
 
-        {/* Text */}
         <h2 className="mb-2 text-center text-[20px] font-bold text-primary-text">Successful</h2>
-        <p className="mb-7 text-center text-sm text-zinc-400">{message}</p>
+        {children ? (
+          <div className="mb-7">{children}</div>
+        ) : message ? (
+          <p className="mb-7 text-center text-sm text-zinc-400">{message}</p>
+        ) : (
+          <div className="mb-7" />
+        )}
 
-        {/* Button */}
         <button
           type="button"
           onClick={onContinue}
