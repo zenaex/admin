@@ -104,9 +104,8 @@ OpenAPI lists these routes but does not document query params or response schema
 
 | Method | Endpoint | Application in product | Main usage locations |
 |---|---|---|---|
-| GET | `/admin/transactions/summary` | Stat cards (deposits, withdrawals, transaction count, users) | `src/components/transactions/transactions-view.tsx` |
-| GET | `/admin/transactions` | Product transaction list (Crypto, Giftcard, Utility, E-sim, E-trade tabs) | `src/components/transactions/transactions-view.tsx` |
-| GET | `/admin/transactions/wallet` | Wallet transaction list (Deposit, Withdrawal tabs) | `src/components/transactions/transactions-view.tsx` |
+| GET | `/admin/transactions/summary` | Stat cards. OpenAPI fields: `totalDepositedCents`, `totalWithdrawnCents` (÷100 for ₦ display), `totalTransactions`, `totalUsers`. Fallbacks: nested `deposits`/`withdrawals`, legacy flat amount keys. | `src/components/transactions/transactions-view.tsx` |
+| GET | `/admin/transactions` | All transaction tabs. Query `tab` (`all`, `deposit`, `withdrawal`, `crypto`, `gift-card`, `utility`, `esim`, `e-trade`), plus `page`, `limit`, `search`, `status`, `dateFrom`, `dateTo`. Rows include `categorySlug` for display. | `src/components/transactions/transactions-view.tsx` |
 | GET | `/admin/transactions/{reference}` | Transaction detail: API → `mapApiDetailToTransactionModel` → existing channel layouts (Giftcard, Crypto, Utility, E-sim, Withdrawal, E-trade) | `transaction-detail-mapper.ts`, `transaction-details-view.tsx` |
 | POST | `/admin/transactions/gift-cards/submissions/{id}/approve` | Giftcard pending → approve (no body); `{id}` = submission UUID from detail (`submissionId` or top-level `id`) | `giftcard-submissions-api.ts`, `transaction-details-view.tsx` |
 | POST | `/admin/transactions/gift-cards/submissions/{id}/decline` | Giftcard pending → reject; body `{ "reason": "string" }` (required) | `giftcard-submissions-api.ts`, `transaction-details-view.tsx` |
@@ -114,9 +113,28 @@ OpenAPI lists these routes but does not document query params or response schema
 
 | POST | `/admin/transactions/export` | CSV/PDF/JSON export (API with client fallback) | `transactions-view.tsx`, `src/lib/admin-api/export-api.ts` |
 
-**Detail UI:** [`transaction-details-view.tsx`](src/components/transactions/transaction-details-view.tsx) fetches detail from the API and maps into `TransactionDetailModel` via [`transaction-detail-mapper.ts`](src/lib/admin-api/transaction-detail-mapper.ts). Missing API fields render blank. Transaction log tab uses API `logs` / `timeline` / `events` when present; otherwise shows an empty state. Giftcard submission id is stored on `giftcardSubmissionId` (never the route `reference`).
+| GET | `/admin/transactions/{reference}/logs` | Transaction Log tab timeline | `transaction-details-view.tsx` |
+
+**Detail UI:** [`transaction-details-view.tsx`](src/components/transactions/transaction-details-view.tsx) fetches detail from the API and maps into `TransactionDetailModel` via [`transaction-detail-mapper.ts`](src/lib/admin-api/transaction-detail-mapper.ts). Log tab prefers `GET .../logs`; falls back to embedded log arrays on the detail payload. Giftcard submission id is stored on `giftcardSubmissionId` (never the route `reference`).
+
+**Deprecated (removed from UI):** `GET /admin/transactions/wallet` — use `GET /admin/transactions?tab=deposit|withdrawal`.
+
+**Export:** `POST /admin/transactions/export` body: `productSlug`, `statuses`, `dateFrom`, `dateTo`, `search`, `userId`.
 
 **Not wired in UI (optional later):** `POST /admin/transactions/{reference}/sensitive`.
+
+---
+
+## 5b) Admin Providers
+
+Source module: `src/lib/admin-api/providers-api.ts`
+
+| Method | Endpoint | Application in product | Main usage locations |
+|---|---|---|---|
+| GET | `/admin/providers` | List: `{ providers[], total, totalActive, totalInactive }`. Rows use `categorySlug`, `productCount`, `isActive`, `createdAt`. Stat cards map `total` / `totalActive` / `totalInactive`. Client-side pagination on full list. | `src/components/provider/provider-view.tsx` |
+| GET | `/admin/providers/{id}` | Detail: `{ provider, products[], totalProducts }`. Products: `slug`, `name`, `categorySlug`, `chargeType`, `chargeValue` (kobo for flat), `chargeCap`, `isActive`. | `src/components/provider/provider-details-view.tsx` |
+
+**Optional later:** `PATCH .../toggle`, `PATCH .../products/{slug}/toggle`, `PATCH .../products/{slug}/commission` for persisting status/commission edits.
 
 ---
 
@@ -170,6 +188,7 @@ OpenAPI does not document list query params; search/role/action filters are clie
 - Settings endpoints: `src/lib/admin-api/settings-api.ts`
 - Customers + customer audit log: `src/lib/admin-api/customers-api.ts`
 - Transactions: `src/lib/admin-api/transactions-api.ts`
+- Providers: `src/lib/admin-api/providers-api.ts`
 - Referrals: `src/lib/admin-api/referrals-api.ts`
 - Audit trail: `src/lib/admin-api/audit-api.ts`
 - API client/refresh/error handling: `src/lib/admin-api/client.ts`

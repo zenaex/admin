@@ -19,7 +19,7 @@ import {
   postGiftcardSubmissionDecline,
   postGiftcardSubmissionECode,
 } from "@/lib/admin-api/giftcard-submissions-api";
-import { getAdminTransactionDetail } from "@/lib/admin-api/transactions-api";
+import { getAdminTransactionDetail, getAdminTransactionLogs } from "@/lib/admin-api/transactions-api";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 import { getAccessToken } from "@/lib/auth/token-storage";
 import type {
@@ -87,10 +87,13 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
     setError(null);
     setLoading(true);
     try {
-      const raw = await getAdminTransactionDetail(reference);
+      const [raw, logs] = await Promise.all([
+        getAdminTransactionDetail(reference),
+        getAdminTransactionLogs(reference).catch(() => [] as TransactionLogEntry[]),
+      ]);
       const mapped = mapApiDetailToTransactionModel(raw, reference);
       setTx(mapped);
-      setLogEntries(extractTransactionLogEntries(raw));
+      setLogEntries(logs.length > 0 ? logs : extractTransactionLogEntries(raw));
       setApprovalStatus(initialApprovalFor(mapped));
     } catch (e) {
       setTx(null);

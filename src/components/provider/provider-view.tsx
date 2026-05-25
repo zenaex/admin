@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { WalletMoney, CardReceive, CardSend } from "iconsax-react";
 import { CalendarDays } from "lucide-react";
 
@@ -18,33 +18,11 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { AdminApiError } from "@/lib/admin-api/client";
+import { getAdminProvidersList } from "@/lib/admin-api/providers-api";
+import type { AdminProviderListRow } from "@/lib/admin-api/types";
 
-const BASE_ROWS: Omit<ProviderRow, "id">[] = [
-  { name: "Monnify",    category: "Withdrawal",    dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 5,  status: "Active"   },
-  { name: "Quidax",    category: "Crypto",         dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 10, status: "Active"   },
-  { name: "MTN",       category: "Airtime & Data", dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 40, status: "Inactive" },
-  { name: "Baxi",      category: "Bills Payment",  dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 1,  status: "Active"   },
-  { name: "Spectranet", category: "Internet",      dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 2,  status: "Active"   },
-  { name: "IKEDC",     category: "Electricity",    dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 40, status: "Active"   },
-  { name: "Flutterwave", category: "Payments",     dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 8,  status: "Active"   },
-  { name: "Paystack",  category: "Payments",       dateAdded: "Jan 6, 2026 | 9:32AM", lastUpdated: "Jan 6, 2026 | 9:32AM", noOfProducts: 6,  status: "Active"   },
-];
-
-const ALL_ROWS: ProviderRow[] = Array.from({ length: 180 }, (_, i) => {
-  const base = BASE_ROWS[i % BASE_ROWS.length];
-  return {
-    ...base,
-    id: `provider-${i}`,
-    name: i < BASE_ROWS.length ? base.name : `${base.name} (${i + 1})`,
-  };
-});
-
-const CATEGORY_FILTER_OPTIONS = ["All categories", ...Array.from(new Set(BASE_ROWS.map((b) => b.category))).sort()];
 const STATUS_FILTER_OPTIONS = ["All statuses", "Active", "Inactive"] as const;
-
-const TOTAL = 100000;
-const ACTIVE = 100000;
-const INACTIVE = 50000;
 
 type StatCardProps = {
   label: string;
@@ -71,8 +49,14 @@ function StatCard({ label, value, accentColor, icon }: StatCardProps) {
   );
 }
 
+function formatCount(n: number | undefined): string {
+  if (n === undefined || Number.isNaN(n)) return "—";
+  return n.toLocaleString();
+}
+
 export function ProviderView() {
   const [tableSearch, setTableSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "category" | "status" | "date">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
@@ -88,6 +72,20 @@ export function ProviderView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
 
+  const [listRows, setListRows] = useState<AdminProviderListRow[]>([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [summaryTotal, setSummaryTotal] = useState<number | undefined>();
+  const [summaryActive, setSummaryActive] = useState<number | undefined>();
+  const [summaryInactive, setSummaryInactive] = useState<number | undefined>();
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(["All categories"]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(tableSearch.trim()), 320);
+    return () => window.clearTimeout(t);
+  }, [tableSearch]);
+
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
   }, [filterMode]);
@@ -100,40 +98,88 @@ export function ProviderView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase();
-    return ALL_ROWS.filter((r) => {
-      if (appliedCategory && appliedCategory !== "All categories" && r.category !== appliedCategory)
-        return false;
-      if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus) return false;
-      if (appliedDateLabel && !r.dateAdded.includes("Jan 6, 2026")) return false;
-      if (!q) return true;
-      return (
-        r.name.toLowerCase().includes(q) ||
-        r.category.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q)
+  const loadList = useCallback(async () => {
+    setListError(null);
+    setListLoading(true);
+    try {
+      const res = await getAdminProvidersList({
+        search: debouncedSearch || undefined,
+        status: appliedStatus ?? undefined,
+        category: appliedCategory ?? undefined,
+        page,
+        pageSize,
+      });
+      setListRows(res.items);
+      setListTotal(res.total);
+      setSummaryTotal(res.summary.totalProviders);
+      setSummaryActive(res.summary.activeProviders);
+      setSummaryInactive(res.summary.inactiveProviders);
+
+      const categories = Array.from(
+        new Set(res.items.map((r) => r.category).filter((c) => c && c !== "—")),
+      ).sort();
+      if (categories.length > 0) {
+        setCategoryOptions((prev) => {
+          const merged = new Set([...prev.filter((p) => p !== "All categories"), ...categories]);
+          return ["All categories", ...Array.from(merged).sort()];
+        });
+      }
+    } catch (e) {
+      setListRows([]);
+      setListTotal(0);
+      setSummaryTotal(undefined);
+      setSummaryActive(undefined);
+      setSummaryInactive(undefined);
+      setListError(
+        e instanceof AdminApiError
+          ? e.status === 0
+            ? "API URL is not configured. Set NEXT_PUBLIC_ADMIN_API_URL in .env.local and restart the dev server."
+            : e.message
+          : "Could not load providers.",
       );
-    });
-  }, [tableSearch, appliedCategory, appliedStatus, appliedDateLabel]);
+    } finally {
+      setListLoading(false);
+    }
+  }, [appliedCategory, appliedStatus, debouncedSearch, page, pageSize]);
 
-  const totalItems = filteredRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const safePage = Math.min(page, totalPages);
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
 
+  const paginationTotal = listTotal;
+  const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)));
   const paginatedRows = useMemo(() => {
     const start = (safePage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, safePage, pageSize]);
+    return listRows.slice(start, start + pageSize);
+  }, [listRows, safePage, pageSize]);
+
+  const totalDisplay = summaryTotal ?? paginationTotal;
+  const activeDisplay = summaryActive;
+  const inactiveDisplay = summaryInactive;
 
   return (
     <div>
       <ProviderHeader />
 
-      {/* Stat cards */}
       <div className="mt-6 flex gap-3">
-        <StatCard label="Total Providers" value={TOTAL.toLocaleString()} accentColor="var(--color-primary-green)" icon={<WalletMoney size="20" color="currentColor" variant="Outline" />} />
-        <StatCard label="Active Providers" value={ACTIVE.toLocaleString()} accentColor="var(--color-vivid-azure)" icon={<CardReceive size="20" color="currentColor" variant="Outline" />} />
-        <StatCard label="Inactive Providers" value={INACTIVE.toLocaleString()} accentColor="var(--color-failed)" icon={<CardSend size="20" color="currentColor" variant="Outline" />} />
+        <StatCard
+          label="Total Providers"
+          value={formatCount(totalDisplay)}
+          accentColor="var(--color-primary-green)"
+          icon={<WalletMoney size="20" color="currentColor" variant="Outline" />}
+        />
+        <StatCard
+          label="Active Providers"
+          value={formatCount(activeDisplay)}
+          accentColor="var(--color-vivid-azure)"
+          icon={<CardReceive size="20" color="currentColor" variant="Outline" />}
+        />
+        <StatCard
+          label="Inactive Providers"
+          value={formatCount(inactiveDisplay)}
+          accentColor="var(--color-failed)"
+          icon={<CardSend size="20" color="currentColor" variant="Outline" />}
+        />
       </div>
 
       {filterMode ? (
@@ -205,7 +251,7 @@ export function ProviderView() {
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[220px]">
                   <TableFilterPanelTitle />
                   <TableFilterOptionsList
-                    options={CATEGORY_FILTER_OPTIONS}
+                    options={categoryOptions}
                     onSelect={(opt) => {
                       setDraftCategory(opt);
                       setOpenFilter(null);
@@ -278,12 +324,22 @@ export function ProviderView() {
         />
       )}
 
-      <ProviderTable rows={paginatedRows} />
+      {listError ? (
+        <p className="mt-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {listError}
+        </p>
+      ) : null}
+
+      {listLoading ? (
+        <p className="mt-4 text-sm text-zinc-500">Loading providers…</p>
+      ) : (
+        <ProviderTable rows={paginatedRows} />
+      )}
 
       <AuditTrailPagination
         page={safePage}
         pageSize={pageSize}
-        totalItems={totalItems}
+        totalItems={paginationTotal}
         onPageChange={(p) => setPage(p)}
         onPageSizeChange={(size) => {
           setPageSize(size);

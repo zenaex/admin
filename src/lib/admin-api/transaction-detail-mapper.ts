@@ -224,28 +224,94 @@ function pickFromBlocks(
   return pickString(o, keys);
 }
 
+function mapLogEntry(entry: unknown, idx: number): TransactionLogEntry {
+  const rec = asRecord(entry);
+  if (!rec) {
+    return { step: idx + 1, title: String(entry), date: "" };
+  }
+  const title =
+    pickString(rec, [
+      "title",
+      "message",
+      "description",
+      "action",
+      "step",
+      "name",
+      "label",
+      "status",
+      "event",
+    ]) || `Step ${idx + 1}`;
+  const dateRaw = pickString(rec, [
+    "date",
+    "timestamp",
+    "createdAt",
+    "created_at",
+    "time",
+    "occurredAt",
+    "occurred_at",
+    "loggedAt",
+    "logged_at",
+  ]);
+  return {
+    step: pickNum(rec, ["step", "order", "sequence", "index"]) ?? idx + 1,
+    title,
+    date: dateRaw ? formatDisplayDate(dateRaw) : "",
+  };
+}
+
 export function extractTransactionLogEntries(raw: Record<string, unknown>): TransactionLogEntry[] {
-  const o = unwrapTransactionRecord(raw);
-  for (const key of ["logs", "timeline", "events", "transactionLog", "transaction_log", "history"]) {
+  const o = flattenTransactionRecord(raw);
+  for (const key of [
+    "logs",
+    "timeline",
+    "events",
+    "transactionLog",
+    "transaction_log",
+    "transactionLogs",
+    "transaction_logs",
+    "activityLog",
+    "activity_log",
+    "statusHistory",
+    "status_history",
+    "auditTrail",
+    "audit_trail",
+    "history",
+  ]) {
     const val = o[key];
     if (!Array.isArray(val)) continue;
-    return val.map((entry, idx) => {
-      const rec = asRecord(entry);
-      if (!rec) {
-        return { step: idx + 1, title: String(entry), date: "" };
-      }
-      const title =
-        pickString(rec, ["title", "message", "description", "action", "step", "name"]) ||
-        `Step ${idx + 1}`;
-      const dateRaw = pickString(rec, ["date", "timestamp", "createdAt", "created_at", "time"]);
-      return {
-        step: pickNum(rec, ["step", "order"]) ?? idx + 1,
-        title,
-        date: dateRaw ? formatDisplayDate(dateRaw) : "",
-      };
-    });
+    return val.map(mapLogEntry);
   }
+
+  const logContainer = asRecord(o.log) ?? asRecord(o.transactionLog) ?? asRecord(o.transaction_log);
+  if (logContainer) {
+    for (const key of ["entries", "items", "steps", "events", "timeline"]) {
+      const nested = logContainer[key];
+      if (Array.isArray(nested)) return nested.map(mapLogEntry);
+    }
+  }
+
   return [];
+}
+
+/** Normalize `GET /admin/transactions/{reference}/logs` or embedded log arrays. */
+export function normalizeTransactionLogList(data: unknown): TransactionLogEntry[] {
+  if (Array.isArray(data)) return data.map(mapLogEntry);
+  const r = asRecord(data);
+  if (!r) return [];
+  for (const key of ["logs", "items", "events", "timeline", "history", "data"]) {
+    const val = r[key];
+    if (Array.isArray(val)) return val.map(mapLogEntry);
+  }
+  const inner = asRecord(r.data);
+  if (inner) {
+    for (const key of ["logs", "items", "events", "timeline"]) {
+      const val = inner[key];
+      if (Array.isArray(val)) return val.map(mapLogEntry);
+    }
+    const fromInner = extractTransactionLogEntries(inner);
+    if (fromInner.length > 0) return fromInner;
+  }
+  return extractTransactionLogEntries(r);
 }
 
 export function mapApiDetailToTransactionModel(

@@ -1,4 +1,8 @@
 import { adminRequest } from "@/lib/admin-api/client";
+import {
+  normalizeTransactionLogList,
+  type TransactionLogEntry,
+} from "@/lib/admin-api/transaction-detail-mapper";
 import type {
   AdminTransactionListQuery,
   AdminTransactionListResult,
@@ -642,21 +646,120 @@ function pickProviderLabel(o: Record<string, unknown>): string {
   return raw ? humanizeLabel(raw) : "—";
 }
 
+function pickAmountValue(v: unknown): number | string | undefined {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (t === "") return undefined;
+    if (Number.isFinite(Number(t))) return Number(t);
+    return t;
+  }
+  return undefined;
+}
+
 function pickSummaryAmount(o: Record<string, unknown>, keys: string[]): number | string | undefined {
   for (const k of keys) {
-    const v = o[k];
-    if (typeof v === "number" && Number.isFinite(v)) return v;
-    if (typeof v === "string" && v.trim()) return v.trim();
+    const picked = pickAmountValue(o[k]);
+    if (picked !== undefined) return picked;
   }
   const data = asRecord(o.data);
   if (data) {
     for (const k of keys) {
-      const v = data[k];
-      if (typeof v === "number" && Number.isFinite(v)) return v;
-      if (typeof v === "string" && v.trim()) return v.trim();
+      const picked = pickAmountValue(data[k]);
+      if (picked !== undefined) return picked;
     }
   }
   return undefined;
+}
+
+const SUMMARY_AMOUNT_BLOCK_KEYS = [
+  "totalAmount",
+  "total_amount",
+  "amount",
+  "total",
+  "sum",
+  "value",
+  "volume",
+  "totalValue",
+  "total_value",
+];
+
+function pickSummaryAmountFromBlock(block: Record<string, unknown> | null): number | string | undefined {
+  if (!block) return undefined;
+  for (const k of SUMMARY_AMOUNT_BLOCK_KEYS) {
+    const picked = pickAmountValue(block[k]);
+    if (picked !== undefined) return picked;
+  }
+  return undefined;
+}
+
+function normalizeCategorySlug(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, "-");
+}
+
+function slugMatchesCategory(slug: string, target: string): boolean {
+  const s = normalizeCategorySlug(slug);
+  const t = normalizeCategorySlug(target);
+  return s === t || s.includes(t) || t.includes(s);
+}
+
+function pickSummaryByCategorySlug(
+  root: Record<string, unknown>,
+  targetSlug: string,
+): number | string | undefined {
+  for (const key of [
+    "byCategory",
+    "by_category",
+    "categories",
+    "categoryBreakdown",
+    "category_breakdown",
+    "breakdown",
+    "summaryByCategory",
+  ]) {
+    const arr = root[key];
+    if (!Array.isArray(arr)) continue;
+    for (const item of arr) {
+      const rec = asRecord(item);
+      if (!rec) continue;
+      const slug = pickString(rec, [
+        "categorySlug",
+        "category_slug",
+        "slug",
+        "category",
+        "type",
+        "name",
+      ]);
+      if (!slug || !slugMatchesCategory(slug, targetSlug)) continue;
+      const fromBlock = pickSummaryAmountFromBlock(rec);
+      if (fromBlock !== undefined) return fromBlock;
+      const flat = pickSummaryAmount(rec, SUMMARY_AMOUNT_BLOCK_KEYS);
+      if (flat !== undefined) return flat;
+    }
+  }
+  return undefined;
+}
+
+function pickWalletSummarySide(
+  root: Record<string, unknown>,
+  side: "deposit" | "withdrawal",
+): number | string | undefined {
+  const wallet = asRecord(root.wallet) ?? asRecord(root.walletSummary) ?? asRecord(root.wallet_summary);
+  const pluralKey = side === "deposit" ? "deposits" : "withdrawals";
+  const singularKey = side === "deposit" ? "deposit" : "withdrawal";
+
+  const fromRoot =
+    pickSummaryAmountFromBlock(asRecord(root[pluralKey])) ??
+    pickSummaryAmountFromBlock(asRecord(root[singularKey]));
+  if (fromRoot !== undefined) return fromRoot;
+
+  if (wallet) {
+    const fromWallet =
+      pickSummaryAmountFromBlock(asRecord(wallet[pluralKey])) ??
+      pickSummaryAmountFromBlock(asRecord(wallet[singularKey]));
+    if (fromWallet !== undefined) return fromWallet;
+  }
+
+  return pickSummaryByCategorySlug(root, side);
 }
 
 function pickSummaryCount(o: Record<string, unknown>, keys: string[]): number | undefined {
@@ -674,32 +777,70 @@ function pickSummaryCount(o: Record<string, unknown>, keys: string[]): number | 
   return undefined;
 }
 
+/** OpenAPI documents deposit/withdraw totals in minor units (cents). */
+function pickSummaryCentsAsMajor(o: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const k of keys) {
+    const n = pickNum(o, [k]);
+    if (n !== undefined) return n / 100;
+  }
+  const data = asRecord(o.data);
+  if (data) {
+    for (const k of keys) {
+      const n = pickNum(data, [k]);
+      if (n !== undefined) return n / 100;
+    }
+  }
+  return undefined;
+}
+
 export function normalizeTransactionsSummary(data: unknown): AdminTransactionsSummary {
   const r = asRecord(data);
   if (!r) return {};
   const inner = asRecord(r.data) ?? r;
 
+  const depositedNested = pickWalletSummarySide(inner, "deposit");
+  const withdrawnNested = pickWalletSummarySide(inner, "withdrawal");
+
+  const depositedCents = pickSummaryCentsAsMajor(inner, [
+    "totalDepositedCents",
+    "total_deposited_cents",
+    "totalDepositCents",
+    "total_deposit_cents",
+  ]);
+  const withdrawnCents = pickSummaryCentsAsMajor(inner, [
+    "totalWithdrawnCents",
+    "total_withdrawn_cents",
+    "totalWithdrawalCents",
+    "total_withdrawal_cents",
+  ]);
+
   return {
-    totalAmountDeposited: pickSummaryAmount(inner, [
-      "totalAmountDeposited",
-      "total_amount_deposited",
-      "totalDeposited",
-      "total_deposited",
-      "totalDepositAmount",
-      "depositsTotal",
-      "depositAmount",
-      "totalDeposits",
-    ]),
-    totalAmountWithdrawn: pickSummaryAmount(inner, [
-      "totalAmountWithdrawn",
-      "total_amount_withdrawn",
-      "totalWithdrawn",
-      "total_withdrawn",
-      "totalWithdrawalAmount",
-      "withdrawalsTotal",
-      "withdrawalAmount",
-      "totalWithdrawals",
-    ]),
+    totalAmountDeposited:
+      depositedCents ??
+      depositedNested ??
+      pickSummaryAmount(inner, [
+        "totalAmountDeposited",
+        "total_amount_deposited",
+        "totalDeposited",
+        "total_deposited",
+        "totalDepositAmount",
+        "depositsTotal",
+        "depositAmount",
+        "totalDeposits",
+      ]),
+    totalAmountWithdrawn:
+      withdrawnCents ??
+      withdrawnNested ??
+      pickSummaryAmount(inner, [
+        "totalAmountWithdrawn",
+        "total_amount_withdrawn",
+        "totalWithdrawn",
+        "total_withdrawn",
+        "totalWithdrawalAmount",
+        "withdrawalsTotal",
+        "withdrawalAmount",
+        "totalWithdrawals",
+      ]),
     totalTransactions: pickSummaryCount(inner, [
       "totalTransactions",
       "total_transactions",
@@ -730,46 +871,51 @@ export async function getAdminTransactionsSummary(query?: {
   return normalizeTransactionsSummary(body);
 }
 
-function productListQueryToParams(query: AdminTransactionListQuery) {
+function transactionListQueryToParams(query: AdminTransactionListQuery) {
+  const limit = query.pageSize;
   return {
     page: query.page,
-    pageSize: query.pageSize,
+    limit,
     search: query.search,
     status: query.status,
-    channel: query.channel,
-    fromDate: query.fromDate,
-    toDate: query.toDate,
+    tab: query.tab,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
   };
 }
 
-function walletListQueryToParams(query: AdminTransactionListQuery) {
-  return {
-    page: query.page,
-    pageSize: query.pageSize,
-    search: query.search,
-    status: query.status,
-    type: query.type,
-    fromDate: query.fromDate,
-    toDate: query.toDate,
-  };
-}
-
-/** Map transactions UI tab label to API `channel` query value. */
-export function tabChannelToApiChannel(tab: string): string {
+/** Map transactions UI tab label to OpenAPI `tab` query value. */
+export function tabToApiTab(tab: string): string | undefined {
   switch (tab) {
+    case "All":
+      return undefined;
+    case "Deposit":
+      return "deposit";
+    case "Withdrawal":
+      return "withdrawal";
     case "E-sim":
       return "esim";
     case "E-trade":
-      return "etrade";
+      return "e-trade";
     case "Giftcard":
-      return "giftcard";
+      return "gift-card";
     case "Crypto":
       return "crypto";
     case "Utility":
       return "utility";
     default:
-      return tab;
+      return tab.trim().toLowerCase().replace(/\s+/g, "-");
   }
+}
+
+/** @deprecated Use tabToApiTab — list filter is OpenAPI `tab`, not categorySlug. */
+export function tabToCategorySlug(tab: string): string | undefined {
+  return tabToApiTab(tab);
+}
+
+/** @deprecated Use tabToApiTab */
+export function tabChannelToApiChannel(tab: string): string {
+  return tabToApiTab(tab) ?? tab;
 }
 
 function unwrapTransactionRecord(raw: Record<string, unknown>): Record<string, unknown> {
@@ -953,19 +1099,8 @@ export async function getAdminTransactionsList(
 ): Promise<AdminTransactionListResult> {
   const page = query?.page ?? 1;
   const pageSize = Math.min(100, Math.max(1, query?.pageSize ?? 25));
-  const qs = buildQuery(productListQueryToParams({ ...query, page, pageSize }));
+  const qs = buildQuery(transactionListQueryToParams({ ...query, page, pageSize }));
   const body = await adminRequest<unknown>(`/admin/transactions${qs}`, { method: "GET" });
-  return normalizeTransactionListResponse(body, page, pageSize);
-}
-
-/** Wallet transactions (deposits & withdrawals per OpenAPI). */
-export async function getAdminWalletTransactionsList(
-  query?: AdminTransactionListQuery,
-): Promise<AdminTransactionListResult> {
-  const page = query?.page ?? 1;
-  const pageSize = Math.min(100, Math.max(1, query?.pageSize ?? 25));
-  const qs = buildQuery(walletListQueryToParams({ ...query, page, pageSize }));
-  const body = await adminRequest<unknown>(`/admin/transactions/wallet${qs}`, { method: "GET" });
   return normalizeTransactionListResponse(body, page, pageSize);
 }
 
@@ -979,30 +1114,12 @@ export async function getAdminTransactionDetail(reference: string): Promise<Reco
   return inner ?? r;
 }
 
-/** Merge product + wallet lists for the All tab (client pagination). */
-export function mergeTransactionListResults(
-  product: AdminTransactionListResult,
-  wallet: AdminTransactionListResult,
-): AdminTransactionListResult {
-  const seen = new Set<string>();
-  const merged: AdminTransactionListRow[] = [];
-  for (const row of [...product.items, ...wallet.items]) {
-    if (seen.has(row.refNo)) continue;
-    seen.add(row.refNo);
-    merged.push(row);
-  }
-  merged.sort((a, b) => {
-    const ta = a.dateSortKey ? new Date(a.dateSortKey).getTime() : 0;
-    const tb = b.dateSortKey ? new Date(b.dateSortKey).getTime() : 0;
-    return tb - ta;
-  });
-  const total = Math.max(product.total, 0) + Math.max(wallet.total, 0);
-  return {
-    items: merged,
-    total: total || merged.length,
-    page: 1,
-    pageSize: merged.length,
-  };
+export async function getAdminTransactionLogs(reference: string): Promise<TransactionLogEntry[]> {
+  const data = await adminRequest<unknown>(
+    `/admin/transactions/${encodeURIComponent(reference)}/logs`,
+    { method: "GET" },
+  );
+  return normalizeTransactionLogList(data);
 }
 
 export function filterRowsByChannelTab(

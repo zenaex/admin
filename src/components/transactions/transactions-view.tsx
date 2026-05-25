@@ -23,9 +23,7 @@ import { AdminApiError } from "@/lib/admin-api/client";
 import {
   getAdminTransactionsList,
   getAdminTransactionsSummary,
-  getAdminWalletTransactionsList,
-  mergeTransactionListResults,
-  tabChannelToApiChannel,
+  tabToApiTab,
   uiStatusToApiStatus,
 } from "@/lib/admin-api/transactions-api";
 import type { AdminTransactionListRow, AdminTransactionsSummary } from "@/lib/admin-api/types";
@@ -61,12 +59,6 @@ const TX_TABS = [
 
 type TxTab = (typeof TX_TABS)[number]["id"];
 
-const WALLET_TABS: TxTab[] = ["Deposit", "Withdrawal"];
-
-function isWalletTab(tab: TxTab): boolean {
-  return WALLET_TABS.includes(tab);
-}
-
 function StatusBadge({ status }: { status: string }) {
   const key = status.toLowerCase();
   let cls = "bg-zinc-100 text-zinc-600";
@@ -100,10 +92,18 @@ function formatCount(n: number | undefined): string {
 }
 
 function formatMetricAmount(v: number | string | undefined): string {
-  if (v === undefined) return "—";
-  if (typeof v === "string" && v.trim()) return v.trim();
+  if (v === undefined || v === null) return "—";
   if (typeof v === "number" && Number.isFinite(v)) {
     return `₦${v.toLocaleString()}`;
+  }
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (!t) return "—";
+    const n = Number(t.replace(/[^\d.-]/g, ""));
+    if (Number.isFinite(n) && t.replace(/[^\d.-]/g, "") !== "") {
+      return `₦${n.toLocaleString()}`;
+    }
+    return t;
   }
   return "—";
 }
@@ -144,8 +144,6 @@ export function TransactionsView() {
   const [summary, setSummary] = useState<AdminTransactionsSummary | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
-  const mergeTab = activeTab === "All";
-
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 320);
     return () => window.clearTimeout(t);
@@ -185,48 +183,16 @@ export function TransactionsView() {
       const statusParam = appliedStatus ? uiStatusToApiStatus(appliedStatus) : undefined;
       const searchParam = debouncedSearch || undefined;
 
-      if (mergeTab) {
-        const fetchSize = 100;
-        const [product, wallet] = await Promise.all([
-          getAdminTransactionsList({
-            search: searchParam,
-            status: statusParam,
-            page: 1,
-            pageSize: fetchSize,
-          }),
-          getAdminWalletTransactionsList({
-            search: searchParam,
-            status: statusParam,
-            page: 1,
-            pageSize: fetchSize,
-          }),
-        ]);
-        const merged = mergeTransactionListResults(product, wallet);
-        setListRows(merged.items);
-        setListTotal(merged.total);
-      } else if (isWalletTab(activeTab)) {
-        const walletType =
-          activeTab === "Deposit" ? "deposit" : activeTab === "Withdrawal" ? "withdrawal" : undefined;
-        const res = await getAdminWalletTransactionsList({
-          search: searchParam,
-          status: statusParam,
-          type: walletType,
-          page,
-          pageSize,
-        });
-        setListRows(res.items);
-        setListTotal(res.total);
-      } else {
-        const res = await getAdminTransactionsList({
-          search: searchParam,
-          status: statusParam,
-          channel: tabChannelToApiChannel(activeTab),
-          page,
-          pageSize,
-        });
-        setListRows(res.items);
-        setListTotal(res.total);
-      }
+      const tab = tabToApiTab(activeTab);
+      const res = await getAdminTransactionsList({
+        search: searchParam,
+        status: statusParam,
+        tab,
+        page,
+        pageSize,
+      });
+      setListRows(res.items);
+      setListTotal(res.total);
     } catch (e) {
       setListRows([]);
       setListTotal(0);
@@ -240,7 +206,7 @@ export function TransactionsView() {
     } finally {
       setListLoading(false);
     }
-  }, [activeTab, appliedStatus, debouncedSearch, mergeTab, page, pageSize]);
+  }, [activeTab, appliedStatus, debouncedSearch, page, pageSize]);
 
   useEffect(() => {
     void loadList();
@@ -254,42 +220,29 @@ export function TransactionsView() {
     });
   }, [listRows, appliedAmount, appliedStatus]);
 
-  const paginationTotal = mergeTab ? clientFiltered.length : listTotal;
-  const paginatedRows = useMemo(() => {
-    if (!mergeTab) return clientFiltered;
-    const start = (page - 1) * pageSize;
-    return clientFiltered.slice(start, start + pageSize);
-  }, [clientFiltered, mergeTab, page, pageSize]);
+  const paginationTotal = listTotal;
+  const paginatedRows = clientFiltered;
 
-  const safePage = mergeTab
-    ? Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)))
-    : page;
+  const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)));
 
   useEffect(() => {
-    if (mergeTab) setPage(1);
-  }, [activeTab, debouncedSearch, appliedStatus, appliedAmount, mergeTab]);
+    setPage(1);
+  }, [activeTab, debouncedSearch, appliedStatus, appliedAmount]);
 
   const handleTabChange = (id: string) => {
     setActiveTab(id as TxTab);
     setPage(1);
   };
 
-  const exportBody = useMemo(
-    () => ({
+  const exportBody = useMemo(() => {
+    const tab = tabToApiTab(activeTab);
+    const status = appliedStatus ? uiStatusToApiStatus(appliedStatus) : undefined;
+    return {
       search: debouncedSearch || undefined,
-      status: appliedStatus ? uiStatusToApiStatus(appliedStatus) : undefined,
-      channel:
-        activeTab !== "All" && !isWalletTab(activeTab) ? tabChannelToApiChannel(activeTab) : undefined,
-      type: isWalletTab(activeTab)
-        ? activeTab === "Deposit"
-          ? "deposit"
-          : activeTab === "Withdrawal"
-            ? "withdrawal"
-            : undefined
-        : undefined,
-    }),
-    [activeTab, appliedStatus, debouncedSearch],
-  );
+      productSlug: tab,
+      statuses: status ? [status] : undefined,
+    };
+  }, [activeTab, appliedStatus, debouncedSearch]);
 
   const runExport = async (format: "csv" | "json" | "pdf") => {
     const filename = `transactions-${activeTab.toLowerCase().replace(/\s+/g, "-")}`;
