@@ -9,10 +9,17 @@ import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { Button } from "@/components/button";
 import { InputField } from "@/components/input-field";
 import { NotificationDrawerTrigger } from "@/components/notifications/notification-drawer";
+import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import { postInvitation, postPasswordResetApprove, postPasswordResetDecline } from "@/lib/admin-api/auth-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import { getAdminSettingsPasswordResetRequests } from "@/lib/admin-api/settings-api";
 import type { AdminSettingsPasswordResetRequestRow } from "@/lib/admin-api/types";
+import {
+  isRealAdminId,
+  postAdminUserChangeRole,
+  postAdminUserDeactivate,
+  uiRoleLabelToApiRole,
+} from "@/lib/admin-api/users-api";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getAccessToken } from "@/lib/auth/token-storage";
@@ -93,6 +100,9 @@ const ALL_MEMBERS: TeamMember[] = Array.from({ length: 180 }, (_, i) => ({
 const TEAM_ROLE_FILTER = ["All roles", ...Array.from(new Set(BASE_MEMBERS.map((m) => m.role))).sort()];
 const TEAM_STATUS_FILTER = ["All statuses", "Successful", "Pending", "Failed"] as const;
 
+const MOCK_ADMIN_ACTION_HINT =
+  "Requires a real admin ID from the team API (current list uses demo data).";
+
 /* ── Avatar ── */
 function Avatar({ name }: { name: string }) {
   const initials = name
@@ -142,6 +152,17 @@ export function AdminManagementView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [roleTarget, setRoleTarget] = useState<TeamMember | null>(null);
+  const [roleDraft, setRoleDraft] = useState<string>(INVITE_ROLE_OPTIONS[1]);
+  const [deactivateTarget, setDeactivateTarget] = useState<TeamMember | null>(null);
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+  const [adminActionError, setAdminActionError] = useState<string | null>(null);
+  const [adminSuccessMessage, setAdminSuccessMessage] = useState<string | null>(null);
+
+  const canActOnAdminRow = useCallback(
+    (row: TeamMember) => isSuper && isRealAdminId(row.id),
+    [isSuper],
+  );
 
   const [teamFilterMode, setTeamFilterMode] = useState(false);
   const [teamOpenFilter, setTeamOpenFilter] = useState<null | "role" | "status" | "date">(null);
@@ -199,6 +220,39 @@ export function AdminManagementView() {
     () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
     [filtered, safePage, pageSize],
   );
+
+  const handleChangeRoleSubmit = async () => {
+    if (!roleTarget) return;
+    setAdminActionError(null);
+    setAdminActionLoading(true);
+    try {
+      await postAdminUserChangeRole(roleTarget.id, {
+        newRole: uiRoleLabelToApiRole(roleDraft),
+      });
+      setRoleTarget(null);
+      setAdminSuccessMessage(`Role updated for ${roleTarget.name}.`);
+    } catch (e) {
+      setAdminActionError(e instanceof AdminApiError ? e.message : "Could not change role.");
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleDeactivateAdminConfirm = async () => {
+    if (!deactivateTarget) return;
+    setAdminActionError(null);
+    setAdminActionLoading(true);
+    try {
+      await postAdminUserDeactivate(deactivateTarget.id);
+      const name = deactivateTarget.name;
+      setDeactivateTarget(null);
+      setAdminSuccessMessage(`${name} has been deactivated.`);
+    } catch (e) {
+      setAdminActionError(e instanceof AdminApiError ? e.message : "Could not deactivate admin.");
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
 
   const runTeamExport = (format: "csv" | "json" | "pdf") => {
     exportClientTable("admin-team", format, filtered, TEAM_EXPORT_COLUMNS);
@@ -453,20 +507,53 @@ export function AdminManagementView() {
                         {openMenuId === row.id && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
-                            <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
-                              <button type="button" onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                            <div className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
+                              <button
+                                type="button"
+                                disabled={!canActOnAdminRow(row)}
+                                title={canActOnAdminRow(row) ? "Change role" : MOCK_ADMIN_ACTION_HINT}
+                                onClick={() => {
+                                  if (!canActOnAdminRow(row)) return;
+                                  setAdminActionError(null);
+                                  setRoleDraft(row.role);
+                                  setRoleTarget(row);
+                                  setOpenMenuId(null);
+                                }}
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
                                 <Edit2 size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
-                                Edit
+                                Change role
                               </button>
-                              <button type="button" onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                              <button
+                                type="button"
+                                disabled
+                                title="Not available yet"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
                                 <PasswordCheck size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
                                 Reset Password
                               </button>
-                              <button type="button" onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50">
+                              <button
+                                type="button"
+                                disabled={!canActOnAdminRow(row)}
+                                title={canActOnAdminRow(row) ? "Deactivate admin" : MOCK_ADMIN_ACTION_HINT}
+                                onClick={() => {
+                                  if (!canActOnAdminRow(row)) return;
+                                  setAdminActionError(null);
+                                  setDeactivateTarget(row);
+                                  setOpenMenuId(null);
+                                }}
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
                                 <Forbidden size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
                                 Deactivate
                               </button>
-                              <button type="button" onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-500 transition-colors hover:bg-red-50">
+                              <button
+                                type="button"
+                                disabled
+                                title="Not available yet"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
                                 <Trash size={16} variant="Outline" color="currentColor" />
                                 Delete User
                               </button>
@@ -501,6 +588,116 @@ export function AdminManagementView() {
       {activeTab === "Pending Invites" && <PendingInvitesTab showInvite={isSuper} />}
 
       {activeTab === "Password resets" && isSuper ? <PasswordResetsTab /> : null}
+
+      {adminActionError ? (
+        <div
+          className="fixed bottom-6 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg"
+          role="alert"
+        >
+          {adminActionError}
+          <button
+            type="button"
+            className="ml-2 font-semibold underline"
+            onClick={() => setAdminActionError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {roleTarget ? (
+        <AdminChangeRoleModal
+          member={roleTarget}
+          roleDraft={roleDraft}
+          loading={adminActionLoading}
+          onRoleChange={setRoleDraft}
+          onClose={() => {
+            if (!adminActionLoading) setRoleTarget(null);
+          }}
+          onSubmit={() => void handleChangeRoleSubmit()}
+        />
+      ) : null}
+
+      {deactivateTarget ? (
+        <ConfirmModal
+          title="Deactivate admin"
+          message={`Are you sure you want to deactivate ${deactivateTarget.name}?`}
+          confirmLabel={adminActionLoading ? "Please wait…" : "Deactivate"}
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => void handleDeactivateAdminConfirm()}
+          onCancel={() => {
+            if (!adminActionLoading) setDeactivateTarget(null);
+          }}
+        />
+      ) : null}
+
+      {adminSuccessMessage ? (
+        <SuccessModal
+          message={adminSuccessMessage}
+          confirmLabel="Done"
+          onContinue={() => setAdminSuccessMessage(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+type AdminChangeRoleModalProps = {
+  member: TeamMember;
+  roleDraft: string;
+  loading: boolean;
+  onRoleChange: (role: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+};
+
+function AdminChangeRoleModal({
+  member,
+  roleDraft,
+  loading,
+  onRoleChange,
+  onClose,
+  onSubmit,
+}: AdminChangeRoleModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-md rounded-2xl bg-white px-6 pb-8 pt-6 shadow-xl">
+        <h2 className="text-[17px] font-bold text-brand-navy">Change role</h2>
+        <p className="mt-1 text-sm text-zinc-500">{member.name}</p>
+        <label className="mt-5 block text-sm font-medium text-zinc-700">Role</label>
+        <select
+          className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-primary-text outline-none focus:border-zinc-400"
+          value={roleDraft}
+          disabled={loading}
+          onChange={(e) => onRoleChange(e.target.value)}
+        >
+          {INVITE_ROLE_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onClose}
+            className="flex-1 rounded-full bg-outline py-3 text-sm font-semibold text-primary-text hover:bg-zinc-200 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onSubmit}
+            className="flex-1 rounded-full bg-primary-green py-3 text-sm font-semibold text-primary-text hover:opacity-90 disabled:opacity-50"
+          >
+            {loading ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

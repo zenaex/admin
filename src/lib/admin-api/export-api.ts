@@ -36,11 +36,12 @@ export function extractExportRecords(data: unknown): Record<string, unknown>[] {
 export type AdminTransactionsExportBody = {
   format?: "csv" | "json";
   search?: string;
-  status?: string;
-  channel?: string;
-  type?: string;
-  fromDate?: string;
-  toDate?: string;
+  userId?: string;
+  productSlug?: string;
+  providerSlug?: string;
+  statuses?: string[];
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 export type AdminAuditExportBody = {

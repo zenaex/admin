@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, Edit } from "iconsax-react";
 import { ListFilter } from "lucide-react";
@@ -20,58 +20,10 @@ import {
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
+import { AdminApiError } from "@/lib/admin-api/client";
+import { getAdminProviderDetail } from "@/lib/admin-api/providers-api";
+import type { AdminProviderDetail, AdminProviderProductRow } from "@/lib/admin-api/types";
 
-type ProviderDetail = {
-  providerId: string;
-  providerName: string;
-  email: string;
-  category: string;
-  dateOnboarded: string;
-  lastUpdated: string;
-  status: "Active" | "Inactive";
-};
-
-type ProductRow = {
-  id: string;
-  productName: string;
-  productCategory: string;
-  commissionType: "Percentage" | "% capped @" | "Flat";
-  commissionRate: string;
-  cap: string;
-  status: boolean;
-};
-
-const PROVIDER_DETAIL: ProviderDetail = {
-  providerId: "Zena-77w6727",
-  providerName: "Baxi",
-  email: "Hi@baxi.com",
-  category: "Bills Payment",
-  dateOnboarded: "Jan 6, 2025 | 9:32AM",
-  lastUpdated: "Jan 6, 2025 | 9:32AM",
-  status: "Active",
-};
-
-const BASE_PRODUCTS: Omit<ProductRow, "id">[] = [
-  { productName: "EKEDC Postpaid",  productCategory: "Electricity", commissionType: "Percentage",  commissionRate: "1.0%",     cap: "-",        status: true  },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦50 FLAT", cap: "₦50 FLAT", status: true  },
-  { productName: "Global 139",      productCategory: "E-sim",       commissionType: "Flat",        commissionRate: "₦5000",    cap: "-",        status: true  },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000",    cap: "-",        status: false },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000",    cap: "-",        status: true  },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000",    cap: "-",        status: true  },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000",    cap: "-",        status: true  },
-  { productName: "Spectranet Data", productCategory: "Internet",    commissionType: "% capped @",  commissionRate: "₦5000",    cap: "-",        status: true  },
-];
-
-const ALL_PRODUCTS: ProductRow[] = Array.from({ length: 100 }, (_, i) => ({
-  ...BASE_PRODUCTS[i % BASE_PRODUCTS.length],
-  id: `product-${i}`,
-  productName:
-    i < BASE_PRODUCTS.length
-      ? BASE_PRODUCTS[i].productName
-      : `${BASE_PRODUCTS[i % BASE_PRODUCTS.length].productName} (${i + 1})`,
-}));
-
-const PRODUCT_COMMISSION_FILTER = ["All types", ...Array.from(new Set(BASE_PRODUCTS.map((p) => p.commissionType)))];
 const PRODUCT_ROW_STATUS_FILTER = ["All statuses", "Active", "Inactive"] as const;
 
 type StatusToggleProps = {
@@ -108,7 +60,13 @@ type ProviderDetailsViewProps = {
   id?: string;
 };
 
-export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
+export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
+  const [providerDetail, setProviderDetail] = useState<AdminProviderDetail | null>(null);
+  const [products, setProducts] = useState<AdminProviderProductRow[]>([]);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
   const [productSearch, setProductSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "commission" | "status">(null);
@@ -122,16 +80,51 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [productStatuses, setProductStatuses] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(ALL_PRODUCTS.map((p) => [p.id, p.status])),
-  );
-  const [billerActive, setBillerActive] = useState(PROVIDER_DETAIL.status === "Active");
+  const [productStatuses, setProductStatuses] = useState<Record<string, boolean>>({});
+  const [billerActive, setBillerActive] = useState(false);
+
+  const commissionFilterOptions = useMemo(() => {
+    const types = Array.from(new Set(products.map((p) => p.commissionType))).sort();
+    return ["All types", ...types];
+  }, [products]);
+
+  const loadDetail = useCallback(async () => {
+    if (!id) {
+      setDetailLoading(false);
+      setDetailError("Provider id is missing.");
+      return;
+    }
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      const result = await getAdminProviderDetail(id);
+      setProviderDetail(result.provider);
+      setProducts(result.products);
+      setTotalProducts(result.totalProducts);
+      setProductStatuses(Object.fromEntries(result.products.map((p) => [p.id, p.status])));
+      setBillerActive(result.provider.status === "Active");
+    } catch (e) {
+      setProviderDetail(null);
+      setProducts([]);
+      setTotalProducts(0);
+      setProductStatuses({});
+      setDetailError(
+        e instanceof AdminApiError ? e.message : "Could not load provider details.",
+      );
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
 
   // Modal state
   type PendingToggle = { type: "biller" } | { type: "product"; id: string; value: boolean };
   const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(null);
   const [showSuccess, setShowSuccess] = useState<{ message: string } | null>(null);
-  const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
+  const [editingProduct, setEditingProduct] = useState<AdminProviderProductRow | null>(null);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -145,11 +138,11 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const getProductRowActive = (p: ProductRow) => productStatuses[p.id] ?? p.status;
+  const getProductRowActive = (p: AdminProviderProductRow) => productStatuses[p.id] ?? p.status;
 
   const filteredProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
-    return ALL_PRODUCTS.filter((p) => {
+    return products.filter((p) => {
       if (appliedCommission && appliedCommission !== "All types" && p.commissionType !== appliedCommission)
         return false;
       if (appliedRowStatus && appliedRowStatus !== "All statuses") {
@@ -169,14 +162,14 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
       }
       return true;
     });
-  }, [productSearch, productStatuses, appliedCommission, appliedRowStatus]);
+  }, [products, productSearch, productStatuses, appliedCommission, appliedRowStatus]);
 
   const totalItems = filteredProducts.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(page, totalPages);
 
   const runProductExport = (format: "csv" | "json" | "pdf") => {
-    const columns: ExportColumn<ProductRow>[] = [
+    const columns: ExportColumn<AdminProviderProductRow>[] = [
       { header: "Product", value: (r) => r.productName },
       { header: "Category", value: (r) => r.productCategory },
       { header: "Commission Type", value: (r) => r.commissionType },
@@ -245,40 +238,55 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
       {/* Provider's Details */}
       <section>
         <h2 className="text-[18px] font-semibold text-primary-text">Provider&apos;s Details</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
-          <table className="w-full min-w-200 border-collapse text-left text-sm">
-            <thead>
-              <tr className="text-zinc-500 bg-surface-subtle">
-                <th className="border-b border-outline px-4 py-3 font-medium">Provider ID</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Provider Name</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Email Address</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Category</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Date Onboarded</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Last Updated</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-4 py-5 border-r border-outline font-medium text-secondary-green underline underline-offset-2">
-                  {PROVIDER_DETAIL.providerId}
-                </td>
-                <td className="px-4 py-5 border-r border-outline text-primary-text">{PROVIDER_DETAIL.providerName}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PROVIDER_DETAIL.email}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PROVIDER_DETAIL.category}</td>
-                <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">{PROVIDER_DETAIL.dateOnboarded}</td>
-                <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">{PROVIDER_DETAIL.lastUpdated}</td>
-                <td className="px-4 py-5">
-                  <StatusToggle
-                    checked={billerActive}
-                    onChange={requestBillerToggle}
-                    label="Toggle biller status"
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {detailError ? (
+          <p className="mt-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {detailError}
+          </p>
+        ) : null}
+        {detailLoading ? (
+          <p className="mt-4 text-sm text-zinc-500">Loading provider details…</p>
+        ) : providerDetail ? (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
+            <table className="w-full min-w-200 border-collapse text-left text-sm">
+              <thead>
+                <tr className="text-zinc-500 bg-surface-subtle">
+                  <th className="border-b border-outline px-4 py-3 font-medium">Provider ID</th>
+                  <th className="border-b border-outline px-4 py-3 font-medium">Provider Name</th>
+                  <th className="border-b border-outline px-4 py-3 font-medium">Email Address</th>
+                  <th className="border-b border-outline px-4 py-3 font-medium">Category</th>
+                  <th className="border-b border-outline px-4 py-3 font-medium">Date Onboarded</th>
+                  <th className="border-b border-outline px-4 py-3 font-medium">Last Updated</th>
+                  <th className="border-b border-outline px-4 py-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-4 py-5 border-r border-outline font-medium text-secondary-green underline underline-offset-2">
+                    {providerDetail.providerId}
+                  </td>
+                  <td className="px-4 py-5 border-r border-outline text-primary-text">
+                    {providerDetail.providerName}
+                  </td>
+                  <td className="px-4 py-5 border-r border-outline text-zinc-500">{providerDetail.email}</td>
+                  <td className="px-4 py-5 border-r border-outline text-zinc-500">{providerDetail.category}</td>
+                  <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">
+                    {providerDetail.dateOnboarded}
+                  </td>
+                  <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">
+                    {providerDetail.lastUpdated}
+                  </td>
+                  <td className="px-4 py-5">
+                    <StatusToggle
+                      checked={billerActive}
+                      onChange={requestBillerToggle}
+                      label="Toggle biller status"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </section>
 
       {/* Product List */}
@@ -326,7 +334,7 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
                   <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
                     <TableFilterPanelTitle />
                     <TableFilterOptionsList
-                      options={PRODUCT_COMMISSION_FILTER}
+                      options={commissionFilterOptions}
                       onSelect={(opt) => {
                         setDraftCommission(opt);
                         setOpenFilter(null);
@@ -372,7 +380,7 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
         ) : (
         <div className="flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
           <span className="shrink-0 text-[15px] font-semibold text-primary-text">
-            Product List ({ALL_PRODUCTS.length})
+            Product List ({totalProducts})
           </span>
           <div className="ml-4 w-[280px] shrink-0">
             <AuditTrailIconSearch
@@ -404,6 +412,10 @@ export function ProviderDetailsView({ id: _id }: ProviderDetailsViewProps) {
           </div>
         </div>
         )}
+
+        {!detailLoading && !detailError && products.length === 0 ? (
+          <p className="mt-4 text-sm text-zinc-500">No products for this provider.</p>
+        ) : null}
 
         <div className="mt-4 overflow-x-auto rounded-[8px]">
           <table className="w-full min-w-200 border-collapse bg-white text-left text-sm">

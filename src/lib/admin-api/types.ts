@@ -37,6 +37,24 @@ export type AdminInvitationValidateResponse = {
 
 export type AdminInvitationAcceptBody = { token: string; password: string };
 
+/** Body for `POST /admin/users/admin/{adminId}/role`. */
+export type AdminChangeAdminRoleBody = {
+  newRole: string;
+};
+
+/** Body for `POST /admin/users/customer/{accountId}/suspend`. */
+export type AdminCustomerSuspendBody = {
+  reason: string;
+  notes: string;
+  suspendedUntil?: string;
+  customerMessage?: string;
+};
+
+/** Body for `POST /admin/users/customer/{accountId}/reactivate`. */
+export type AdminCustomerReactivateBody = {
+  reason: string;
+};
+
 export type AdminPasswordResetApproveBody = { requestId: string };
 
 export type AdminPasswordResetDeclineBody = { requestId: string };
@@ -185,16 +203,70 @@ export type AdminCustomerWalletsResponse = {
   nextPageToken?: string;
 };
 
-/** Query for `GET /admin/transactions` and `GET /admin/transactions/wallet` (common params; not all documented in OpenAPI). */
+/** Query for `GET /admin/transactions` (OpenAPI `tab`, `limit`, `dateFrom`, `dateTo`). */
 export type AdminTransactionListQuery = {
   page?: number;
   pageSize?: number;
   search?: string;
   status?: string;
-  channel?: string;
-  type?: string;
-  fromDate?: string;
-  toDate?: string;
+  /** Channel tab: all, utility, crypto, gift-card, esim, e-trade, deposit, withdrawal */
+  tab?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export type AdminProviderListQuery = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  category?: string;
+};
+
+export type AdminProviderListRow = {
+  id: string;
+  name: string;
+  category: string;
+  dateAdded: string;
+  lastUpdated: string;
+  noOfProducts: number;
+  status: "Active" | "Inactive";
+};
+
+export type AdminProviderListResult = {
+  items: AdminProviderListRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type AdminProviderDetail = {
+  id: string;
+  providerId: string;
+  providerName: string;
+  email: string;
+  category: string;
+  dateOnboarded: string;
+  lastUpdated: string;
+  status: "Active" | "Inactive";
+};
+
+export type AdminProviderProductRow = {
+  id: string;
+  slug: string;
+  productName: string;
+  productCategory: string;
+  commissionType: "Percentage" | "% capped @" | "Flat" | "None";
+  commissionRate: string;
+  cap: string;
+  status: boolean;
+};
+
+/** `GET /admin/providers/{providerId}` — provider header + product list. */
+export type AdminProviderDetailResult = {
+  provider: AdminProviderDetail;
+  products: AdminProviderProductRow[];
+  totalProducts: number;
 };
 
 /** Normalized row for global transactions list UI. */
@@ -217,6 +289,16 @@ export type AdminTransactionListResult = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+/** Body for `POST /admin/transactions/gift-cards/submissions/{id}/decline`. */
+export type AdminGiftcardDeclineBody = {
+  reason: string;
+};
+
+/** Normalized decrypted e-code from `POST .../e-code`. */
+export type AdminGiftcardECodeResult = {
+  code: string;
 };
 
 /** Normalized metrics for `GET /admin/transactions/summary`. */

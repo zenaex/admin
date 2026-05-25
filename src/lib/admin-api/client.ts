@@ -82,9 +82,17 @@ export async function adminRequest<T>(
   path: string,
   init: AdminRequestOptions = {},
 ): Promise<T> {
-  const { auth = true, _retry = false, headers: initHeaders, ...rest } = init;
+  const {
+    auth = true,
+    _retry = false,
+    headers: initHeaders,
+    method: initMethod,
+    body,
+    signal,
+    cache,
+  } = init;
   const headers = new Headers(initHeaders);
-  if (!headers.has("Content-Type") && rest.body && !(rest.body instanceof FormData)) {
+  if (!headers.has("Content-Type") && body && !(body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -94,9 +102,16 @@ export async function adminRequest<T>(
   }
 
   const url = adminUrl(path);
-  const method = (rest.method ?? "GET").toString().toUpperCase();
-  const res = await fetch(url, { ...rest, headers, credentials: "omit" });
-  const body = await parseJsonSafe(res);
+  const method = (initMethod ?? "GET").toString().toUpperCase();
+  const res = await fetch(url, {
+    method,
+    body,
+    headers,
+    credentials: "omit",
+    cache: cache ?? "no-store",
+    signal,
+  });
+  const responseBody = await parseJsonSafe(res);
 
   if (res.status === 401 && auth && !_retry && !path.endsWith("/admin/auth/refresh")) {
     const refreshToken = getRefreshToken();
@@ -114,11 +129,11 @@ export async function adminRequest<T>(
   }
 
   if (!res.ok) {
-    logAdminApiFailure(method, url, res.status, body);
-    throw new AdminApiError(messageFromBody(body), res.status, body, url, method);
+    logAdminApiFailure(method, url, res.status, responseBody);
+    throw new AdminApiError(messageFromBody(responseBody), res.status, responseBody, url, method);
   }
 
-  return body as T;
+  return responseBody as T;
 }
 
 async function refreshTokens(refreshToken: string): Promise<AdminTokenPair> {
