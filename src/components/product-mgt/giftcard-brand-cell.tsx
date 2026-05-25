@@ -1,4 +1,5 @@
 "use client";
+// Displays the brand logo icon alongside its name and origin country
 
 import Image from "next/image";
 import { getGiftcardBrandIcon } from "@/components/product-mgt/exchange-rate-fixtures";
