@@ -37,6 +37,30 @@ export type ExchangeRateRow = {
   dateUpdated: string;
 };
 
+export type GiftcardStatus = "Active" | "Inactive";
+
+export type GiftcardDenomination = {
+  id: string;
+  label: string;
+  vendorRate: string;
+  finalRate: string;
+  dateUpdated: string;
+  status: GiftcardStatus;
+};
+
+export type GiftcardBrand = {
+  id: string;
+  brandName: string;
+  brandType: "E-code" | "Physical";
+  country: string;
+  countryCode: string;
+  commissionType: string;
+  ourCommission: string;
+  rmbRate: string;
+  iconUrl?: string;
+  denominations: GiftcardDenomination[];
+};
+
 export type ProductMgtStats = {
   totalProducts: string;
   activeProducts: string;
