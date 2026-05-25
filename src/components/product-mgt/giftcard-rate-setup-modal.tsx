@@ -5,6 +5,7 @@ import { CloseCircle } from "iconsax-react";
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import type { MarkupType } from "@/lib/product-mgt/rate-preview";
 
+/** Form values structure for configuring giftcard brand and denomination rates */
 export type GiftcardRateFormValues = {
   brandId: string;
   rmbRate: string;
