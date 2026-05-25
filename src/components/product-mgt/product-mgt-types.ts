@@ -1,3 +1,4 @@
+// Shared type definitions for the product management features
 export type ProductTab = "All" | "Utility" | "Crypto" | "Giftcard" | "E-sim";
 export type ProductStatus = "Active" | "Inactive";
 
