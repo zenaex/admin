@@ -1,6 +1,7 @@
 import type {
   ExchangeRateRow,
   ExchangeRateSubTab,
+  GiftcardBrand,
   SwapPairMeta,
 } from "@/components/product-mgt/product-mgt-types";
 
@@ -254,3 +255,197 @@ export function getExchangeRateRows(subTab: ExchangeRateSubTab): ExchangeRateRow
       return FIAT_ROWS;
   }
 }
+
+/* ── Giftcard brand icons (CDN) ── */
+const GIFTCARD_BRAND_ICONS: Record<string, string> = {
+  Apple: "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/giftcard-email-melted-select-2021?wid=600&hei=600&fmt=png-alpha&.v=cmFiSThEbmZYZWVpRG00T0ExbSszU3A4MlMxaGc1aS9hTndmYXZ0SnpULy9uYUsvSnlTVzV4bm9DUDN2emtpOHV5NVU0QmM2b3hmeWJWTTVtN1o5ZnVpSkJSbnVKUTBZd083SHpOZElaVmwrYWpGdS9XeFgvbS9ITnNYOEhYaG4",
+  Amazon: "https://icon2.cleanpng.com/lnd/20241213/pz/74d97a469873774f841633779c982d.webp",
+  "Google Play": "https://cdn-icons-png.flaticon.com/128/888/888857.png",
+  Steam: "https://cdn-icons-png.flaticon.com/128/3670/3670382.png",
+  Razer: "https://cdn-icons-png.flaticon.com/128/5969/5969184.png",
+};
+
+export function getGiftcardBrandIcon(brandName: string): string | undefined {
+  const key = Object.keys(GIFTCARD_BRAND_ICONS).find((k) =>
+    brandName.toLowerCase().startsWith(k.toLowerCase()),
+  );
+  return key ? GIFTCARD_BRAND_ICONS[key] : undefined;
+}
+
+/* ── Giftcard brands (hierarchical fixture data) ── */
+const GIFTCARD_BRANDS: GiftcardBrand[] = [
+  {
+    id: "gc-apple-ecode",
+    brandName: "Apple",
+    brandType: "E-code",
+    country: "United State",
+    countryCode: "US",
+    commissionType: "Flat",
+    ourCommission: "₦50 FLAT",
+    rmbRate: "¥203.50",
+    iconUrl: GIFTCARD_BRAND_ICONS.Apple,
+    denominations: [
+      {
+        id: "gc-apple-ecode-20-49",
+        label: "Apple Ecode | $20 - $49",
+        vendorRate: "$5.18",
+        finalRate: "$1/₦1200",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+      {
+        id: "gc-apple-ecode-50",
+        label: "Amazon Ecode | $50",
+        vendorRate: "Percentage",
+        finalRate: "$1/₦1200",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+      {
+        id: "gc-apple-ecode-100-200",
+        label: "Amazon Ecode | $100/200",
+        vendorRate: "% capped @",
+        finalRate: "$1/₦1200",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+      {
+        id: "gc-apple-ecode-150-450",
+        label: "Amazon Ecode | $150/250/350/450",
+        vendorRate: "Flat",
+        finalRate: "$1/₦1200",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+      {
+        id: "gc-apple-ecode-300-450",
+        label: "Amazon Ecode | $300/250/350/450",
+        vendorRate: "¥6.30",
+        finalRate: "$1/₦1200",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+    ],
+  },
+  {
+    id: "gc-amazon-physical",
+    brandName: "Amazon",
+    brandType: "Physical",
+    country: "United State",
+    countryCode: "US",
+    commissionType: "Flat",
+    ourCommission: "₦50 FLAT",
+    rmbRate: "$1/ ₦1350",
+    iconUrl: GIFTCARD_BRAND_ICONS.Amazon,
+    denominations: [
+      {
+        id: "gc-amazon-phys-25",
+        label: "Amazon Physical | $25",
+        vendorRate: "$4.20",
+        finalRate: "$1/₦1350",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+      {
+        id: "gc-amazon-phys-50",
+        label: "Amazon Physical | $50",
+        vendorRate: "Flat",
+        finalRate: "$1/₦1350",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+      {
+        id: "gc-amazon-phys-100",
+        label: "Amazon Physical | $100",
+        vendorRate: "Percentage",
+        finalRate: "$1/₦1350",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+    ],
+  },
+  {
+    id: "gc-apple-physical",
+    brandName: "Apple",
+    brandType: "Physical",
+    country: "United State",
+    countryCode: "US",
+    commissionType: "Flat",
+    ourCommission: "₦50 FLAT",
+    rmbRate: "$1/ ₦1350",
+    iconUrl: GIFTCARD_BRAND_ICONS.Apple,
+    denominations: [
+      {
+        id: "gc-apple-phys-25",
+        label: "Apple Physical | $25",
+        vendorRate: "$3.80",
+        finalRate: "$1/₦1350",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+      {
+        id: "gc-apple-phys-50",
+        label: "Apple Physical | $50",
+        vendorRate: "Flat",
+        finalRate: "$1/₦1350",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+    ],
+  },
+  {
+    id: "gc-google-physical",
+    brandName: "Google Play",
+    brandType: "Physical",
+    country: "United State",
+    countryCode: "US",
+    commissionType: "Flat",
+    ourCommission: "₦50 FLAT",
+    rmbRate: "$1/ ₦1350",
+    iconUrl: GIFTCARD_BRAND_ICONS["Google Play"],
+    denominations: [
+      {
+        id: "gc-google-phys-25",
+        label: "Google Play Physical | $25",
+        vendorRate: "$4.00",
+        finalRate: "$1/₦1350",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+      {
+        id: "gc-google-phys-50",
+        label: "Google Play Physical | $50",
+        vendorRate: "Flat",
+        finalRate: "$1/₦1350",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+    ],
+  },
+  {
+    id: "gc-amazon-physical-2",
+    brandName: "Amazon",
+    brandType: "Physical",
+    country: "United State",
+    countryCode: "US",
+    commissionType: "Flat",
+    ourCommission: "₦50 FLAT",
+    rmbRate: "$1/ ₦1350",
+    iconUrl: GIFTCARD_BRAND_ICONS.Amazon,
+    denominations: [
+      {
+        id: "gc-amazon-phys2-25",
+        label: "Amazon Physical | $25",
+        vendorRate: "$4.50",
+        finalRate: "$1/₦1350",
+        dateUpdated: DATE_SAMPLE,
+        status: "Active",
+      },
+    ],
+  },
+];
+
+export function getGiftcardBrands(): GiftcardBrand[] {
+  return GIFTCARD_BRANDS;
+}
+

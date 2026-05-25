@@ -1,3 +1,4 @@
+// Shared type definitions for the product management features
 export type ProductTab = "All" | "Utility" | "Crypto" | "Giftcard" | "E-sim";
 export type ProductStatus = "Active" | "Inactive";
 
@@ -35,6 +36,30 @@ export type ExchangeRateRow = {
   baseRate: string;
   finalRate: string;
   dateUpdated: string;
+};
+
+export type GiftcardStatus = "Active" | "Inactive";
+
+export type GiftcardDenomination = {
+  id: string;
+  label: string;
+  vendorRate: string;
+  finalRate: string;
+  dateUpdated: string;
+  status: GiftcardStatus;
+};
+
+export type GiftcardBrand = {
+  id: string;
+  brandName: string;
+  brandType: "E-code" | "Physical";
+  country: string;
+  countryCode: string;
+  commissionType: string;
+  ourCommission: string;
+  rmbRate: string;
+  iconUrl?: string;
+  denominations: GiftcardDenomination[];
 };
 
 export type ProductMgtStats = {
