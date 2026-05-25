@@ -42,6 +42,7 @@ export function GiftcardRateConfirmSummary({ form, brand }: GiftcardRateConfirmS
   ) => {
     const commNum = parseFloat(commissionRate) || 0;
     let finalNgn = 1200;
+    // Calculate exchange rate in Naira using the custom commission rules
     if (commissionType === "Percentage") {
       const baseNgn = 1500;
       finalNgn = baseNgn * (1 - commNum / 100);
