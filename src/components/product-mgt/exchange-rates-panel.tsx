@@ -15,6 +15,7 @@ import { SwapCryptoRateUpdateFlow } from "@/components/product-mgt/swap-crypto-r
 import { SwapPairCell } from "@/components/product-mgt/swap-pair-cell";
 import { ExchangeRatesSwapToolbarActions } from "@/components/product-mgt/exchange-rates-toolbar-actions";
 import { EXCHANGE_RATE_SUB_TABS } from "@/components/product-mgt/exchange-rate-fixtures";
+// Render the new Giftcard tab panel alongside other currency types
 import { GiftcardRatesPanel } from "@/components/product-mgt/giftcard-rates-panel";
 import type { ExchangeRateRow, ExchangeRateSubTab } from "@/components/product-mgt/product-mgt-types";
 import {
