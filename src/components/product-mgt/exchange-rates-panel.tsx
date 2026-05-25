@@ -15,6 +15,7 @@ import { SwapCryptoRateUpdateFlow } from "@/components/product-mgt/swap-crypto-r
 import { SwapPairCell } from "@/components/product-mgt/swap-pair-cell";
 import { ExchangeRatesSwapToolbarActions } from "@/components/product-mgt/exchange-rates-toolbar-actions";
 import { EXCHANGE_RATE_SUB_TABS } from "@/components/product-mgt/exchange-rate-fixtures";
+import { GiftcardRatesPanel } from "@/components/product-mgt/giftcard-rates-panel";
 import type { ExchangeRateRow, ExchangeRateSubTab } from "@/components/product-mgt/product-mgt-types";
 import {
   TableFilterApplyClear,
@@ -182,224 +183,230 @@ export function ExchangeRatesPanel() {
         />
       </div>
 
-      {filterMode ? (
-        <TableFilterModeBar
-          barClassName="!mt-4"
-          filterBarRef={filterBarRef}
-          filterScrollRef={filterScrollRef}
-          showBackdrop={Boolean(openFilter)}
-          onBackdropClick={() => setOpenFilter(null)}
-          onPillsScroll={() => {
-            if (openFilter) syncDropdownLeft(openFilter);
-          }}
-          pills={
-            <TableFilterPill
-              label={filterTypeLabel}
-              summary={draftType}
-              pillRef={registerPillRef("type")}
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "type" ? null : "type";
-                  syncDropdownLeft(next);
-                  return next;
-                })
+      {subTab === "giftcard" ? (
+        <GiftcardRatesPanel />
+      ) : (
+        <>
+          {filterMode ? (
+            <TableFilterModeBar
+              barClassName="!mt-4"
+              filterBarRef={filterBarRef}
+              filterScrollRef={filterScrollRef}
+              showBackdrop={Boolean(openFilter)}
+              onBackdropClick={() => setOpenFilter(null)}
+              onPillsScroll={() => {
+                if (openFilter) syncDropdownLeft(openFilter);
+              }}
+              pills={
+                <TableFilterPill
+                  label={filterTypeLabel}
+                  summary={draftType}
+                  pillRef={registerPillRef("type")}
+                  onClick={() =>
+                    setOpenFilter((v) => {
+                      const next = v === "type" ? null : "type";
+                      syncDropdownLeft(next);
+                      return next;
+                    })
+                  }
+                />
               }
-            />
-          }
-          dropdownLayer={
-            openFilter === "type" ? (
-              <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
-                <TableFilterPanelTitle />
-                <TableFilterOptionsList
-                  options={[...TYPE_FILTER_OPTIONS]}
-                  onSelect={(opt) => {
-                    setDraftType(opt);
+              dropdownLayer={
+                openFilter === "type" ? (
+                  <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
+                    <TableFilterPanelTitle />
+                    <TableFilterOptionsList
+                      options={[...TYPE_FILTER_OPTIONS]}
+                      onSelect={(opt) => {
+                        setDraftType(opt);
+                        setOpenFilter(null);
+                      }}
+                    />
+                  </TableFilterDropdownCard>
+                ) : null
+              }
+              actions={
+                <TableFilterApplyClear
+                  onApply={() => {
+                    setAppliedType(draftType === "All types" ? null : draftType);
                     setOpenFilter(null);
+                    setPage(1);
+                  }}
+                  onClear={() => {
+                    setSearch("");
+                    setAppliedType(null);
+                    setDraftType("All types");
+                    setOpenFilter(null);
+                    setFilterMode(false);
+                    setPage(1);
                   }}
                 />
-              </TableFilterDropdownCard>
-            ) : null
-          }
-          actions={
-            <TableFilterApplyClear
-              onApply={() => {
-                setAppliedType(draftType === "All types" ? null : draftType);
-                setOpenFilter(null);
-                setPage(1);
-              }}
-              onClear={() => {
-                setSearch("");
-                setAppliedType(null);
-                setDraftType("All types");
-                setOpenFilter(null);
-                setFilterMode(false);
-                setPage(1);
-              }}
+              }
             />
-          }
-        />
-      ) : (
-        <div className="mt-4 flex h-14 flex-wrap items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-          <span className="shrink-0 text-[15px] font-semibold text-primary-text">
-            {sectionMeta.sectionTitle} ({totalItems.toLocaleString()})
-          </span>
-          <div className="ml-0 w-full min-w-[200px] max-w-[320px] sm:ml-4 sm:w-[280px]">
-            <AuditTrailIconSearch
-              variant="toolbar"
-              placeholder="Search by name or ID"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
-              aria-label="Filter"
-              onClick={() => setFilterMode(true)}
-            >
-              <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-            </button>
-            <TableExportMenu
-              disabled={loading || filtered.length === 0}
-              onExportCsv={() => runExport("csv")}
-              onExportPdf={() => runExport("pdf")}
-              onExportJson={() => runExport("json")}
-            />
-            {isSwapCrypto && (
-              <ExchangeRatesSwapToolbarActions
-                onCreatePair={() => router.push("/dashboard/product-mgt/swap-pair/create")}
-                onAddRateSheet={() => undefined}
-              />
-            )}
-          </div>
-        </div>
-      )}
+          ) : (
+            <div className="mt-4 flex h-14 flex-wrap items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
+              <span className="shrink-0 text-[15px] font-semibold text-primary-text">
+                {sectionMeta.sectionTitle} ({totalItems.toLocaleString()})
+              </span>
+              <div className="ml-0 w-full min-w-[200px] max-w-[320px] sm:ml-4 sm:w-[280px]">
+                <AuditTrailIconSearch
+                  variant="toolbar"
+                  placeholder="Search by name or ID"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
+                  aria-label="Filter"
+                  onClick={() => setFilterMode(true)}
+                >
+                  <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+                </button>
+                <TableExportMenu
+                  disabled={loading || filtered.length === 0}
+                  onExportCsv={() => runExport("csv")}
+                  onExportPdf={() => runExport("pdf")}
+                  onExportJson={() => runExport("json")}
+                />
+                {isSwapCrypto && (
+                  <ExchangeRatesSwapToolbarActions
+                    onCreatePair={() => router.push("/dashboard/product-mgt/swap-pair/create")}
+                    onAddRateSheet={() => undefined}
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
-      <div className="mt-4 overflow-x-auto rounded-[8px]">
-        <table className="w-full border-collapse bg-white text-left text-sm">
-          <thead>
-            <tr className="bg-outline text-xs text-zinc-400">
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Currency</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">{typeColumnLabel}</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">
-                {commissionColumnLabel}
-              </th>
-              {!isCompactTable && (
-                <>
-                  <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Base Rate</th>
-                  <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Final Rate</th>
-                </>
-              )}
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Updated</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={columnCount} className="px-4 py-8 text-center text-zinc-500">
-                  Loading…
-                </td>
-              </tr>
-            ) : paginated.length === 0 ? (
-              <tr>
-                <td colSpan={columnCount} className="px-4 py-8 text-center text-zinc-500">
-                  No rates found.
-                </td>
-              </tr>
-            ) : (
-              paginated.map((row) => (
-                <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
-                  <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                    {isSwapCrypto && row.swapPair ? (
-                      <SwapPairCell pair={row.swapPair} />
-                    ) : isSellCrypto ? (
-                      <CryptoCurrencyCell
-                        currencyCode={row.currencyCode}
-                        currencyName={row.currencyName}
-                      />
-                    ) : (
-                      <CurrencyCell
-                        currencyCode={row.currencyCode}
-                        currencyName={row.currencyName}
-                        countryCode={row.countryCode}
-                      />
-                    )}
-                  </td>
-                  <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                    {displayDash(row.commissionType)}
-                  </td>
-                  <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                    {displayDash(row.ourCommission)}
-                  </td>
+          <div className="mt-4 overflow-x-auto rounded-[8px]">
+            <table className="w-full border-collapse bg-white text-left text-sm">
+              <thead>
+                <tr className="bg-outline text-xs text-zinc-400">
+                  <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Currency</th>
+                  <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">{typeColumnLabel}</th>
+                  <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">
+                    {commissionColumnLabel}
+                  </th>
                   {!isCompactTable && (
                     <>
-                      <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                        {displayDash(row.baseRate)}
-                      </td>
-                      <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                        {displayDash(row.finalRate)}
-                      </td>
+                      <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Base Rate</th>
+                      <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Final Rate</th>
                     </>
                   )}
-                  <td className="h-16 whitespace-nowrap border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                    {row.dateUpdated}
-                  </td>
-                  <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                    <button
-                      type="button"
-                      className="text-zinc-400 transition-colors hover:text-zinc-600"
-                      aria-label={`Settings for ${row.currencyCode}`}
-                      onClick={() => setEditRow(row)}
-                    >
-                      <Setting2 size={20} variant="Outline" color="currentColor" />
-                    </button>
-                  </td>
+                  <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Updated</th>
+                  <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={columnCount} className="px-4 py-8 text-center text-zinc-500">
+                      Loading…
+                    </td>
+                  </tr>
+                ) : paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={columnCount} className="px-4 py-8 text-center text-zinc-500">
+                      No rates found.
+                    </td>
+                  </tr>
+                ) : (
+                  paginated.map((row) => (
+                    <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
+                      <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+                        {isSwapCrypto && row.swapPair ? (
+                          <SwapPairCell pair={row.swapPair} />
+                        ) : isSellCrypto ? (
+                          <CryptoCurrencyCell
+                            currencyCode={row.currencyCode}
+                            currencyName={row.currencyName}
+                          />
+                        ) : (
+                          <CurrencyCell
+                            currencyCode={row.currencyCode}
+                            currencyName={row.currencyName}
+                            countryCode={row.countryCode}
+                          />
+                        )}
+                      </td>
+                      <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
+                        {displayDash(row.commissionType)}
+                      </td>
+                      <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
+                        {displayDash(row.ourCommission)}
+                      </td>
+                      {!isCompactTable && (
+                        <>
+                          <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
+                            {displayDash(row.baseRate)}
+                          </td>
+                          <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
+                            {displayDash(row.finalRate)}
+                          </td>
+                        </>
+                      )}
+                      <td className="h-16 whitespace-nowrap border-b border-outline px-4 py-0 align-middle text-zinc-500">
+                        {row.dateUpdated}
+                      </td>
+                      <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+                        <button
+                          type="button"
+                          className="text-zinc-400 transition-colors hover:text-zinc-600"
+                          aria-label={`Settings for ${row.currencyCode}`}
+                          onClick={() => setEditRow(row)}
+                        >
+                          <Setting2 size={20} variant="Outline" color="currentColor" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      <AuditTrailPagination
-        page={safePage}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={(p) => setPage(p)}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-        }}
-      />
+          <AuditTrailPagination
+            page={safePage}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            onPageChange={(p) => setPage(p)}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
 
-      {isSellCrypto && (
-        <SellCryptoRateUpdateFlow
-          row={editRow}
-          onClose={() => setEditRow(null)}
-          onApplied={(updated) => {
-            setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-          }}
-        />
-      )}
-      {isSwapCrypto && (
-        <SwapCryptoRateUpdateFlow
-          row={editRow}
-          onClose={() => setEditRow(null)}
-          onApplied={(updated) => {
-            setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-          }}
-        />
-      )}
-      {!isSellCrypto && !isSwapCrypto && (
-        <FiatRateUpdateFlow
-          row={editRow}
-          onClose={() => setEditRow(null)}
-          onApplied={(updated) => {
-            setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-          }}
-        />
+          {isSellCrypto && (
+            <SellCryptoRateUpdateFlow
+              row={editRow}
+              onClose={() => setEditRow(null)}
+              onApplied={(updated) => {
+                setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+              }}
+            />
+          )}
+          {isSwapCrypto && (
+            <SwapCryptoRateUpdateFlow
+              row={editRow}
+              onClose={() => setEditRow(null)}
+              onApplied={(updated) => {
+                setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+              }}
+            />
+          )}
+          {!isSellCrypto && !isSwapCrypto && (
+            <FiatRateUpdateFlow
+              row={editRow}
+              onClose={() => setEditRow(null)}
+              onApplied={(updated) => {
+                setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+              }}
+            />
+          )}
+        </>
       )}
     </>
   );
