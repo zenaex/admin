@@ -8,6 +8,7 @@ import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import { formatUpdatedDate } from "@/lib/product-mgt/rate-preview";
 import type { MarkupType } from "@/lib/product-mgt/rate-preview";
 
+/** Steps of the rate update flow modal container */
 type FlowStep = "setup" | "confirm" | "success";
 
 type GiftcardRateUpdateFlowProps = {
