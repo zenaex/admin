@@ -1,4 +1,5 @@
 "use client";
+// Renders the Giftcard Rate subtab interface with expandable hierarchical brands table
 
 import { Fragment, useMemo, useState } from "react";
 import { Add, ArrowDown2, Setting2 } from "iconsax-react";
