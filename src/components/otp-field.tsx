@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, KeyboardEvent, useRef } from "react";
+import { ChangeEvent, ClipboardEvent, KeyboardEvent, useRef } from "react";
 
 type OtpFieldProps = {
   length?: number;
@@ -35,6 +35,23 @@ export function OtpField({ length = 6, value, onChange }: OtpFieldProps) {
     }
   };
 
+  const handlePaste = (event: ClipboardEvent<HTMLInputElement>, startIndex: number) => {
+    event.preventDefault();
+    const pastedText = event.clipboardData.getData("text");
+    const cleanedDigits = pastedText.replace(/\D/g, "");
+    if (!cleanedDigits) return;
+
+    const nextDigits = [...digits];
+    for (let i = 0; i < cleanedDigits.length && startIndex + i < length; i++) {
+      nextDigits[startIndex + i] = cleanedDigits[i];
+    }
+    const nextValue = nextDigits.join("");
+    onChange(nextValue);
+
+    const targetIndex = Math.min(startIndex + cleanedDigits.length, length - 1);
+    focusInput(targetIndex);
+  };
+
   return (
     <div className="flex items-center justify-center gap-[16px]">
       {digits.map((digit, index) => (
@@ -50,9 +67,11 @@ export function OtpField({ length = 6, value, onChange }: OtpFieldProps) {
           value={digit}
           onChange={(event) => handleChange(index, event)}
           onKeyDown={(event) => handleKeyDown(index, event)}
+          onPaste={(event) => handlePaste(event, index)}
           className="h-[56px] w-[56px] rounded-md border border-zinc-300 bg-white text-center text-sm text-primary-text outline-none focus:border-secondary-green"
         />
       ))}
     </div>
   );
 }
+
