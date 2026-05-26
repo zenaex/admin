@@ -14,6 +14,8 @@ import {
   getAdminCustomerTransactions,
   getAdminCustomerWallets,
   pickCustomerPasswordStatus,
+  pickCustomerPinStatus,
+  pickCustomerSecurityQuestionStatus,
 } from "@/lib/admin-api/customers-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import {
@@ -453,11 +455,11 @@ function CustomerDetailsTab({
   const displayId = pickStr(p, ["accountId", "id", "uuid"]) || accountId;
 
   const password = pickCustomerPasswordStatus(p);
-  const pin = boolToSet(p.transactionPinSet ?? p.pinSet ?? p.hasTransactionPin);
+  const pin = pickCustomerPinStatus(p);
   const kycLevel = pickStr(p, ["kycLevel", "kyc_level", "kycTier"]) || "—";
   const acctStatus = pickStr(p, ["accountStatus", "account_status", "status"]) || "—";
   const lastTx = pickStr(p, ["lastTransactionAt", "dateTransactedLast", "last_activity_at"]) || "—";
-  const secQ = boolToSet(p.securityQuestionSet ?? p.hasSecurityQuestion);
+  const secQ = pickCustomerSecurityQuestionStatus(p);
 
   return (
     <>

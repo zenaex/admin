@@ -283,6 +283,41 @@ export function pickCustomerPasswordStatus(profile: Record<string, unknown>): "S
   return passwordStatusToSet(raw);
 }
 
+export function pickCustomerPinStatus(profile: Record<string, unknown>): "Set" | "Not Set" {
+  const raw =
+    profile.transactionPinStatus ??
+    profile.transaction_pin_status ??
+    profile.transactionPinSet ??
+    profile.transaction_pin_set ??
+    profile.pinSet ??
+    profile.pin_set ??
+    profile.isPinSet ??
+    profile.is_pin_set ??
+    profile.hasTransactionPin ??
+    profile.has_transaction_pin ??
+    profile.transactionPin ??
+    profile.transaction_pin ??
+    profile.hasPin ??
+    profile.has_pin ??
+    profile.isPinConfigured ??
+    profile.pinStatus ??
+    profile.pin_status;
+  return passwordStatusToSet(raw);
+}
+
+export function pickCustomerSecurityQuestionStatus(profile: Record<string, unknown>): "Set" | "Not Set" {
+  const raw =
+    profile.securityQuestionStatus ??
+    profile.security_question_status ??
+    profile.securityQuestionSet ??
+    profile.security_question_set ??
+    profile.hasSecurityQuestion ??
+    profile.has_security_question ??
+    profile.securityQuestion ??
+    profile.security_question;
+  return passwordStatusToSet(raw);
+}
+
 export async function getAdminCustomerKyc(accountId: string): Promise<unknown> {
   return adminRequest<unknown>(`/admin/customers/${encodeURIComponent(accountId)}/kyc`, { method: "GET" });
 }
