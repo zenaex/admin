@@ -36,6 +36,7 @@ import {
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 /* ── Tab config ── */
 type AdminTab = "Team" | "Roles & Permission" | "Pending Invites" | "Password resets";
@@ -1044,12 +1045,7 @@ function PasswordResetsTab() {
 
   if (loadError) {
     return (
-      <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-        {loadError}{" "}
-        <button type="button" className="font-semibold underline" onClick={() => void load()}>
-          Retry
-        </button>
-      </div>
+      <ErrorAlert error={loadError} onRetry={() => void load()} className="mt-6" />
     );
   }
 

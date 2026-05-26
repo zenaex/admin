@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin-api/settings-policy-map";
 import { getAdminSettingsPasswordPolicy, patchPasswordPolicyFromUiState } from "@/lib/admin-api/settings-api";
 import { AdminApiError } from "@/lib/admin-api/client";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -332,12 +333,7 @@ export function SettingsPasswordPolicyTab() {
   return (
     <div>
       {loadError ? (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
-          {loadError}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => void load()}>
-            Retry
-          </button>
-        </div>
+        <ErrorAlert error={loadError} onRetry={() => void load()} className="mb-4" />
       ) : null}
 
       {saveError ? (

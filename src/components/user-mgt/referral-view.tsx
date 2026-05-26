@@ -29,6 +29,7 @@ import type { AdminReferralConfigBody, AdminReferralListRow } from "@/lib/admin-
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 const REFERRAL_EXPORT_COLUMNS: ExportColumn<AdminReferralListRow>[] = [
   { header: "Account ID", value: (r) => r.accountId },
@@ -527,14 +528,7 @@ export function ReferralView() {
         </div>
       )}
 
-      {listError ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          {listError}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => void loadList()}>
-            Retry
-          </button>
-        </p>
-      ) : null}
+      <ErrorAlert error={listError} onRetry={() => void loadList()} />
 
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">

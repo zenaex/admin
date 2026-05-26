@@ -28,6 +28,7 @@ import {
   canSuspendOrReactivateCustomer,
 } from "@/lib/auth/jwt";
 import { getAccessToken } from "@/lib/auth/token-storage";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 type CustomerDetailTab = "Customer Details" | "Transaction History" | "KYC Details" | "Wallet" | "Audit Log";
 const TABS: CustomerDetailTab[] = ["Customer Details", "Transaction History", "KYC Details", "Wallet", "Audit Log"];
@@ -291,14 +292,7 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
         </div>
       ) : null}
 
-      {profileError ? (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-          {profileError}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => void loadProfile()}>
-            Retry
-          </button>
-        </div>
-      ) : null}
+      <ErrorAlert error={profileError} onRetry={() => void loadProfile()} className="mb-4" />
 
       <UnderlineTabs
         tabs={TABS.map((t) => ({ id: t, label: t }))}
@@ -634,14 +628,7 @@ function TransactionHistoryTab({
         </div>
       </div>
 
-      {error ? (
-        <p className="mt-4 text-sm text-red-700" role="alert">
-          {error}{" "}
-          <button type="button" className="underline" onClick={() => void load()}>
-            Retry
-          </button>
-        </p>
-      ) : null}
+      <ErrorAlert error={error} onRetry={() => void load()} />
 
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">

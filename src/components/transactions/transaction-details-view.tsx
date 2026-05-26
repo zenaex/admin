@@ -28,6 +28,7 @@ import type {
   TransactionDetailModel,
   UtilityDetailVariant,
 } from "@/components/transactions/transaction-detail-model";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 /* Tab config */
 type DetailTab = "Transaction Details" | "Transaction Log";
@@ -228,15 +229,12 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
       {loading ? (
         <p className="text-sm text-zinc-500">Loading transaction?</p>
       ) : error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          {error}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => void loadDetail()}>
-            Retry
-          </button>{" "}
+        <ErrorAlert error={error} onRetry={() => void loadDetail()} className="">
+          {" "}
           <Link href="/dashboard/transactions" className="font-semibold underline">
             Back to list
           </Link>
-        </div>
+        </ErrorAlert>
       ) : tx ? (
         <>
       {tx.hasMappedStatus ? (
