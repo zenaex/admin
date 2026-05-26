@@ -107,6 +107,10 @@ export type TransactionDetailModel = {
   deviceId: string;
   location: string;
   locationCoordinate: string;
+  categorySlug?: string;
+  displayCategory?: string;
+  productSlug?: string;
+  charge?: string;
 };
 
 export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
@@ -184,4 +188,8 @@ export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
   deviceId: "",
   location: "",
   locationCoordinate: "",
+  categorySlug: "",
+  displayCategory: "",
+  productSlug: "",
+  charge: "",
 };

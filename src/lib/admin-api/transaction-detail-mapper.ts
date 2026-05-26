@@ -325,6 +325,14 @@ export function mapApiDetailToTransactionModel(
   const giftcardStatus = mapGiftcardApproval(statusRaw);
   const hasMappedStatus = outcome !== null;
   const routing = detectChannel(o);
+  const categorySlug = pickString(o, ["categorySlug", "category_slug", "category"]) || "";
+  const displayCategory = pickString(o, ["displayCategory", "display_category", "type"]) || "";
+  const productSlug = pickString(o, ["productSlug", "product_slug"]) || "";
+  const chargeNum = pickNum(o, ["charge", "transactionCharge", "transaction_charge"]);
+  const chargeRaw = pickString(o, ["charge", "transactionCharge", "transaction_charge"]) || (chargeNum !== undefined ? String(chargeNum) : "");
+  const charge = chargeRaw && !chargeRaw.startsWith("₦") && !chargeRaw.startsWith("$") && chargeNum !== undefined
+    ? `₦${chargeNum.toLocaleString()}`
+    : chargeRaw;
 
   const customerBlock = pickNestedRecord(o, [
     "customer",
@@ -535,6 +543,10 @@ export function mapApiDetailToTransactionModel(
     locationCoordinate:
       (deviceBlock ? pickString(deviceBlock, ["locationCoordinate", "coordinates", "geo"]) : "") ||
       pickString(o, ["locationCoordinate", "coordinates", "lat", "lng"]),
+    categorySlug,
+    displayCategory,
+    productSlug,
+    charge,
   };
 
   if (routing.depositDetailVariant === "utility_betting" || channelKey(readChannelRaw(o)).includes("bet")) {

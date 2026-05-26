@@ -352,20 +352,20 @@ function OutcomeStatusBanner({ outcome }: { outcome: EsimTransactionOutcome }) {
   if (outcome === "Failed") {
     return (
       <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-        <strong>Failed!</strong>
+        Failed
       </div>
     );
   }
   if (outcome === "Pending") {
     return (
       <div className="flex items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-600">
-        <strong>Pending!</strong>
+        Pending
       </div>
     );
   }
   return (
     <div className="flex items-center justify-center rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-[#166534]">
-      Approved!
+      {outcome}
     </div>
   );
 }
@@ -378,7 +378,7 @@ function StatusBanner(props: StatusBannerProps) {
   if (status === "Rejected") {
     return (
       <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-        Rejected!
+        Rejected
       </div>
     );
   }
@@ -389,7 +389,7 @@ function StatusBanner(props: StatusBannerProps) {
         isApproved ? "bg-green-50 text-[#166534]" : "border border-orange-200 bg-orange-50 text-orange-600"
       }`}
     >
-      {isApproved ? "Approved!" : "Pending Approval!"}
+      {isApproved ? "Successful" : "Pending Approval"}
     </div>
   );
 }
@@ -519,8 +519,8 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
           row: [
             <TransactionIdLink key="txid" id={tx.transactionId} />,
             tx.customerName,
-            channelLabel,
-            cryptoTypeLabel(variant),
+            tx.categorySlug || channelLabel,
+            tx.displayCategory || cryptoTypeLabel(variant),
             <CryptoCurrencyCell key="cur" value={tx.currency} />,
             tx.amountSent,
           ] as ReactNode[],
@@ -530,8 +530,8 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
           row: [
             <TransactionIdLink key="txid" id={tx.transactionId} />,
             tx.customerName,
-            channelLabel,
-            cryptoTypeLabel(variant),
+            tx.categorySlug || channelLabel,
+            tx.displayCategory || cryptoTypeLabel(variant),
             <CryptoCurrencyCell key="cur" value={tx.currency} />,
             tx.amountUsd,
           ] as ReactNode[],
@@ -545,7 +545,7 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
       dateCompletedCell,
       tx.rateGiven,
       tx.provider,
-      tx.ourFee,
+      tx.charge || tx.ourFee,
     ] as ReactNode[],
   };
 
@@ -650,9 +650,9 @@ function WithdrawalTransactionDetailsContent({ tx }: { tx: TransactionDetailMode
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
             tx.customerName,
-            "Withdrawal",
+            tx.categorySlug || "Withdrawal",
             tx.withdrawalAmount,
-            tx.withdrawalFee,
+            tx.charge || tx.withdrawalFee,
             tx.withdrawalBankName,
           ]}
         />
@@ -691,7 +691,7 @@ function EtradeTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
             tx.customerName,
-            "E-trade",
+            tx.categorySlug || "E-trade",
             tx.etradeSymbol,
             tx.etradeSide,
             tx.etradeQuantity,
@@ -702,7 +702,7 @@ function EtradeTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
           headers={["Amount (NGN)", "Fee", "Timestamp", "Balance After"]}
           row={[
             tx.etradeAmountNgn,
-            tx.etradeFee,
+            tx.charge || tx.etradeFee,
             <TimeStampCell key="ts" value={tx.etradeTimestamp} />,
             tx.etradeBalanceAfter,
           ]}
@@ -744,9 +744,9 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               row={[
                 <TransactionIdLink key="txid" id={tx.transactionId} />,
                 tx.customerName,
-                "Utility",
-                typeLabel,
-                tx.product,
+                tx.categorySlug || "Utility",
+                tx.displayCategory || typeLabel,
+                tx.productSlug || tx.product,
                 tx.amount,
               ]}
             />
@@ -755,7 +755,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               headers={["Timestamp", "Fee", "Provider", "Balance after"]}
               row={[
                 <TimeStampCell key="ts" value={timestamp} />,
-                tx.ourFee,
+                tx.charge || tx.ourFee,
                 tx.provider,
                 tx.balanceAfter,
               ]}
@@ -789,9 +789,9 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               row={[
                 <TransactionIdLink key="txid" id={tx.transactionId} />,
                 tx.customerName,
-                "Utility",
-                typeLabel,
-                tx.product,
+                tx.categorySlug || "Utility",
+                tx.displayCategory || typeLabel,
+                tx.productSlug || tx.product,
                 tx.amount,
               ]}
             />
@@ -801,7 +801,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               row={[
                 tx.plan,
                 <TimeStampCell key="ts" value={timestamp} />,
-                tx.ourFee,
+                tx.charge || tx.ourFee,
                 tx.cashback,
                 tx.provider,
                 tx.balanceAfter,
@@ -833,9 +833,9 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             row={[
               <TransactionIdLink key="txid" id={tx.transactionId} />,
               tx.customerName,
-              "Utility",
-              typeLabel,
-              tx.product,
+              tx.categorySlug || "Utility",
+              tx.displayCategory || typeLabel,
+              tx.productSlug || tx.product,
               tx.plan,
             ]}
           />
@@ -845,7 +845,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             row={[
               <TimeStampCell key="ts" value={timestamp} />,
               tx.amount,
-              tx.ourFee,
+              tx.charge || tx.ourFee,
               tx.provider,
               tx.balanceAfter,
             ]}
@@ -886,9 +886,9 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
             tx.customerName,
-            "Utility",
-            "Betting",
-            tx.product,
+            tx.categorySlug || "Utility",
+            tx.displayCategory || "Betting",
+            tx.productSlug || tx.product,
             tx.amount,
           ]}
         />
@@ -897,7 +897,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
           headers={["Timestamp", "Fee", "Provider", "Balance After"]}
           row={[
             <TimeStampCell key="ts" value={tx.datedInitiated} />,
-            tx.ourFee,
+            tx.charge || tx.ourFee,
             tx.provider,
             tx.balanceAfter,
           ]}
@@ -947,7 +947,8 @@ function TransactionDetailsTab({
           model={{
             sessionId: tx.sessionId,
             customerName: tx.customerName,
-            typeLabel: tx.giftcardType,
+            channel: tx.categorySlug || "Giftcard",
+            typeLabel: tx.displayCategory || tx.giftcardType,
             code: tx.code,
             country: tx.country,
             amount: tx.amount,
