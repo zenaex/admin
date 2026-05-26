@@ -146,7 +146,7 @@ export function GiftcardTransactionDetails({
           row={[
             <SessionIdLink key="tid" id={model.sessionId} />,
             model.customerName,
-            "Giftcard",
+            model.channel || "Giftcard",
             model.typeLabel,
             <CodeCell
               key="code"

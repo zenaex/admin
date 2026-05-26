@@ -7,6 +7,7 @@ import { InputField } from "@/components/input-field";
 import { getAdminSettingsProfile, patchAdminSettingsProfile } from "@/lib/admin-api/settings-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import type { AdminSettingsProfile } from "@/lib/admin-api/types";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 function displayName(p: AdminSettingsProfile): string {
   const fn = p.firstName?.trim() ?? "";
@@ -119,14 +120,7 @@ export function SettingsProfileTab() {
 
   if (loadError || !profile) {
     return (
-      <div className="rounded-xl border border-outline bg-white px-6 py-10">
-        <p className="text-sm text-red-700" role="alert">
-          {loadError ?? "Profile unavailable."}
-        </p>
-        <Button type="button" className="mt-4" onClick={() => void load()}>
-          Retry
-        </Button>
-      </div>
+      <ErrorAlert error={loadError ?? "Profile unavailable."} onRetry={() => void load()} />
     );
   }
 

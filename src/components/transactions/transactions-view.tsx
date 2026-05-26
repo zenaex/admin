@@ -32,6 +32,7 @@ import {
   exportTableWithApiFallback,
   exportViaTransactionsApi,
 } from "@/lib/export/export-handlers";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 const TX_EXPORT_COLUMNS: ExportColumn<AdminTransactionListRow>[] = [
   { header: "Reference", value: (r) => r.refNo },
@@ -433,14 +434,7 @@ export function TransactionsView() {
         />
       )}
 
-      {listError ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          {listError}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => void loadList()}>
-            Retry
-          </button>
-        </p>
-      ) : null}
+      <ErrorAlert error={listError} onRetry={() => void loadList()} />
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
         <table className="w-full border-collapse bg-white text-left text-sm whitespace-nowrap">

@@ -30,6 +30,7 @@ import {
   exportTableWithApiFallback,
   exportViaAuditApi,
 } from "@/lib/export/export-handlers";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 const AUDIT_EXPORT_COLUMNS: ExportColumn<AdminAuditTrailRow>[] = [
   { header: "Name", value: (r) => r.name },
@@ -190,14 +191,7 @@ export function AuditTrailView() {
         }}
       />
 
-      {listError ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          {listError}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => void loadSessions()}>
-            Retry
-          </button>
-        </p>
-      ) : null}
+      <ErrorAlert error={listError} onRetry={() => void loadSessions()} />
 
       {filterMode ? (
         <TableFilterModeBar

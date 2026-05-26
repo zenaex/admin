@@ -30,6 +30,7 @@ import type { AdminReferredUserRow } from "@/lib/admin-api/types";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 const REFERRED_EXPORT_COLUMNS: ExportColumn<AdminReferredUserRow>[] = [
   { header: "Name", value: (r) => r.name },
@@ -190,15 +191,12 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
 
   if (error && !detail) {
     return (
-      <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-        {error}{" "}
-        <button type="button" className="font-semibold underline" onClick={() => void loadDetail()}>
-          Retry
-        </button>{" "}
+      <ErrorAlert error={error} onRetry={() => void loadDetail()}>
+        {" "}
         <Link href="/dashboard/user-mgt/referral" className="font-semibold underline">
           Back to list
         </Link>
-      </p>
+      </ErrorAlert>
     );
   }
 

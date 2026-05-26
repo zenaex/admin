@@ -13,6 +13,7 @@ import type { AdminAuditActivityLogEntry, AdminAuditSubjectDetails } from "@/lib
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportTableWithApiFallback, exportViaAuditApi } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 const AUDIT_LOG_EXPORT_COLUMNS: ExportColumn<AdminAuditActivityLogEntry>[] = [
   { header: "Time", value: (l) => l.time },
@@ -141,15 +142,12 @@ export function AuditTrailDetailsView({ subjectId, subjectType }: AuditTrailDeta
       {loading ? (
         <p className="text-sm text-zinc-500">Loading audit details…</p>
       ) : error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          {error}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => void loadDetail()}>
-            Retry
-          </button>{" "}
+        <ErrorAlert error={error} onRetry={() => void loadDetail()} className="">
+          {" "}
           <Link href="/dashboard/audit-trail" className="font-semibold underline">
             Back to list
           </Link>
-        </p>
+        </ErrorAlert>
       ) : (
         <>
           <section>

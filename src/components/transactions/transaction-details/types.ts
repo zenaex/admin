@@ -14,6 +14,7 @@ export type GiftcardDetailModel = {
   balanceAfterGift: string;
   opsInCharge: string;
   provider: string;
+  channel?: string;
 };
 
 export type GiftcardDeviceModel = {

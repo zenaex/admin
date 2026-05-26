@@ -8,6 +8,7 @@ import { postPasswordResetApprove, postPasswordResetDecline } from "@/lib/admin-
 import { getAdminSettingsPasswordResetRequests } from "@/lib/admin-api/settings-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import type { AdminSettingsPasswordResetRequestRow } from "@/lib/admin-api/types";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 export function ResetRequestsTable() {
   const [rows, setRows] = useState<AdminSettingsPasswordResetRequestRow[]>([]);
@@ -73,12 +74,7 @@ export function ResetRequestsTable() {
 
   if (loadError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-        {loadError}
-        <button type="button" className="ml-3 font-semibold underline" onClick={() => void load()}>
-          Retry
-        </button>
-      </div>
+      <ErrorAlert error={loadError} onRetry={() => void load()} className="" />
     );
   }
 
