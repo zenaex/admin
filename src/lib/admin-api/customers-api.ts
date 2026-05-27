@@ -289,6 +289,7 @@ export function pickCustomerPinStatus(profile: Record<string, unknown>): "Set" |
     profile.transaction_pin_status ??
     profile.transactionPinSet ??
     profile.transaction_pin_set ??
+    profile.isTransactionPinSet ??
     profile.pinSet ??
     profile.pin_set ??
     profile.isPinSet ??

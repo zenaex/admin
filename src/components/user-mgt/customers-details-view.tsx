@@ -62,11 +62,22 @@ function boolToSet(v: unknown): "Set" | "Not Set" {
   return "Not Set";
 }
 
-function formatWhen(iso: string): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (!Number.isNaN(d.getTime())) return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  return iso;
+function formatWhen(isoOrTimestamp: unknown): string {
+  if (!isoOrTimestamp) return "—";
+  if (typeof isoOrTimestamp === "string") {
+    const d = new Date(isoOrTimestamp);
+    if (!Number.isNaN(d.getTime())) return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    return isoOrTimestamp;
+  }
+  if (typeof isoOrTimestamp === "object" && isoOrTimestamp !== null) {
+    const obj = isoOrTimestamp as Record<string, unknown>;
+    const sec = obj.seconds ?? obj._seconds;
+    if (typeof sec === "number") {
+      const d = new Date(sec * 1000);
+      if (!Number.isNaN(d.getTime())) return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    }
+  }
+  return "—";
 }
 
 export type CustomerDetailsViewProps = {
@@ -464,14 +475,15 @@ function CustomerDetailsTab({
   const username = pickStr(p, ["username", "userName", "handle"]) || "—";
   const email = pickStr(p, ["email", "emailAddress"]) || "—";
   const phone = pickStr(p, ["phone", "phoneNumber", "mobile"]) || "—";
-  const onboard = pickStr(p, ["createdAt", "created_at", "dateOnboarded", "onboardedAt"]) || "";
+  const onboard = p.createdAt ?? p.created_at ?? p.dateOnboarded ?? p.onboardedAt;
   const displayId = pickStr(p, ["accountId", "id", "uuid"]) || accountId;
 
   const password = pickCustomerPasswordStatus(p);
   const pin = pickCustomerPinStatus(p);
-  const kycLevel = pickStr(p, ["kycLevel", "kyc_level", "kycTier"]) || "—";
+  const kycRaw = p.kycLevel ?? p.kyc_level ?? p.kycTier;
+  const kycLevel = kycRaw !== undefined && kycRaw !== null ? String(kycRaw) : "—";
   const acctStatus = pickStr(p, ["accountStatus", "account_status", "status"]) || "—";
-  const lastTx = pickStr(p, ["lastTransactionAt", "dateTransactedLast", "last_activity_at"]) || "—";
+  const lastTx = p.lastTransactedAt ?? p.lastTransactionAt ?? p.dateTransactedLast ?? p.last_activity_at;
   const secQ = pickCustomerSecurityQuestionStatus(p);
 
   return (
@@ -497,7 +509,7 @@ function CustomerDetailsTab({
                 <td className="border-r border-outline px-4 py-5 text-zinc-500">{username}</td>
                 <td className="border-r border-outline px-4 py-5 text-zinc-500">{phone}</td>
                 <td className="border-r border-outline px-4 py-5 text-zinc-500">{email}</td>
-                <td className="whitespace-nowrap px-4 py-5 text-zinc-500">{onboard ? formatWhen(onboard) : "—"}</td>
+                <td className="whitespace-nowrap px-4 py-5 text-zinc-500">{formatWhen(onboard)}</td>
               </tr>
             </tbody>
           </table>
@@ -530,7 +542,7 @@ function CustomerDetailsTab({
                   <AccountStatusBadge status={acctStatus} />
                 </td>
                 <td className="border-r border-outline whitespace-nowrap px-4 py-5 text-zinc-500">
-                  {lastTx ? formatWhen(lastTx) : "—"}
+                  {formatWhen(lastTx)}
                 </td>
                 <td className="px-4 py-5">
                   <SetBadge value={secQ} />
