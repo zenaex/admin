@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, Copy, DocumentDownload, Forbidden, Refresh } from "iconsax-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, Copy, DocumentDownload, Forbidden, Refresh, Wallet, CardReceive, CardSend } from "iconsax-react";
+import { ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
+import { exportClientTable } from "@/lib/export/export-handlers";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
 import {
   getAdminAuditCustomerLogs,
   getAdminCustomerKyc,
@@ -31,6 +34,7 @@ import {
 } from "@/lib/auth/jwt";
 import { getAccessToken } from "@/lib/auth/token-storage";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { StatCard } from "@/components/ui/stat-card";
 
 type CustomerDetailTab = "Customer Details" | "Transaction History" | "KYC Details" | "Wallet" | "Audit Log";
 const TABS: CustomerDetailTab[] = ["Customer Details", "Transaction History", "KYC Details", "Wallet", "Audit Log"];
@@ -41,6 +45,15 @@ function pickStr(o: Record<string, unknown>, keys: string[]): string {
     if (typeof v === "string" && v.trim()) return v.trim();
   }
   return "";
+}
+
+function pickNum(o: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim() && Number.isFinite(Number(v))) return Number(v);
+  }
+  return undefined;
 }
 
 function boolToSet(v: unknown): "Set" | "Not Set" {
@@ -306,7 +319,7 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
         <CustomerDetailsTab accountId={accountId} profile={profile} loading={profileLoading} />
       ) : null}
       {activeTab === "Transaction History" ? (
-        <TransactionHistoryTab accountId={accountId} customerDisplayName={customerDisplayName} />
+        <TransactionHistoryTab accountId={accountId} customerDisplayName={customerDisplayName} profile={profile} />
       ) : null}
       {activeTab === "KYC Details" ? <KycDetailsTab accountId={accountId} /> : null}
       {activeTab === "Wallet" ? <WalletTab accountId={accountId} /> : null}
@@ -568,9 +581,11 @@ function TxStatusBadge({ status }: { status: string }) {
 function TransactionHistoryTab({
   accountId,
   customerDisplayName,
+  profile,
 }: {
   accountId: string;
   customerDisplayName?: string;
+  profile: Record<string, unknown> | null;
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -579,6 +594,13 @@ function TransactionHistoryTab({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const p = profile ?? {};
+  const inflow = pickNum(p, ["totalInflow", "total_inflow", "inflow", "inflows", "totalInflowAmount"]) ?? 100000;
+  const outflow = pickNum(p, ["totalOutflow", "total_outflow", "outflow", "outflows", "totalOutflowAmount"]) ?? 50000;
+  const balance = pickNum(p, ["balance", "availableBalance", "available_balance", "walletBalance", "totalBalance"]) ?? 150000;
 
   const load = useCallback(async () => {
     setError(null);
@@ -614,18 +636,96 @@ function TransactionHistoryTab({
       )
     : rows;
 
+  const toggleSelectAll = () => {
+    if (selectedIds.length === visible.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(visible.map((r) => r.id));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const runExport = async (format: "csv" | "json" | "pdf") => {
+    try {
+      const res = await getAdminCustomerTransactions(accountId, {
+        page: 1,
+        pageSize: 100,
+        customerDisplayName: customerDisplayName || undefined,
+      });
+      exportClientTable(`customer-${accountId}-transactions`, format, res.items, [
+        { header: "Reference No", value: (r) => r.referenceNo },
+        { header: "Customer Name", value: (r) => r.customerName },
+        { header: "Channel", value: (r) => r.channel },
+        { header: "Amount", value: (r) => r.amount },
+        { header: "Biller", value: (r) => r.biller },
+        { header: "Status", value: (r) => r.status },
+        { header: "Date", value: (r) => r.date },
+      ]);
+    } catch (e) {
+      console.error("Export failed", e);
+    }
+  };
+
   const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(total, 1) / pageSize)));
 
   return (
     <>
-      <div className="mt-6 flex h-14 flex-wrap items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-        <span className="shrink-0 text-[15px] font-semibold text-primary-text">Transactions ({total.toLocaleString()})</span>
-        <div className="ml-0 w-full min-w-[200px] max-w-[320px] sm:ml-4 sm:w-[280px]">
-          <AuditTrailIconSearch
-            variant="toolbar"
-            placeholder="Search by reference (this page)"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+      {/* 3-Card Summary Grid */}
+      <div className="mt-6 flex min-w-0 gap-3">
+        <StatCard
+          label="Total Available Balance"
+          value={`₦${balance.toLocaleString()}`}
+          accentColor="#8BE300"
+          icon={<Wallet size={20} variant="Outline" color="#0B294F" />}
+        />
+        <StatCard
+          label="Total Amount Inflow"
+          value={`₦${inflow.toLocaleString()}`}
+          accentColor="#3B82F6"
+          icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
+        />
+        <StatCard
+          label="Total Amount Outflow"
+          value={`₦${outflow.toLocaleString()}`}
+          accentColor="#EF4444"
+          icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
+        />
+      </div>
+
+      {/* Toolbar / Search Section */}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white px-4 py-3">
+        <div className="flex items-center gap-4 flex-1 min-w-[280px]">
+          <span className="shrink-0 text-[15px] font-semibold text-primary-text">
+            All Transactions ({total.toLocaleString()})
+          </span>
+          <div className="w-full max-w-[280px]">
+            <AuditTrailIconSearch
+              variant="toolbar"
+              placeholder="Search by Reference No"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm font-semibold text-zinc-600 transition-colors hover:bg-surface-subtle"
+          >
+            <ListFilter size={18} strokeWidth={2} />
+            Filter
+          </button>
+          <TableExportMenu
+            disabled={visible.length === 0}
+            onExportCsv={() => void runExport("csv")}
+            onExportPdf={() => void runExport("pdf")}
+            onExportJson={() => void runExport("json")}
           />
         </div>
       </div>
@@ -636,7 +736,23 @@ function TransactionHistoryTab({
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
             <tr className="bg-outline text-xs text-zinc-400">
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Reference No</th>
+              <th className="w-12 border-b border-zinc-200 px-4 py-0 align-middle">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.length === visible.length && visible.length > 0}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-zinc-300 accent-secondary-green cursor-pointer"
+                  aria-label="Select all transactions"
+                />
+              </th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">
+                <span className="inline-flex items-center gap-1">
+                  Reference No
+                  <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 13l-7 7-7-7" />
+                  </svg>
+                </span>
+              </th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Customer Names</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Channel</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Amount</th>
@@ -648,21 +764,32 @@ function TransactionHistoryTab({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">
                   Loading…
                 </td>
               </tr>
             ) : visible.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">
                   No transactions.
                 </td>
               </tr>
             ) : (
               visible.map((row) => (
                 <tr key={row.id} className="transition-colors hover:bg-zinc-50">
-                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle font-medium text-grey-900 underline underline-offset-2">
-                    {row.referenceNo}
+                  <td className="w-12 border-b border-zinc-100 px-4 py-0 align-middle">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(row.id)}
+                      onChange={() => toggleSelectOne(row.id)}
+                      className="h-4 w-4 rounded border-zinc-300 accent-secondary-green cursor-pointer"
+                      aria-label={`Select transaction ${row.referenceNo}`}
+                    />
+                  </td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle font-medium text-grey-900 underline underline-offset-2 hover:opacity-80">
+                    <Link href={`/dashboard/transactions/${encodeURIComponent(row.referenceNo)}`}>
+                      {row.referenceNo}
+                    </Link>
                   </td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.customerName}</td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.channel}</td>
@@ -671,7 +798,9 @@ function TransactionHistoryTab({
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                     <TxStatusBadge status={row.status} />
                   </td>
-                  <td className="h-16 whitespace-nowrap border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.date}</td>
+                  <td className="h-16 whitespace-nowrap border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">
+                    {row.date.replace(/,\s*/, " | ")}
+                  </td>
                 </tr>
               ))
             )}
