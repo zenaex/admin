@@ -417,3 +417,52 @@ export type AdminReferralDetailResult = {
   page: number;
   pageSize: number;
 };
+
+/* ── Admin Team Management ── */
+
+/** Normalized row for admin team member list. */
+export type AdminTeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  status: string;
+  dateOnboarded: string;
+};
+
+export type AdminTeamListResult = {
+  items: AdminTeamMember[];
+  total: number;
+};
+
+/** Body for `POST /admin/team` — invite a new team member. */
+export type AdminTeamInviteBody = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+};
+
+/** Body for `PUT /admin/team/{id}` — update team member details. */
+export type AdminTeamUpdateBody = {
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+};
+
+/** Normalized row for pending admin invitation. */
+export type AdminPendingInvite = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  dateSent: string;
+  status: string;
+};
+
+export type AdminPendingInviteListResult = {
+  items: AdminPendingInvite[];
+  total: number;
+};

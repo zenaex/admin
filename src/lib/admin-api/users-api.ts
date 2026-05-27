@@ -39,8 +39,8 @@ export function uiRoleLabelToApiRole(label: string): string {
   return slug;
 }
 
-function adminPath(adminId: string, action: "role" | "deactivate"): string {
-  return `/admin/users/admin/${encodeURIComponent(adminId.trim())}/${action}`;
+function adminPath(adminId: string, action: "role" | "deactivate" | "suspend" | "activate" | "reset-password"): string {
+  return `/admin/team/${encodeURIComponent(adminId.trim())}/${action}`;
 }
 
 function customerPath(accountId: string, action: "deactivate" | "suspend" | "reactivate"): string {
@@ -60,6 +60,27 @@ export async function postAdminUserChangeRole(
 
 export async function postAdminUserDeactivate(adminId: string): Promise<void> {
   await adminRequest<unknown>(adminPath(adminId, "deactivate"), {
+    method: "POST",
+    auth: true,
+  });
+}
+
+export async function postAdminUserSuspend(adminId: string): Promise<void> {
+  await adminRequest<unknown>(adminPath(adminId, "suspend"), {
+    method: "POST",
+    auth: true,
+  });
+}
+
+export async function postAdminUserActivate(adminId: string): Promise<void> {
+  await adminRequest<unknown>(adminPath(adminId, "activate"), {
+    method: "POST",
+    auth: true,
+  });
+}
+
+export async function postAdminUserResetPassword(adminId: string): Promise<void> {
+  await adminRequest<unknown>(adminPath(adminId, "reset-password"), {
     method: "POST",
     auth: true,
   });
