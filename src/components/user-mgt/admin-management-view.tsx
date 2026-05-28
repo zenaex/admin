@@ -1536,7 +1536,6 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
 
   return (
     <>
-      {showInvite ? <InviteAdminForm onSuccess={() => void load()} /> : null}
       {filterMode ? (
         <TableFilterModeBar
           filterBarRef={filterBarRef}
@@ -1657,14 +1656,14 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
-            aria-label="Filter"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
             onClick={() => {
               setSearch("");
               setFilterMode(true);
             }}
           >
-            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+            <ListFilter size={16} strokeWidth={2} color="var(--color-brand-navy)" />
+            Filter
           </button>
           <TableExportMenu
             disabled={filtered.length === 0}
@@ -1683,42 +1682,29 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
             <tr className="bg-outline text-xs text-zinc-400">
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Role</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Sent</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Onboarded</th>
               <th className="h-11 w-48 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
             </tr>
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
               <tr key={row.id} className="transition-colors hover:bg-zinc-50">
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-primary-text">
-                      {[row.firstName, row.lastName].filter(Boolean).join(" ") || "—"}
-                    </span>
-                    <span className="text-xs text-zinc-400">{row.email}</span>
-                  </div>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-primary-text font-medium align-middle">
+                  {row.email}
                 </td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.dateSent}</td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">
+                  {row.dateSent.replace(",", " |")}
+                </td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <div className="flex items-center gap-4">
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => void handleResend(row.id, row.email)}
-                      className="text-[13px] font-bold text-primary-text underline underline-offset-4 hover:text-brand-navy transition-colors disabled:opacity-50"
-                    >
-                      Resend Invite
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => setCancelTarget(row)}
-                      className="text-[13px] font-bold text-red-500 underline underline-offset-4 hover:text-red-700 transition-colors disabled:opacity-50"
-                    >
-                      Cancel Invite
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => void handleResend(row.id, row.email)}
+                    className="text-[13px] font-bold text-[#0B294F] underline underline-offset-4 hover:opacity-80 transition-opacity disabled:opacity-50"
+                  >
+                    Resend Invite
+                  </button>
                 </td>
               </tr>
             ))}
