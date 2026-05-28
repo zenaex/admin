@@ -2,11 +2,13 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ListFilter } from "lucide-react";
+import { CalendarDays, ListFilter, Plus } from "lucide-react";
+import { WalletMoney, CardSend, CardReceive } from "iconsax-react";
 
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
-import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import { StatCard } from "@/components/ui/stat-card";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
 import {
   ALL_ETRADE_REQUESTS,
   ETRADE_TYPE_FILTER_OPTIONS,
@@ -26,11 +28,6 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
-
-const TABS: { id: EtradeTabId; label: string }[] = [
-  { id: "requests", label: "Requests" },
-  { id: "transaction-details", label: "Transaction Details" },
-];
 
 const TXN_TYPE_OPTIONS = ["All types", ...Array.from(new Set(ALL_ETRADE_TRANSACTION_ROWS.map((r) => r.title))).sort()];
 const REQ_STATUS_OPTIONS = ["All statuses", "Pending", "Successful", "Failed"] as const;
@@ -165,8 +162,8 @@ export function EtradeView() {
       <div className="w-full min-w-0 sm:w-[325px]">
         <AuditTrailIconSearch
           variant="toolbar"
-          placeholder="Search by Trade Name"
-          aria-label="Search by trade name"
+          placeholder="Search by name or ID"
+          aria-label="Search by name or ID"
           value={tableSearch}
           onChange={(e) => {
             setTableSearch(e.target.value);
@@ -175,10 +172,10 @@ export function EtradeView() {
           }}
         />
       </div>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-3">
         <button
           type="button"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
           aria-label="Filter"
           onClick={() => {
             setTableSearch("");
@@ -186,6 +183,22 @@ export function EtradeView() {
           }}
         >
           <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+          Filter
+        </button>
+
+        <TableExportMenu
+          disabled={activeTab === "requests" ? filteredRows.length === 0 : filteredTxnRows.length === 0}
+          onExportCsv={() => {}}
+          onExportPdf={() => {}}
+        />
+
+        <button
+          type="button"
+          onClick={() => alert("Create Trade clicked (Mock)")}
+          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#C1FF00] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90 shadow-sm"
+        >
+          <Plus size={16} strokeWidth={3} />
+          Create Trade
         </button>
       </div>
     </div>
@@ -193,10 +206,60 @@ export function EtradeView() {
 
   return (
     <div>
-      <ProviderHeader title="Etrade" notificationCount={2} />
+      <ProviderHeader title="Etrades" notificationCount={2} />
 
-      <div className="mt-6">
-        <UnderlineTabs tabs={TABS} active={activeTab} onChange={(id) => setTab(id as EtradeTabId)} />
+      {/* 3 Metric Cards */}
+      <div className="mt-6 flex min-w-0 gap-3 flex-wrap sm:flex-nowrap">
+        <StatCard
+          label="Total Trade"
+          value="100,000"
+          accentColor="#C1FF00"
+          icon={<WalletMoney size={20} variant="Outline" color="#0B294F" />}
+        />
+        <StatCard
+          label="Total Trade Volume"
+          value="₦ 150,000,000.00"
+          accentColor="#3B82F6"
+          icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
+        />
+        <StatCard
+          label="Awaiting Approval"
+          value="50,000"
+          accentColor="#EF4444"
+          icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
+        />
+      </div>
+
+      {/* Underline Tabs */}
+      <div className="mt-6 flex items-baseline gap-8 border-b border-zinc-200">
+        <div className="relative inline-flex w-fit flex-col">
+          <button
+            type="button"
+            onClick={() => setTab("requests")}
+            className={`text-sm font-semibold transition-colors pb-3 pt-2.5 px-1 ${
+              activeTab === "requests" ? "text-zinc-950 font-bold" : "text-zinc-400 hover:text-zinc-600"
+            }`}
+          >
+            Active Trades
+          </button>
+          {activeTab === "requests" && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-secondary-green rounded-t-full" />
+          )}
+        </div>
+        <div className="relative inline-flex w-fit flex-col">
+          <button
+            type="button"
+            onClick={() => setTab("transaction-details")}
+            className={`text-sm font-semibold transition-colors pb-3 pt-2.5 px-1 ${
+              activeTab === "transaction-details" ? "text-zinc-950 font-bold" : "text-zinc-400 hover:text-zinc-600"
+            }`}
+          >
+            Completed
+          </button>
+          {activeTab === "transaction-details" && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-secondary-green rounded-t-full" />
+          )}
+        </div>
       </div>
 
       {filterMode ? (

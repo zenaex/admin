@@ -1,47 +1,87 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Cpu } from "iconsax-react";
-
+import { Edit } from "iconsax-react";
 import type { EtradeTransactionListRow } from "@/components/e-trades/etrade-mock-transactions";
 
 type EtradeTransactionListProps = {
   rows: EtradeTransactionListRow[];
 };
 
-const statusClass: Record<EtradeTransactionListRow["status"], string> = {
-  Successful: "text-green-600",
-  Failed: "text-red-500",
-};
-
 export function EtradeTransactionList({ rows }: EtradeTransactionListProps) {
   const router = useRouter();
 
+  const handleRowClick = (id: string) => {
+    router.push(`/dashboard/e-trades/transaction/${id}`);
+  };
+
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-zinc-100 bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
-      <ul className="divide-y divide-zinc-100">
-        {rows.map((row) => (
-          <li key={row.id}>
-            <button
-              type="button"
-              onClick={() => router.push(`/dashboard/e-trades/transaction/${row.id}`)}
-              className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-surface-subtle"
-            >
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600">
-                <Cpu size={22} variant="Outline" color="currentColor" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-primary-text">{row.title}</p>
-                <p className="mt-0.5 text-xs text-zinc-500">{row.subtitle}</p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-sm font-medium text-primary-text">{row.amount}</p>
-                <p className={`mt-1 text-sm font-medium ${statusClass[row.status]}`}>{row.status}</p>
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
+    <div className="mt-4 overflow-x-auto rounded-[8px] bg-white border border-zinc-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+      <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+        <thead>
+          <tr className="bg-[#F9F9F9] text-zinc-400 border-b border-zinc-100">
+            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Trade ID</th>
+            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Customer</th>
+            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Request</th>
+            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Date Created</th>
+            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Trade Value</th>
+            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Ops-in-charge</th>
+            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Status</th>
+            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            let statusBadge = null;
+            if (row.status === "Successful") {
+              statusBadge = (
+                <span className="inline-flex items-center rounded-full bg-[#EAF9F1] px-3 py-1 text-xs font-semibold text-[#27AE60]">
+                  Completed
+                </span>
+              );
+            } else {
+              statusBadge = (
+                <span className="inline-flex items-center rounded-full bg-[#FCEBEC] px-3 py-1 text-xs font-semibold text-[#EB5757]">
+                  Failed
+                </span>
+              );
+            }
+
+            return (
+              <tr
+                key={row.id}
+                onClick={() => handleRowClick(row.id)}
+                className="group cursor-pointer border-b border-zinc-100 transition-colors hover:bg-surface-subtle"
+              >
+                <td className="h-16 px-4 py-0 align-middle font-medium">
+                  <span className="text-[#0B294F] font-bold underline decoration-solid decoration-[#0B294F] hover:opacity-85">
+                    {row.tradeId}
+                  </span>
+                </td>
+                <td className="h-16 px-4 py-0 align-middle text-zinc-600 font-medium">{row.customer}</td>
+                <td className="h-16 px-4 py-0 align-middle text-zinc-500">{row.title}</td>
+                <td className="h-16 px-4 py-0 align-middle text-zinc-500">{row.dateCreated}</td>
+                <td className="h-16 px-4 py-0 align-middle text-zinc-800 font-semibold">{row.tradeValue}</td>
+                <td className="h-16 px-4 py-0 align-middle text-zinc-600 font-medium">{row.opsInCharge}</td>
+                <td className="h-16 px-4 py-0 align-middle">{statusBadge}</td>
+                <td className="h-16 px-4 py-0 align-middle">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRowClick(row.id);
+                    }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
+                    aria-label={`View transaction ${row.tradeId}`}
+                  >
+                    <Edit size={16} variant="Outline" color="currentColor" />
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
