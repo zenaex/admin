@@ -466,3 +466,46 @@ export type AdminPendingInviteListResult = {
   items: AdminPendingInvite[];
   total: number;
 };
+
+/* ── Communications Campaign Types ── */
+
+export type AdminCampaignStatus = "Publish" | "Unpublished" | "Pending";
+
+export type AdminCampaign = {
+  id: string;
+  title: string;
+  description: string;
+  campaign: string;
+  status: AdminCampaignStatus;
+  campaignCategory: string;
+  campaignSubCategory: string;
+  targetAudience: string;
+  targetSubCategory: string;
+  communicationCategory: string;
+  content: string;
+  imageUrl?: string;
+  scheduleMode: "Immediate" | "Scheduled" | "Recurring";
+  period: string;
+  startDate: string;
+  endDate: string;
+  lastModified: string;
+};
+
+export type AdminCampaignListResult = {
+  items: AdminCampaign[];
+  total: number;
+};
+
+export type AdminCreateCampaignBody = {
+  title: string;
+  description: string;
+  campaignCategory: string;
+  campaignSubCategory: string;
+  targetAudience: string;
+  targetSubCategory: string;
+  communicationCategory: string;
+  content: string;
+  imageUrl?: string;
+  scheduleMode: "Immediate" | "Scheduled" | "Recurring";
+  period?: string;
+};

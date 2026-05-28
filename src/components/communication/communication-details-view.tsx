@@ -1,9 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, Edit2, Eye, TickCircle } from "iconsax-react";
 import { CommunicationRichEditor } from "@/components/communication/communication-rich-editor";
+import { ErrorAlert } from "@/components/ui/error-alert";
+import {
+  getAdminCampaign,
+  createAdminCampaign,
+  publishAdminCampaign,
+  cancelAdminCampaign,
+  deleteAdminCampaign,
+} from "@/lib/admin-api/communications-api";
+import type { AdminCampaignStatus } from "@/lib/admin-api/types";
 
 const periodOptions = ["Daily", "Weekly", "Bi-weekly", "Monthly", "Quarterly", "Yearly"];
 const targetAudienceOptions = [
@@ -24,11 +34,13 @@ function SelectField({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -36,8 +48,9 @@ function SelectField({
       <div className="relative">
         <select
           value={value}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-full appearance-none rounded-md border border-zinc-200 bg-white px-3 pr-8 text-sm text-primary-text outline-none"
+          className="h-10 w-full appearance-none rounded-md border border-zinc-200 bg-white px-3 pr-8 text-sm text-primary-text outline-none disabled:bg-zinc-50 disabled:text-zinc-400"
         >
           {options.map((option) => (
             <option key={option} value={option}>
@@ -53,8 +66,21 @@ function SelectField({
   );
 }
 
-export function CommunicationDetailsView() {
+type CommunicationDetailsViewProps = {
+  id?: string;
+};
+
+export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const isExisting = Boolean(id && id !== "new");
+
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [campaignStatus, setCampaignStatus] = useState<AdminCampaignStatus | null>(null);
+  const [actionOpen, setActionOpen] = useState(false);
+
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("Recurring");
   const [title, setTitle] = useState("🎁 Your Summer Savings Bonus Awaits!");
   const [description, setDescription] = useState("Get 10% extra when you save with Bobble this summer");
@@ -72,6 +98,40 @@ export function CommunicationDetailsView() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  useEffect(() => {
+    if (!isExisting || !id) return;
+
+    const loadDetail = async () => {
+      setLoadingDetail(true);
+      setLoadError(null);
+      try {
+        const campaign = await getAdminCampaign(id);
+        if (campaign) {
+          setTitle(campaign.title);
+          setDescription(campaign.description);
+          setCampaignCategory(campaign.campaignCategory);
+          setCampaignSubCategory(campaign.campaignSubCategory);
+          setTargetAudience(campaign.targetAudience);
+          setTargetSubCategory(campaign.targetSubCategory);
+          setCommunicationCategory(campaign.communicationCategory);
+          setEditorHtml(campaign.content);
+          setUploadedImage(campaign.imageUrl ?? null);
+          setScheduleMode(campaign.scheduleMode);
+          setPeriod(campaign.period);
+          setCampaignStatus(campaign.status);
+        } else {
+          setLoadError("Campaign not found.");
+        }
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : "Failed to load campaign details.");
+      } finally {
+        setLoadingDetail(false);
+      }
+    };
+
+    void loadDetail();
+  }, [id, isExisting]);
+
   useEffect(
     () => () => {
       if (uploadedImage && uploadedImage.startsWith("blob:")) URL.revokeObjectURL(uploadedImage);
@@ -80,6 +140,7 @@ export function CommunicationDetailsView() {
   );
 
   const updateImageFromFile = (file: File | null) => {
+    if (isExisting) return;
     if (!file || !file.type.startsWith("image/")) return;
     const next = URL.createObjectURL(file);
     setUploadedImage((prev) => {
@@ -116,24 +177,172 @@ export function CommunicationDetailsView() {
     [scheduleMode],
   );
 
+  const handleSave = async (publish: boolean) => {
+    setLoadError(null);
+    try {
+      const body = {
+        title,
+        description,
+        campaignCategory,
+        campaignSubCategory,
+        targetAudience,
+        targetSubCategory,
+        communicationCategory,
+        content: editorHtml,
+        imageUrl: uploadedImage ?? undefined,
+        scheduleMode,
+        period: scheduleMode !== "Immediate" ? period : undefined,
+      };
+
+      const newCampaign = await createAdminCampaign(body);
+
+      if (publish) {
+        await publishAdminCampaign(newCampaign.id);
+      }
+
+      setShowSuccessModal(true);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to save campaign.");
+    }
+  };
+
+  const handlePublishAction = async () => {
+    if (!id) return;
+    setActionOpen(false);
+    setLoadingDetail(true);
+    try {
+      await publishAdminCampaign(id);
+      setCampaignStatus("Publish");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to publish campaign.");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleCancelAction = async () => {
+    if (!id) return;
+    setActionOpen(false);
+    setLoadingDetail(true);
+    try {
+      await cancelAdminCampaign(id);
+      setCampaignStatus("Unpublished");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to cancel campaign.");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleDeleteAction = async () => {
+    if (!id) return;
+    setActionOpen(false);
+    const confirmed = window.confirm("Are you sure you want to delete this campaign?");
+    if (!confirmed) return;
+    setLoadingDetail(true);
+    try {
+      await deleteAdminCampaign(id);
+      router.push("/dashboard/communication");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete campaign.");
+      setLoadingDetail(false);
+    }
+  };
+
+  if (loadingDetail) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-green border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div>
+      {loadError && (
+        <div className="mb-4">
+          <ErrorAlert error={loadError} onRetry={() => router.push("/dashboard/communication")} />
+        </div>
+      )}
+
       <div className="mb-4 flex items-center justify-between rounded-xl border border-outline bg-white px-3 py-2.5">
-        <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-zinc-500">
           <Link href="/dashboard/communication" className="inline-flex items-center gap-1 text-primary-text">
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
             Communication
           </Link>
           <ArrowRight2 size={14} variant="Outline" color="currentColor" />
           <span className="text-primary-text">Communication Details</span>
+          {campaignStatus && (
+            <span
+              className={`ml-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                campaignStatus === "Publish"
+                  ? "bg-green-100 text-green-700"
+                  : campaignStatus === "Pending"
+                  ? "bg-orange-100 text-orange-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {campaignStatus}
+            </span>
+          )}
         </div>
-        <button
-          type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
-        >
-          Action
-          <ArrowDown2 size={12} variant="Outline" color="currentColor" />
-        </button>
+
+        {isExisting && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setActionOpen(!actionOpen)}
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text transition-colors hover:bg-surface-subtle"
+            >
+              Action
+              <ArrowDown2 size={12} variant="Outline" color="currentColor" />
+            </button>
+            {actionOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setActionOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-[12px] border border-zinc-200 bg-white p-1.5 shadow-lg">
+                  {campaignStatus === "Unpublished" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handlePublishAction}
+                        className="flex w-full items-center px-3 py-2 text-left text-xs font-medium text-zinc-700 rounded-md hover:bg-zinc-50"
+                      >
+                        Publish
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteAction}
+                        className="flex w-full items-center px-3 py-2 text-left text-xs font-medium text-red-600 rounded-md hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
+                  {campaignStatus === "Pending" && (
+                    <button
+                      type="button"
+                      onClick={handleCancelAction}
+                      className="flex w-full items-center px-3 py-2 text-left text-xs font-medium text-zinc-700 rounded-md hover:bg-zinc-50"
+                    >
+                      Cancel Scheduled
+                    </button>
+                  )}
+                  {campaignStatus === "Publish" && (
+                    <button
+                      type="button"
+                      onClick={handleCancelAction}
+                      className="flex w-full items-center px-3 py-2 text-left text-xs font-medium text-zinc-700 rounded-md hover:bg-zinc-50"
+                    >
+                      Cancel Scheduled
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -154,69 +363,81 @@ export function CommunicationDetailsView() {
               </span>
             </button>
 
-            {isNotificationOpen ? <div className="space-y-2.5">
-              <SelectField
-                label="Category"
-                value={communicationCategory}
-                options={communicationCategoryOptions}
-                onChange={setCommunicationCategory}
-              />
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-zinc-500">Title</label>
+            {isNotificationOpen ? (
+              <div className="space-y-2.5">
+                <SelectField
+                  label="Category"
+                  value={communicationCategory}
+                  options={communicationCategoryOptions}
+                  onChange={setCommunicationCategory}
+                  disabled={isExisting}
+                />
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">Title</label>
+                  <input
+                    value={title}
+                    disabled={isExisting}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-primary-text outline-none disabled:bg-zinc-50 disabled:text-zinc-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">Description</label>
+                  <textarea
+                    value={description}
+                    disabled={isExisting}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    className="w-full resize-none rounded-md border border-zinc-200 px-3 py-2 text-sm text-primary-text outline-none disabled:bg-zinc-50 disabled:text-zinc-400"
+                  />
+                </div>
                 <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm text-primary-text outline-none"
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={onFilePick}
+                  className="hidden"
+                  disabled={isExisting}
                 />
+                {uploadedImage ? (
+                  <button
+                    type="button"
+                    onClick={() => !isExisting && fileInputRef.current?.click()}
+                    className="relative h-28 w-full overflow-hidden rounded-lg border border-zinc-200"
+                    disabled={isExisting}
+                  >
+                    <img src={uploadedImage} alt="Notification preview" className="h-full w-full object-cover" />
+                    {!isExisting && (
+                      <>
+                        <span className="absolute inset-0 bg-black/25" />
+                        <span className="absolute inset-0 inline-flex items-center justify-center gap-1 text-xs font-semibold text-white">
+                          <Edit2 size={12} variant="Outline" color="currentColor" />
+                          Replace image
+                        </span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => !isExisting && fileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragOver(true);
+                    }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={onDropImage}
+                    disabled={isExisting}
+                    className={`flex h-28 w-full flex-col items-center justify-center rounded-lg border border-dashed text-center text-xs text-zinc-500 transition-colors ${
+                      isDragOver ? "border-primary-green bg-primary-green/5" : "border-zinc-200"
+                    } disabled:bg-zinc-50`}
+                  >
+                    Click to upload notification image or drag and drop
+                    <span className="mt-1 text-[10px]">SVG, PNG, JPG (max 2MB)</span>
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-zinc-500">Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  className="w-full resize-none rounded-md border border-zinc-200 px-3 py-2 text-sm text-primary-text outline-none"
-                />
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={onFilePick}
-                className="hidden"
-              />
-              {uploadedImage ? (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="relative h-28 w-full overflow-hidden rounded-lg border border-zinc-200"
-                >
-                  <img src={uploadedImage} alt="Notification preview" className="h-full w-full object-cover" />
-                  <span className="absolute inset-0 bg-black/25" />
-                  <span className="absolute inset-0 inline-flex items-center justify-center gap-1 text-xs font-semibold text-white">
-                    <Edit2 size={12} variant="Outline" color="currentColor" />
-                    Replace image
-                  </span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragOver(true);
-                  }}
-                  onDragLeave={() => setIsDragOver(false)}
-                  onDrop={onDropImage}
-                  className={`flex h-28 w-full flex-col items-center justify-center rounded-lg border border-dashed text-center text-xs text-zinc-500 transition-colors ${
-                    isDragOver ? "border-primary-green bg-primary-green/5" : "border-zinc-200"
-                  }`}
-                >
-                  Click to upload notification image or drag and drop
-                  <span className="mt-1 text-[10px]">SVG, PNG, JPG (max 2MB)</span>
-                </button>
-              )}
-            </div> : null}
+            ) : null}
           </section>
 
           <section className="rounded-xl border border-outline bg-white p-3">
@@ -234,32 +455,38 @@ export function CommunicationDetailsView() {
                 <ArrowDown2 size={12} variant="Outline" color="currentColor" />
               </span>
             </button>
-            {isCategoryOpen ? <div className="grid grid-cols-2 gap-2.5">
-              <SelectField
-                label="Category"
-                value={campaignCategory}
-                options={campaignCategoryOptions}
-                onChange={setCampaignCategory}
-              />
-              <SelectField
-                label="Sub-category"
-                value={campaignSubCategory}
-                options={["Vouchers offers", "Cashback", "Savings", "Bonus"]}
-                onChange={setCampaignSubCategory}
-              />
-              <SelectField
-                label="Target Audience"
-                value={targetAudience}
-                options={targetAudienceOptions}
-                onChange={setTargetAudience}
-              />
-              <SelectField
-                label="Sub-category"
-                value={targetSubCategory}
-                options={["Tech support", "Customer", "Admin", "General"]}
-                onChange={setTargetSubCategory}
-              />
-            </div> : null}
+            {isCategoryOpen ? (
+              <div className="grid grid-cols-2 gap-2.5">
+                <SelectField
+                  label="Category"
+                  value={campaignCategory}
+                  options={campaignCategoryOptions}
+                  onChange={setCampaignCategory}
+                  disabled={isExisting}
+                />
+                <SelectField
+                  label="Sub-category"
+                  value={campaignSubCategory}
+                  options={["Vouchers offers", "Cashback", "Savings", "Bonus"]}
+                  onChange={setCampaignSubCategory}
+                  disabled={isExisting}
+                />
+                <SelectField
+                  label="Target Audience"
+                  value={targetAudience}
+                  options={targetAudienceOptions}
+                  onChange={setTargetAudience}
+                  disabled={isExisting}
+                />
+                <SelectField
+                  label="Sub-category"
+                  value={targetSubCategory}
+                  options={["Tech support", "Customer", "Admin", "General"]}
+                  onChange={setTargetSubCategory}
+                  disabled={isExisting}
+                />
+              </div>
+            ) : null}
           </section>
 
           <section className="rounded-xl border border-outline bg-white p-3">
@@ -277,21 +504,30 @@ export function CommunicationDetailsView() {
                 <ArrowDown2 size={12} variant="Outline" color="currentColor" />
               </span>
             </button>
-            {isScheduleOpen ? <>
-            <div className="mb-2.5 grid grid-cols-3 gap-1.5">
-              {(["Immediate", "Scheduled", "Recurring"] as ScheduleMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setScheduleMode(mode)}
-                  className={`h-8 rounded-md text-xs font-semibold transition-colors ${scheduleButtonClass[mode]}`}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-            <SelectField label="Period" value={period} options={periodOptions} onChange={setPeriod} />
-            </> : null}
+            {isScheduleOpen ? (
+              <>
+                <div className="mb-2.5 grid grid-cols-3 gap-1.5">
+                  {(["Immediate", "Scheduled", "Recurring"] as ScheduleMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={isExisting}
+                      onClick={() => setScheduleMode(mode)}
+                      className={`h-8 rounded-md text-xs font-semibold transition-colors ${scheduleButtonClass[mode]} disabled:opacity-50`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+                <SelectField
+                  label="Period"
+                  value={period}
+                  options={periodOptions}
+                  onChange={setPeriod}
+                  disabled={isExisting}
+                />
+              </>
+            ) : null}
           </section>
         </div>
 
@@ -311,25 +547,29 @@ export function CommunicationDetailsView() {
             value={editorHtml}
             onChange={setEditorHtml}
             className="min-h-0 flex-1"
+            disabled={isExisting}
           />
         </section>
       </div>
 
-      <div className="mt-4 flex items-center gap-3">
-        <button
-          type="button"
-          className="inline-flex h-9 items-center justify-center rounded-full border border-zinc-200 bg-white px-8 text-sm font-semibold text-primary-text"
-        >
-          Save as draft
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowSuccessModal(true)}
-          className="inline-flex h-9 items-center justify-center rounded-full bg-primary-green px-8 text-sm font-semibold text-primary-text"
-        >
-          Publish Campaign
-        </button>
-      </div>
+      {!isExisting && (
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => handleSave(false)}
+            className="inline-flex h-9 items-center justify-center rounded-full border border-zinc-200 bg-white px-8 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+          >
+            Save as draft
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSave(true)}
+            className="inline-flex h-9 items-center justify-center rounded-full bg-primary-green px-8 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+          >
+            Publish Campaign
+          </button>
+        </div>
+      )}
 
       {showSuccessModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -348,7 +588,10 @@ export function CommunicationDetailsView() {
 
             <button
               type="button"
-              onClick={() => setShowSuccessModal(false)}
+              onClick={() => {
+                setShowSuccessModal(false);
+                router.push("/dashboard/communication");
+              }}
               className="mt-8 inline-flex h-14 w-full items-center justify-center rounded-full bg-primary-green text-base font-semibold text-primary-text"
             >
               Continue

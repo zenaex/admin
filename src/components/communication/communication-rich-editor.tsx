@@ -23,26 +23,29 @@ type CommunicationRichEditorProps = {
   value: string;
   onChange: (html: string) => void;
   className?: string;
+  disabled?: boolean;
 };
 
 type ToolbarButtonProps = {
   label: string;
   icon: ReactNode;
   active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
 };
 
-function ToolbarButton({ label, icon, active = false, onClick }: ToolbarButtonProps) {
+function ToolbarButton({ label, icon, active = false, disabled = false, onClick }: ToolbarButtonProps) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onMouseDown={(e) => {
         e.preventDefault();
         onClick();
       }}
       className={`inline-flex h-6 min-w-6 items-center justify-center rounded px-1 text-xs ${
         active ? "bg-zinc-200 text-primary-text" : "text-zinc-600 hover:bg-outline"
-      }`}
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
       aria-label={label}
       title={label}
     >
@@ -55,6 +58,7 @@ export function CommunicationRichEditor({
   value,
   onChange,
   className = "",
+  disabled = false,
 }: CommunicationRichEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -68,6 +72,7 @@ export function CommunicationRichEditor({
       }),
     ],
     content: value,
+    editable: !disabled,
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -87,6 +92,11 @@ export function CommunicationRichEditor({
     }
   }, [value, editor]);
 
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!disabled);
+  }, [disabled, editor]);
+
   if (!editor) {
     return (
       <div className={`flex min-h-90 flex-col ${className}`.trim()}>
@@ -100,77 +110,79 @@ export function CommunicationRichEditor({
       <div className="min-h-0 flex-1">
         <EditorContent editor={editor} />
       </div>
-      <div className="flex h-10 items-center gap-1 border-t border-zinc-200 px-2">
-        <ToolbarButton
-          label="Bold"
-          icon={<TextBold size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-        />
-        <ToolbarButton
-          label="Italic"
-          icon={<TextItalic size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-        />
-        <ToolbarButton
-          label="Underline"
-          icon={<TextUnderline size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive("underline")}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-        />
-        <ToolbarButton
-          label="Strike"
-          icon={<TextBlock size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive("strike")}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-        />
-        <ToolbarButton
-          label="Align Left"
-          icon={<TextalignLeft size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive({ textAlign: "left" })}
-          onClick={() => editor.chain().focus().setTextAlign("left").run()}
-        />
-        <ToolbarButton
-          label="Align Center"
-          icon={<TextalignCenter size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive({ textAlign: "center" })}
-          onClick={() => editor.chain().focus().setTextAlign("center").run()}
-        />
-        <ToolbarButton
-          label="Align Right"
-          icon={<TextalignRight size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive({ textAlign: "right" })}
-          onClick={() => editor.chain().focus().setTextAlign("right").run()}
-        />
-        <ToolbarButton
-          label="Bulleted List"
-          icon={<Menu size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive("bulletList")}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-        />
-        <ToolbarButton
-          label="Ordered List"
-          icon={<MenuBoard size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive("orderedList")}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        />
-        <ToolbarButton
-          label="Link"
-          icon={<Link1 size={14} variant="Outline" color="currentColor" />}
-          active={editor.isActive("link")}
-          onClick={() => {
-            const previousUrl = editor.getAttributes("link").href as string | undefined;
-            const url = window.prompt("Enter URL", previousUrl ?? "");
-            if (url === null) return;
-            if (url.trim() === "") {
-              editor.chain().focus().unsetLink().run();
-              return;
-            }
-            editor.chain().focus().setLink({ href: url.trim() }).run();
-          }}
-        />
-      </div>
+      {!disabled && (
+        <div className="flex h-10 items-center gap-1 border-t border-zinc-200 px-2">
+          <ToolbarButton
+            label="Bold"
+            icon={<TextBold size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive("bold")}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+          />
+          <ToolbarButton
+            label="Italic"
+            icon={<TextItalic size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive("italic")}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+          />
+          <ToolbarButton
+            label="Underline"
+            icon={<TextUnderline size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive("underline")}
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+          />
+          <ToolbarButton
+            label="Strike"
+            icon={<TextBlock size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive("strike")}
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+          />
+          <ToolbarButton
+            label="Align Left"
+            icon={<TextalignLeft size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive({ textAlign: "left" })}
+            onClick={() => editor.chain().focus().setTextAlign("left").run()}
+          />
+          <ToolbarButton
+            label="Align Center"
+            icon={<TextalignCenter size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive({ textAlign: "center" })}
+            onClick={() => editor.chain().focus().setTextAlign("center").run()}
+          />
+          <ToolbarButton
+            label="Align Right"
+            icon={<TextalignRight size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive({ textAlign: "right" })}
+            onClick={() => editor.chain().focus().setTextAlign("right").run()}
+          />
+          <ToolbarButton
+            label="Bulleted List"
+            icon={<Menu size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive("bulletList")}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+          />
+          <ToolbarButton
+            label="Ordered List"
+            icon={<MenuBoard size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive("orderedList")}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          />
+          <ToolbarButton
+            label="Link"
+            icon={<Link1 size={14} variant="Outline" color="currentColor" />}
+            active={editor.isActive("link")}
+            onClick={() => {
+              const previousUrl = editor.getAttributes("link").href as string | undefined;
+              const url = window.prompt("Enter URL", previousUrl ?? "");
+              if (url === null) return;
+              if (url.trim() === "") {
+                editor.chain().focus().unsetLink().run();
+                return;
+              }
+              editor.chain().focus().setLink({ href: url.trim() }).run();
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
