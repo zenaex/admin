@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Edit2, PasswordCheck, Forbidden, Trash } from "iconsax-react";
+import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Edit2, PasswordCheck, Forbidden, Trash, Refresh } from "iconsax-react";
 import { CalendarDays, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
@@ -10,17 +10,29 @@ import { Button } from "@/components/button";
 import { InputField } from "@/components/input-field";
 import { NotificationDrawerTrigger } from "@/components/notifications/notification-drawer";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
-import { postInvitation, postPasswordResetApprove, postPasswordResetDecline } from "@/lib/admin-api/auth-api";
+import { postPasswordResetApprove, postPasswordResetDecline } from "@/lib/admin-api/auth-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import { getAdminSettingsPasswordResetRequests } from "@/lib/admin-api/settings-api";
-import type { AdminSettingsPasswordResetRequestRow } from "@/lib/admin-api/types";
 import {
-  isRealAdminId,
-  postAdminUserChangeRole,
-  postAdminUserDeactivate,
-  uiRoleLabelToApiRole,
-} from "@/lib/admin-api/users-api";
+  getAdminTeamList,
+  postAdminTeamInvite,
+  postAdminTeamDeactivate,
+  postAdminTeamSuspend,
+  postAdminTeamActivate,
+  postAdminTeamResetPassword,
+  postAdminTeamChangeRole,
+  getAdminInvitations,
+  postAdminInvitationResend,
+  deleteAdminInvitation,
+} from "@/lib/admin-api/team-api";
+import type { AdminSettingsPasswordResetRequestRow, AdminTeamMember, AdminPendingInvite } from "@/lib/admin-api/types";
+import { uiRoleLabelToApiRole, isRealAdminId } from "@/lib/admin-api/users-api";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
+
+const MOCK_ADMIN_ACTION_HINT = "Actions are not available on this team member.";
+function canActOnAdminRow(row: AdminTeamMember): boolean {
+  return isRealAdminId(row.id);
+}
 import { useAuth } from "@/lib/auth/auth-context";
 import { getAccessToken } from "@/lib/auth/token-storage";
 import {
@@ -43,20 +55,7 @@ type AdminTab = "Team" | "Roles & Permission" | "Pending Invites" | "Password re
 
 const INVITE_ROLE_OPTIONS = ["Super Admin", "Admin", "Operations", "Compliance", "Customer Care", "Tech Support"] as const;
 
-/* ── Types ── */
-type MemberStatus = "Successful" | "Pending" | "Failed";
-
-type TeamMember = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  status: MemberStatus;
-  dateOnboarded: string;
-};
-
-const TEAM_EXPORT_COLUMNS: ExportColumn<TeamMember>[] = [
+const TEAM_EXPORT_COLUMNS: ExportColumn<AdminTeamMember>[] = [
   { header: "ID", value: (m) => m.id },
   { header: "Name", value: (m) => m.name },
   { header: "Email", value: (m) => m.email },
@@ -74,35 +73,6 @@ const ROLE_EXPORT_COLUMNS: ExportColumn<RoleExportRow>[] = [
   { header: "Description", value: (r) => r.description },
 ];
 
-/* ── Seed data ── */
-const BASE_MEMBERS: Omit<TeamMember, "id">[] = [
-  { name: "Adeboye Temidayo", email: "Adeboye.temidayo@zaneax.com", phone: "08077657678", role: "Superadmin", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Azuka Adefemi", email: "Azuka.adefemi@zaneax.com", phone: "08077657678", role: "Admin", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Babangida Tunde", email: "Babangida.tunde@zaneax.com", phone: "08077657678", role: "Tech Support", status: "Pending", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chiamaka Ngozi", email: "Chiamaka.ngozi@zaneax.com", phone: "08077657678", role: "Tech Support", status: "Pending", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chiroma Ikechukwu", email: "Chiroma.ikechukwu@zaneax.com", phone: "08077657678", role: "Tech Support", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Chizoba Adekunle", email: "Chizoba.adekunle@shago.com", phone: "08077657678", role: "Admin", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Lala Jibola", email: "Lala.jibola@zaneax.com", phone: "08077657678", role: "Tech Support", status: "Failed", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Lola Serubawon", email: "Lala.serubawon@zaneax.com", phone: "08077657678", role: "Tech Support", status: "Successful", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Pelumi Fetuga", email: "Pelumi.fetuga@zaneax.com", phone: "08077657678", role: "Tech Support", status: "Pending", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Poco Lee", email: "Poco.lee@zaneax.com", phone: "08077657678", role: "Tech Support", status: "Failed", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-  { name: "Shakur Wasiu", email: "Shakur.wasiu@zaneax.com", phone: "08077657678", role: "Tech Support", status: "Failed", dateOnboarded: "Jan 6, 2026 | 9:32AM" },
-];
-
-const ALL_MEMBERS: TeamMember[] = Array.from({ length: 180 }, (_, i) => ({
-  ...BASE_MEMBERS[i % BASE_MEMBERS.length],
-  id: `member-${i}`,
-  name:
-    i < BASE_MEMBERS.length
-      ? BASE_MEMBERS[i].name
-      : `${BASE_MEMBERS[i % BASE_MEMBERS.length].name} (${i + 1})`,
-}));
-
-const TEAM_ROLE_FILTER = ["All roles", ...Array.from(new Set(BASE_MEMBERS.map((m) => m.role))).sort()];
-const TEAM_STATUS_FILTER = ["All statuses", "Successful", "Pending", "Failed"] as const;
-
-const MOCK_ADMIN_ACTION_HINT =
-  "Requires a real admin ID from the team API (current list uses demo data).";
 
 /* ── Avatar ── */
 function Avatar({ name }: { name: string }) {
@@ -120,18 +90,19 @@ function Avatar({ name }: { name: string }) {
 }
 
 /* ── Status badge ── */
-function StatusBadge({ status }: { status: MemberStatus }) {
-  const styles: Record<MemberStatus, string> = {
-    Successful: "bg-green-50 text-green-600",
-    Pending: "bg-orange-50 text-orange-500",
-    Failed: "bg-red-50 text-red-500",
-  };
+function StatusBadge({ status }: { status: string }) {
+  const k = status.toLowerCase();
+  let cls = "bg-zinc-100 text-zinc-600";
+  if (k.includes("active") || k.includes("success")) cls = "bg-green-50 text-green-600";
+  else if (k.includes("pending") || k.includes("invited")) cls = "bg-orange-50 text-orange-500";
+  else if (k.includes("fail") || k.includes("deactivat") || k.includes("suspend") || k.includes("block")) cls = "bg-red-50 text-red-500";
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${styles[status]}`}>
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${cls}`}>
       {status}
     </span>
   );
 }
+
 
 /* ── Main view ── */
 export function AdminManagementView() {
@@ -153,17 +124,38 @@ export function AdminManagementView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [roleTarget, setRoleTarget] = useState<TeamMember | null>(null);
+  const [roleTarget, setRoleTarget] = useState<AdminTeamMember | null>(null);
   const [roleDraft, setRoleDraft] = useState<string>(INVITE_ROLE_OPTIONS[1]);
-  const [deactivateTarget, setDeactivateTarget] = useState<TeamMember | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<AdminTeamMember | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<AdminTeamMember | null>(null);
+  const [resetPwTarget, setResetPwTarget] = useState<AdminTeamMember | null>(null);
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
   const [adminSuccessMessage, setAdminSuccessMessage] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
-  const canActOnAdminRow = useCallback(
-    (row: TeamMember) => isSuper && isRealAdminId(row.id),
-    [isSuper],
-  );
+  /* ── Live team data ── */
+  const [teamMembers, setTeamMembers] = useState<AdminTeamMember[]>([]);
+  const [teamLoading, setTeamLoading] = useState(true);
+  const [teamLoadError, setTeamLoadError] = useState<string | null>(null);
+
+  const loadTeam = useCallback(async () => {
+    setTeamLoadError(null);
+    setTeamLoading(true);
+    try {
+      const result = await getAdminTeamList();
+      setTeamMembers(result.items);
+    } catch (e) {
+      setTeamMembers([]);
+      setTeamLoadError(e instanceof AdminApiError ? e.message : "Could not load team members.");
+    } finally {
+      setTeamLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTeam();
+  }, [loadTeam]);
 
   const [teamFilterMode, setTeamFilterMode] = useState(false);
   const [teamOpenFilter, setTeamOpenFilter] = useState<null | "role" | "status" | "date">(null);
@@ -176,6 +168,15 @@ export function AdminManagementView() {
   const [appliedTeamRole, setAppliedTeamRole] = useState<string | null>(null);
   const [appliedTeamStatus, setAppliedTeamStatus] = useState<string | null>(null);
   const [appliedTeamDate, setAppliedTeamDate] = useState<string | null>(null);
+
+  const TEAM_ROLE_FILTER = useMemo(
+    () => ["All roles", ...Array.from(new Set(teamMembers.map((m) => m.role).filter(Boolean))).sort()],
+    [teamMembers],
+  );
+  const TEAM_STATUS_FILTER = useMemo(
+    () => ["All statuses", ...Array.from(new Set(teamMembers.map((m) => m.status).filter(Boolean))).sort()],
+    [teamMembers],
+  );
 
   useEffect(() => {
     if (activeTab === "Password resets" && !isSuper) setActiveTab("Team");
@@ -199,11 +200,10 @@ export function AdminManagementView() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return ALL_MEMBERS.filter((m) => {
+    return teamMembers.filter((m) => {
       if (appliedTeamRole && appliedTeamRole !== "All roles" && m.role !== appliedTeamRole) return false;
       if (appliedTeamStatus && appliedTeamStatus !== "All statuses" && m.status !== appliedTeamStatus)
         return false;
-      if (appliedTeamDate && !m.dateOnboarded.includes("Jan 6, 2026")) return false;
       if (!q) return true;
       return (
         m.name.toLowerCase().includes(q) ||
@@ -211,7 +211,7 @@ export function AdminManagementView() {
         m.id.toLowerCase().includes(q)
       );
     });
-  }, [search, appliedTeamRole, appliedTeamStatus, appliedTeamDate]);
+  }, [search, teamMembers, appliedTeamRole, appliedTeamStatus]);
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -227,11 +227,12 @@ export function AdminManagementView() {
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await postAdminUserChangeRole(roleTarget.id, {
+      await postAdminTeamChangeRole(roleTarget.id, {
         newRole: uiRoleLabelToApiRole(roleDraft),
       });
       setRoleTarget(null);
       setAdminSuccessMessage(`Role updated for ${roleTarget.name}.`);
+      void loadTeam();
     } catch (e) {
       setAdminActionError(e instanceof AdminApiError ? e.message : "Could not change role.");
     } finally {
@@ -244,12 +245,60 @@ export function AdminManagementView() {
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await postAdminUserDeactivate(deactivateTarget.id);
+      await postAdminTeamDeactivate(deactivateTarget.id);
       const name = deactivateTarget.name;
       setDeactivateTarget(null);
       setAdminSuccessMessage(`${name} has been deactivated.`);
+      void loadTeam();
     } catch (e) {
       setAdminActionError(e instanceof AdminApiError ? e.message : "Could not deactivate admin.");
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleSuspendAdminConfirm = async () => {
+    if (!suspendTarget) return;
+    setAdminActionError(null);
+    setAdminActionLoading(true);
+    try {
+      await postAdminTeamSuspend(suspendTarget.id);
+      const name = suspendTarget.name;
+      setSuspendTarget(null);
+      setAdminSuccessMessage(`${name} has been suspended.`);
+      void loadTeam();
+    } catch (e) {
+      setAdminActionError(e instanceof AdminApiError ? e.message : "Could not suspend admin.");
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleActivateAdmin = async (row: AdminTeamMember) => {
+    setAdminActionError(null);
+    setAdminActionLoading(true);
+    try {
+      await postAdminTeamActivate(row.id);
+      setAdminSuccessMessage(`${row.name} has been activated.`);
+      void loadTeam();
+    } catch (e) {
+      setAdminActionError(e instanceof AdminApiError ? e.message : "Could not activate admin.");
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleResetPasswordConfirm = async () => {
+    if (!resetPwTarget) return;
+    setAdminActionError(null);
+    setAdminActionLoading(true);
+    try {
+      await postAdminTeamResetPassword(resetPwTarget.id);
+      const name = resetPwTarget.name;
+      setResetPwTarget(null);
+      setAdminSuccessMessage(`Password reset initiated for ${name}.`);
+    } catch (e) {
+      setAdminActionError(e instanceof AdminApiError ? e.message : "Could not reset password.");
     } finally {
       setAdminActionLoading(false);
     }
@@ -258,6 +307,7 @@ export function AdminManagementView() {
   const runTeamExport = (format: "csv" | "json" | "pdf") => {
     exportClientTable("admin-team", format, filtered, TEAM_EXPORT_COLUMNS);
   };
+
 
   return (
     <div>
@@ -454,13 +504,16 @@ export function AdminManagementView() {
                 onExportPdf={() => runTeamExport("pdf")}
                 onExportJson={() => runTeamExport("json")}
               />
-              <button
-                type="button"
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-              >
-                <Add size={18} variant="Outline" color="currentColor" />
-                Add Employee
-              </button>
+              {isSuper && (
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(true)}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+                >
+                  <Add size={18} variant="Outline" color="currentColor" />
+                  Add Employee
+                </button>
+              )}
             </div>
           </div>
           )}
@@ -633,6 +686,43 @@ export function AdminManagementView() {
         />
       ) : null}
 
+      {suspendTarget ? (
+        <ConfirmModal
+          title="Suspend admin"
+          message={`Are you sure you want to suspend ${suspendTarget.name}?`}
+          confirmLabel={adminActionLoading ? "Please wait…" : "Suspend"}
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => void handleSuspendAdminConfirm()}
+          onCancel={() => {
+            if (!adminActionLoading) setSuspendTarget(null);
+          }}
+        />
+      ) : null}
+
+      {resetPwTarget ? (
+        <ConfirmModal
+          title="Reset Password"
+          message={`Are you sure you want to trigger a password reset for ${resetPwTarget.name}?`}
+          confirmLabel={adminActionLoading ? "Please wait…" : "Reset"}
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => void handleResetPasswordConfirm()}
+          onCancel={() => {
+            if (!adminActionLoading) setResetPwTarget(null);
+          }}
+        />
+      ) : null}
+
+      {showInviteModal ? (
+        <InviteAdminModal
+          onClose={() => setShowInviteModal(false)}
+          onSuccess={() => {
+            void loadTeam();
+          }}
+        />
+      ) : null}
+
       {adminSuccessMessage ? (
         <SuccessModal
           message={adminSuccessMessage}
@@ -645,7 +735,7 @@ export function AdminManagementView() {
 }
 
 type AdminChangeRoleModalProps = {
-  member: TeamMember;
+  member: AdminTeamMember;
   roleDraft: string;
   loading: boolean;
   onRoleChange: (role: string) => void;
@@ -899,7 +989,7 @@ function RoleCard({ role }: { role: (typeof ROLES)[number] }) {
   );
 }
 
-function InviteAdminForm() {
+function InviteAdminForm({ onSuccess }: { onSuccess?: () => void }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -915,16 +1005,17 @@ function InviteAdminForm() {
     setSuccess(null);
     setSubmitting(true);
     try {
-      await postInvitation({
+      await postAdminTeamInvite({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
-        role,
+        role: uiRoleLabelToApiRole(role),
       });
       setSuccess("Invitation sent.");
       setFirstName("");
       setLastName("");
       setEmail("");
+      onSuccess?.();
     } catch (err) {
       setError(err instanceof AdminApiError ? err.message : "Could not send invitation.");
     } finally {
@@ -980,6 +1071,109 @@ function InviteAdminForm() {
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<string>(INVITE_ROLE_OPTIONS[1]);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !role) return;
+    setError(null);
+    setSuccess(null);
+    setSubmitting(true);
+    try {
+      await postAdminTeamInvite({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        role: uiRoleLabelToApiRole(role),
+      });
+      setSuccess("Invitation sent.");
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      onSuccess();
+      setTimeout(() => onClose(), 1200);
+    } catch (err) {
+      setError(err instanceof AdminApiError ? err.message : "Could not send invitation.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-md rounded-2xl bg-white px-6 pb-8 pt-6 shadow-xl">
+        <h2 className="text-[17px] font-bold text-brand-navy">Add Employee</h2>
+        <p className="mt-1 text-xs text-zinc-500">Sends an email with an invite link.</p>
+        <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
+          {error ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {success ? (
+            <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
+              {success}
+            </p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3">
+            <InputField id="modal-fn" label="First name" value={firstName} onChange={(ev) => setFirstName(ev.target.value)} />
+            <InputField id="modal-ln" label="Last name" value={lastName} onChange={(ev) => setLastName(ev.target.value)} />
+          </div>
+          <InputField
+            id="modal-em"
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(ev) => setEmail(ev.target.value)}
+          />
+          <div>
+            <label htmlFor="modal-role" className="mb-1.5 block text-[11px] font-medium text-gray-500">
+              Role
+            </label>
+            <select
+              id="modal-role"
+              value={role}
+              onChange={(ev) => setRole(ev.target.value)}
+              className="text-primary-text h-10 w-full rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green"
+            >
+              {INVITE_ROLE_OPTIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={onClose}
+              className="flex-1 rounded-full bg-outline py-3 text-sm font-semibold text-primary-text hover:bg-zinc-200 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 rounded-full bg-primary-green py-3 text-sm font-semibold text-primary-text hover:opacity-90 disabled:opacity-50"
+            >
+              {submitting ? "Sending…" : "Send invitation"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -1137,6 +1331,16 @@ function PasswordResetsTab() {
 }
 
 /* ── Pending Invites tab ── */
+const PENDING_EXPORT_COLUMNS: ExportColumn<AdminPendingInvite>[] = [
+  { header: "ID", value: (m) => m.id },
+  { header: "First Name", value: (m) => m.firstName },
+  { header: "Last Name", value: (m) => m.lastName },
+  { header: "Email", value: (m) => m.email },
+  { header: "Role", value: (m) => m.role },
+  { header: "Status", value: (m) => m.status },
+  { header: "Date Sent", value: (m) => m.dateSent },
+];
+
 function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -1151,10 +1355,70 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
   const [appliedRole, setAppliedRole] = useState<string | null>(null);
   const [appliedDate, setAppliedDate] = useState<string | null>(null);
 
-  const pendingMembers = useMemo(() => ALL_MEMBERS.filter((m) => m.status === "Pending"), []);
+  /* ── Live invitations data ── */
+  const [invites, setInvites] = useState<AdminPendingInvite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<AdminPendingInvite | null>(null);
+
+  const load = useCallback(async () => {
+    setLoadError(null);
+    setLoading(true);
+    try {
+      const res = await getAdminInvitations();
+      setInvites(res.items);
+    } catch (err) {
+      setInvites([]);
+      setLoadError(err instanceof AdminApiError ? err.message : "Could not load invitations.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleResend = async (id: string, email: string) => {
+    setActionError(null);
+    setSuccessMessage(null);
+    setActionLoading(true);
+    try {
+      await postAdminInvitationResend(id);
+      setSuccessMessage(`Invitation resent to ${email}.`);
+      void load();
+    } catch (err) {
+      setActionError(err instanceof AdminApiError ? err.message : "Could not resend invitation.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!cancelTarget) return;
+    setActionError(null);
+    setSuccessMessage(null);
+    setActionLoading(true);
+    try {
+      await deleteAdminInvitation(cancelTarget.id);
+      const email = cancelTarget.email;
+      setCancelTarget(null);
+      setSuccessMessage(`Invitation to ${email} has been cancelled.`);
+      void load();
+    } catch (err) {
+      setActionError(err instanceof AdminApiError ? err.message : "Could not cancel invitation.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const pendingRoleOptions = useMemo(
-    () => ["All roles", ...Array.from(new Set(pendingMembers.map((m) => m.role))).sort()],
-    [pendingMembers],
+    () => ["All roles", ...Array.from(new Set(invites.map((m) => m.role))).sort()],
+    [invites],
   );
 
   useEffect(() => {
@@ -1171,13 +1435,18 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return pendingMembers.filter((m) => {
+    return invites.filter((m) => {
       if (appliedRole && appliedRole !== "All roles" && m.role !== appliedRole) return false;
-      if (appliedDate && !m.dateOnboarded.includes("Jan 6, 2026")) return false;
+      if (appliedDate && !m.dateSent.includes("Jan 6, 2026")) return false;
       if (!q) return true;
-      return m.email.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
+      const fullName = [m.firstName, m.lastName].filter(Boolean).join(" ").toLowerCase();
+      return (
+        m.email.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q) ||
+        fullName.includes(q)
+      );
     });
-  }, [search, pendingMembers, appliedRole, appliedDate]);
+  }, [search, invites, appliedRole, appliedDate]);
 
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -1189,12 +1458,20 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
   );
 
   const runPendingExport = (format: "csv" | "json" | "pdf") => {
-    exportClientTable("admin-pending-invites", format, filtered, TEAM_EXPORT_COLUMNS);
+    exportClientTable("admin-pending-invites", format, filtered, PENDING_EXPORT_COLUMNS);
   };
+
+  if (loading) {
+    return <p className="mt-6 text-sm text-zinc-500">Loading pending invites…</p>;
+  }
+
+  if (loadError) {
+    return <ErrorAlert error={loadError} onRetry={() => void load()} className="mt-6" />;
+  }
 
   return (
     <>
-      {showInvite ? <InviteAdminForm /> : null}
+      {showInvite ? <InviteAdminForm onSuccess={() => void load()} /> : null}
       {filterMode ? (
         <TableFilterModeBar
           filterBarRef={filterBarRef}
@@ -1341,20 +1618,42 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
             <tr className="bg-outline text-xs text-zinc-400">
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Role</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Onboarded</th>
-              <th className="h-11 w-32 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Sent</th>
+              <th className="h-11 w-48 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
             </tr>
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
               <tr key={row.id} className="transition-colors hover:bg-zinc-50">
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.email}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.dateOnboarded}</td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <button type="button" className="text-[13px] font-bold text-primary-text underline underline-offset-4 hover:text-brand-navy transition-colors">
-                    Resend Invite
-                  </button>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-primary-text">
+                      {[row.firstName, row.lastName].filter(Boolean).join(" ") || "—"}
+                    </span>
+                    <span className="text-xs text-zinc-400">{row.email}</span>
+                  </div>
+                </td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.dateSent}</td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => void handleResend(row.id, row.email)}
+                      className="text-[13px] font-bold text-primary-text underline underline-offset-4 hover:text-brand-navy transition-colors disabled:opacity-50"
+                    >
+                      Resend Invite
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => setCancelTarget(row)}
+                      className="text-[13px] font-bold text-red-500 underline underline-offset-4 hover:text-red-700 transition-colors disabled:opacity-50"
+                    >
+                      Cancel Invite
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1379,6 +1678,44 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
           setPage(1);
         }}
       />
+
+      {actionError ? (
+        <div
+          className="fixed bottom-6 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg"
+          role="alert"
+        >
+          {actionError}
+          <button
+            type="button"
+            className="ml-2 font-semibold underline"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {successMessage ? (
+        <SuccessModal
+          message={successMessage}
+          confirmLabel="Done"
+          onContinue={() => setSuccessMessage(null)}
+        />
+      ) : null}
+
+      {cancelTarget ? (
+        <ConfirmModal
+          title="Cancel Invitation"
+          message={`Are you sure you want to cancel the invitation for ${cancelTarget.email}?`}
+          confirmLabel={actionLoading ? "Please wait…" : "Cancel Invite"}
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => void handleCancelConfirm()}
+          onCancel={() => {
+            if (!actionLoading) setCancelTarget(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }
