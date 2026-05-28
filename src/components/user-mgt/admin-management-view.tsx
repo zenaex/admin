@@ -124,6 +124,7 @@ export function AdminManagementView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(null);
   const [roleTarget, setRoleTarget] = useState<AdminTeamMember | null>(null);
   const [roleDraft, setRoleDraft] = useState<string>(INVITE_ROLE_OPTIONS[1]);
   const [deactivateTarget, setDeactivateTarget] = useState<AdminTeamMember | null>(null);
@@ -552,7 +553,14 @@ export function AdminManagementView() {
                       <div className="relative">
                         <button
                           type="button"
-                          onClick={() => setOpenMenuId((id) => id === row.id ? null : row.id)}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuCoords({
+                              top: rect.bottom + 4,
+                              left: rect.right - 224, // width of dropdown (56 * 4 = 224px)
+                            });
+                            setOpenMenuId((id) => id === row.id ? null : row.id);
+                          }}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
                           aria-label={`Actions for ${row.name}`}
                         >
@@ -560,8 +568,22 @@ export function AdminManagementView() {
                         </button>
                         {openMenuId === row.id && (
                           <>
-                            <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
-                            <div className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setMenuCoords(null);
+                              }}
+                            />
+                            <div
+                              style={{
+                                position: "fixed",
+                                top: menuCoords ? `${menuCoords.top}px` : undefined,
+                                left: menuCoords ? `${menuCoords.left}px` : undefined,
+                                width: "224px",
+                              }}
+                              className="z-50 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg"
+                            >
                               <button
                                 type="button"
                                 disabled={!canActOnAdminRow(row)}
@@ -572,6 +594,7 @@ export function AdminManagementView() {
                                   setRoleDraft(row.role);
                                   setRoleTarget(row);
                                   setOpenMenuId(null);
+                                  setMenuCoords(null);
                                 }}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
@@ -580,13 +603,54 @@ export function AdminManagementView() {
                               </button>
                               <button
                                 type="button"
-                                disabled
-                                title="Not available yet"
+                                disabled={!canActOnAdminRow(row)}
+                                title={canActOnAdminRow(row) ? "Reset Password" : MOCK_ADMIN_ACTION_HINT}
+                                onClick={() => {
+                                  if (!canActOnAdminRow(row)) return;
+                                  setAdminActionError(null);
+                                  setResetPwTarget(row);
+                                  setOpenMenuId(null);
+                                  setMenuCoords(null);
+                                }}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 <PasswordCheck size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
                                 Reset Password
                               </button>
+                              {row.status.toLowerCase().includes("suspend") ? (
+                                <button
+                                  type="button"
+                                  disabled={!canActOnAdminRow(row)}
+                                  title={canActOnAdminRow(row) ? "Activate admin" : MOCK_ADMIN_ACTION_HINT}
+                                  onClick={() => {
+                                    if (!canActOnAdminRow(row)) return;
+                                    setOpenMenuId(null);
+                                    setMenuCoords(null);
+                                    void handleActivateAdmin(row);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  <Refresh size={16} variant="Outline" className="text-zinc-500" />
+                                  Activate
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={!canActOnAdminRow(row)}
+                                  title={canActOnAdminRow(row) ? "Suspend admin" : MOCK_ADMIN_ACTION_HINT}
+                                  onClick={() => {
+                                    if (!canActOnAdminRow(row)) return;
+                                    setAdminActionError(null);
+                                    setSuspendTarget(row);
+                                    setOpenMenuId(null);
+                                    setMenuCoords(null);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  <Forbidden size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
+                                  Suspend
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 disabled={!canActOnAdminRow(row)}
@@ -596,6 +660,7 @@ export function AdminManagementView() {
                                   setAdminActionError(null);
                                   setDeactivateTarget(row);
                                   setOpenMenuId(null);
+                                  setMenuCoords(null);
                                 }}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
