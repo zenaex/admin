@@ -247,7 +247,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
               )}
             </div>
             <span className="mt-2 text-[12px] font-medium text-[#718096] min-w-[50px] text-center">
-              Trade
+              Amount
             </span>
           </div>
 
@@ -507,75 +507,79 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
             </button>
           </form>
         ) : (
-          <div className="grid gap-5">
-            <h2 className="text-center text-[19px] font-bold text-brand-navy">
-              Confirm Transaction Details
-            </h2>
-            <p className="text-center text-xs text-zinc-400 -mt-2 mb-2">
-              Please review your logged trade parameters below.
-            </p>
+          <div className="grid gap-6">
+            {/* Warning Circle Icon */}
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-emerald-500">
+                <span className="text-2xl font-bold text-emerald-500 leading-none">!</span>
+              </div>
+            </div>
 
-            <div className="rounded-2xl border border-zinc-100 bg-zinc-50/50 p-5 grid gap-3 text-sm text-zinc-600">
-              <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span className="text-zinc-400 font-medium">Trade Type</span>
-                <span className="font-semibold text-primary-text">{tradeType}</span>
+            <h2 className="text-center text-xl font-bold text-zinc-900 -mt-2">
+              Confirm Etrades
+            </h2>
+
+            <div className="rounded-2xl border border-zinc-100 bg-zinc-50/50 p-6 flex flex-col gap-3.5 text-[13px] text-zinc-500">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Trade Type</span>
+                <span className="font-semibold text-zinc-900">{tradeType}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span className="text-zinc-400 font-medium">Customer</span>
-                <span className="font-semibold text-primary-text">{selectedCustomer.name}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Customer Name</span>
+                <span className="font-semibold text-zinc-900">{selectedCustomer.name}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span className="text-zinc-400 font-medium">Request Type</span>
-                <span className="font-semibold text-primary-text">{requestType}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Request Type</span>
+                <span className="font-semibold text-zinc-900">{requestType}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span className="text-zinc-400 font-medium">Trade Amount</span>
-                <span className="font-semibold text-primary-text">{tradeAmount}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Trade Amount</span>
+                <span className="font-semibold text-zinc-900">{tradeAmount}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span className="text-zinc-400 font-medium">Vendor's Rate</span>
-                <span className="font-semibold text-primary-text">{vendorRate}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Vendor's Rate</span>
+                <span className="font-semibold text-zinc-900">{vendorRate}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span className="text-zinc-400 font-medium">Our Markup Rate</span>
-                <span className="font-semibold text-primary-text">{markupRate}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Our Markup Rate</span>
+                <span className="font-semibold text-zinc-900">{markupRate}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span className="text-zinc-400 font-medium">Customer's Rate</span>
-                <span className="font-semibold text-primary-text">{customerRate}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Customer's Rate</span>
+                <span className="font-semibold text-zinc-900">{customerRate}</span>
               </div>
-              <div className="flex justify-between border-b border-zinc-100 pb-2">
-                <span className="text-zinc-400 font-medium">Amount Equivalent</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Amount Equivalent</span>
                 <span className="font-semibold text-zinc-950 font-bold">{amountEquivalent}</span>
               </div>
-              <div className="flex justify-between pb-1">
-                <span className="text-zinc-400 font-medium">Our Profit Markup</span>
-                <span className="font-semibold text-green-600 font-bold">{profitMarkup}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Our Profit Markup</span>
+                <span className="font-semibold text-zinc-950 font-bold">{profitMarkup}</span>
               </div>
               {imageName && (
-                <div className="flex justify-between border-t border-zinc-100 pt-2 text-xs">
-                  <span className="text-zinc-400">Attached Receipt</span>
-                  <span className="font-medium truncate max-w-[200px] text-zinc-500">{imageName}</span>
+                <div className="flex justify-between items-center border-t border-zinc-100 pt-3.5 mt-1">
+                  <span className="font-medium">Attached Receipt</span>
+                  <span className="font-semibold text-zinc-900 truncate max-w-[200px]">{imageName}</span>
                 </div>
               )}
             </div>
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-2 flex gap-4">
               <button
                 type="button"
                 disabled={loading}
                 onClick={() => setStep(1)}
-                className="flex-1 rounded-full bg-outline py-3.5 text-sm font-semibold text-primary-text hover:bg-zinc-200 transition-colors disabled:opacity-50"
+                className="flex-1 rounded-full bg-white border border-zinc-200 py-3.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-50"
               >
-                Back
+                Go Back
               </button>
               <button
                 type="button"
                 disabled={loading}
                 onClick={handleConfirmSubmit}
-                className="flex-1 rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="flex-1 rounded-full bg-[#C1FF00] py-3.5 text-sm font-bold text-zinc-950 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm"
               >
-                {loading ? "Logging Trade…" : "Confirm & Log Trade"}
+                {loading ? "Logging Trade…" : "Login Trade"}
               </button>
             </div>
           </div>
