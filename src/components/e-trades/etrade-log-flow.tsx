@@ -226,8 +226,10 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
         </div>
       </div>
 
-      {/* Main Container Card wrapping Stepper + Forms */}
-      <div className="mx-auto max-w-[620px] rounded-3xl border border-zinc-100 bg-white px-8 pb-10 pt-10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+      {/* Main Container Card wrapping Stepper + Forms (Full Width) */}
+      <div className="w-full rounded-3xl border border-zinc-100 bg-white px-8 pb-10 pt-10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+        {/* Inner Content centered wrapper */}
+        <div className="mx-auto max-w-[560px]">
         {/* Stepper */}
         <div className="mx-auto mb-10 w-full max-w-sm relative flex items-center justify-between px-12">
           {/* Thin connector line */}
@@ -578,6 +580,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {showSuccess && (
