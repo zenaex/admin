@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
-import { Upload, Check } from "lucide-react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
+import { Upload, Check, Search, ChevronDown } from "lucide-react";
 import { ArrowLeft2, ArrowRight2 } from "iconsax-react";
 import { InputField } from "@/components/input-field";
 import { SuccessModal } from "@/components/provider/provider-modals";
@@ -12,12 +12,19 @@ type EtradeLogFlowProps = {
   onSuccess: (newTrade: EtradeRequestRow) => void;
 };
 
-const CUSTOMER_OPTIONS = [
-  { label: "Okunola Roscoly | @badmanrosco1", name: "Okunola Roscoly" },
-  { label: "Nsomi Salisu | @nsomi_salisu", name: "Nsomi Salisu" },
-  { label: "Job Awolowo | @job_awo", name: "Job Awolowo" },
-  { label: "Martha Kalio | @martha_k", name: "Martha Kalio" },
-  { label: "Victoria Salisu | @victoria_s", name: "Victoria Salisu" },
+type CustomerOption = {
+  name: string;
+  username: string;
+};
+
+const CUSTOMER_OPTIONS: CustomerOption[] = [
+  { name: "Adekunle Timothy", username: "kunletim" },
+  { name: "Timothy Nasiru", username: "Timo" },
+  { name: "Babangida Tunde", username: "Bangi" },
+  { name: "Chiamaka Ngozi", username: "maxxxxxx" },
+  { name: "Lala Jibola", username: "Oglala" },
+  { name: "Mustapha Fetuga", username: "Musty100" },
+  { name: "Okunola Roscoly", username: "badmanrosco1" },
 ];
 
 const TRADE_TYPE_OPTIONS = ["Exchange Rate", "Giftcard", "Crypto"];
@@ -27,7 +34,10 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
 
   // Form states
   const [tradeType, setTradeType] = useState(TRADE_TYPE_OPTIONS[0]);
-  const [customerRaw, setCustomerRaw] = useState(CUSTOMER_OPTIONS[0].label);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption>(CUSTOMER_OPTIONS[6]); // Default to Okunola Roscoly as in mockup
+  const [isCustomerOpen, setIsCustomerOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const customerDropdownRef = useRef<HTMLDivElement>(null);
   const [requestType, setRequestType] = useState("Bank of America");
   const [tradeAmount, setTradeAmount] = useState("$100,000.00");
   const [vendorRate, setVendorRate] = useState("$1/₦1200");
@@ -45,6 +55,28 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
   // Submit flow states
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Handle click outside for customer dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        customerDropdownRef.current &&
+        !customerDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsCustomerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const filteredCustomers = CUSTOMER_OPTIONS.filter(
+    (c) =>
+      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      c.username.toLowerCase().includes(customerSearch.toLowerCase())
+  );
 
   // Run live calculations based on inputs
   useEffect(() => {
@@ -95,7 +127,6 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
     setLoading(false);
 
     // Map form to EtradeRequestRow schema
-    const selectedCustomer = CUSTOMER_OPTIONS.find((c) => c.label === customerRaw) || CUSTOMER_OPTIONS[0];
     const newTrade: EtradeRequestRow = {
       id: `etrade-req-logged-${Date.now()}`,
       title: requestType.trim(),
@@ -210,36 +241,87 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
               </div>
             </div>
 
-            {/* Customer's Name */}
-            <div>
-              <label htmlFor="log-customer" className="mb-1.5 block text-[11px] font-medium text-gray-500">
+            {/* Customer's Name (Searchable Custom Dropdown) */}
+            <div className="relative" ref={customerDropdownRef}>
+              <label className="mb-1.5 block text-[11px] font-medium text-gray-500">
                 Customer's Name
               </label>
-              <div className="relative">
-                <select
-                  id="log-customer"
-                  value={customerRaw}
-                  onChange={(e) => setCustomerRaw(e.target.value)}
-                  className="text-primary-text h-10 w-full appearance-none rounded-md border border-secondary-green/25 bg-white px-3 pr-10 text-sm outline-none focus:border-secondary-green"
-                >
-                  {CUSTOMER_OPTIONS.map((opt) => (
-                    <option key={opt.label} value={opt.label}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path
-                      d="M3 5l4 4 4-4"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+              
+              {/* Dropdown Toggle Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setIsCustomerOpen(!isCustomerOpen)}
+                className="flex items-center justify-between text-primary-text h-10 w-full rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green text-left shadow-sm transition-colors"
+              >
+                <span>{selectedCustomer.name}</span>
+                <ChevronDown size={16} className="text-zinc-400 shrink-0" />
+              </button>
+
+              {/* Floating Dropdown Panel */}
+              {isCustomerOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-white border border-zinc-150 rounded-2xl shadow-xl p-3 grid gap-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                  {/* Search Bar Input */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      className="w-full h-10 px-3.5 pr-10 border border-[#E8EDF2] rounded-xl text-sm outline-none placeholder:text-zinc-400 focus:border-zinc-400"
+                      placeholder="Search"
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                      autoFocus
                     />
-                  </svg>
-                </span>
-              </div>
+                    <Search
+                      size={16}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400"
+                    />
+                  </div>
+
+                  {/* Customer Scroll List */}
+                  <div className="max-h-[220px] overflow-y-auto pr-1 flex flex-col gap-1">
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map((c) => {
+                        const initials = c.name
+                          .split(" ")
+                          .map((p) => p[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2);
+
+                        return (
+                          <button
+                            key={c.username}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCustomer(c);
+                              setIsCustomerOpen(false);
+                              setCustomerSearch("");
+                            }}
+                            className="flex items-center gap-3 w-full px-2 py-2 hover:bg-zinc-50 rounded-xl cursor-pointer text-left transition-colors"
+                          >
+                            {/* Avatar Circle */}
+                            <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-semibold text-zinc-500 shrink-0 select-none">
+                              {initials}
+                            </div>
+                            {/* Metadata */}
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[13px] font-semibold text-zinc-950 leading-tight truncate">
+                                {c.name}
+                              </span>
+                              <span className="text-[11px] text-zinc-400 leading-tight truncate">
+                                @{c.username}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-4 text-xs text-zinc-400 select-none">
+                        No customers found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Request Type */}
@@ -369,7 +451,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
               </div>
               <div className="flex justify-between border-b border-zinc-100 pb-2">
                 <span className="text-zinc-400 font-medium">Customer</span>
-                <span className="font-semibold text-primary-text">{customerRaw}</span>
+                <span className="font-semibold text-primary-text">{selectedCustomer.name}</span>
               </div>
               <div className="flex justify-between border-b border-zinc-100 pb-2">
                 <span className="text-zinc-400 font-medium">Request Type</span>
