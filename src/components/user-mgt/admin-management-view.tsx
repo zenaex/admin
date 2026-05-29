@@ -20,14 +20,14 @@ import {
   postAdminTeamSuspend,
   postAdminTeamActivate,
   postAdminTeamResetPassword,
-  postAdminTeamChangeRole,
+  putAdminTeamMember,
   getAdminInvitations,
   postAdminInvitationResend,
   deleteAdminInvitation,
   getAdminRoles,
   humanizeRole,
 } from "@/lib/admin-api/team-api";
-import type { AdminSettingsPasswordResetRequestRow, AdminTeamMember, AdminPendingInvite } from "@/lib/admin-api/types";
+import type { AdminSettingsPasswordResetRequestRow, AdminTeamMember, AdminPendingInvite, AdminRole } from "@/lib/admin-api/types";
 import { uiRoleLabelToApiRole, isRealAdminId } from "@/lib/admin-api/users-api";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 
@@ -136,7 +136,7 @@ export function AdminManagementView() {
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
   const [adminSuccessMessage, setAdminSuccessMessage] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
+  const [dynamicRoles, setDynamicRoles] = useState<AdminRole[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -154,9 +154,9 @@ export function AdminManagementView() {
     };
   }, []);
 
-  const resolvedRoles = useMemo(() => {
+  const resolvedRoles = useMemo<AdminRole[]>(() => {
     if (dynamicRoles.length > 0) return dynamicRoles;
-    return Array.from(INVITE_ROLE_OPTIONS);
+    return INVITE_ROLE_OPTIONS.map((name) => ({ id: name, name }));
   }, [dynamicRoles]);
 
   /* ── Live team data ── */
@@ -252,8 +252,12 @@ export function AdminManagementView() {
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await postAdminTeamChangeRole(roleTarget.id, {
-        newRole: uiRoleLabelToApiRole(roleDraft),
+      await putAdminTeamMember(roleTarget.id, {
+        firstName: roleTarget.firstName || roleTarget.name.split(" ")[0] || "",
+        lastName: roleTarget.lastName || roleTarget.name.split(" ").slice(1).join(" ") || "",
+        phoneNumber: roleTarget.phone === "—" ? "" : roleTarget.phone,
+        department: roleTarget.department === "—" ? "" : roleTarget.department,
+        roleId: roleDraft,
       });
       setRoleTarget(null);
       setAdminSuccessMessage(`Role updated for ${roleTarget.name}.`);
@@ -615,7 +619,13 @@ export function AdminManagementView() {
                                 onClick={() => {
                                   if (!canActOnAdminRow(row)) return;
                                   setAdminActionError(null);
-                                  setRoleDraft(row.role);
+                                  const matchingRole = resolvedRoles.find(
+                                    (r) =>
+                                      r.id === row.roleId ||
+                                      r.name.toLowerCase() === row.role.toLowerCase() ||
+                                      humanizeRole(r.name).toLowerCase() === row.role.toLowerCase()
+                                  );
+                                  setRoleDraft(matchingRole ? matchingRole.id : row.roleId || resolvedRoles[0]?.id || "");
                                   setRoleTarget(row);
                                   setOpenMenuId(null);
                                   setMenuCoords(null);
@@ -832,7 +842,7 @@ type AdminChangeRoleModalProps = {
   onRoleChange: (role: string) => void;
   onClose: () => void;
   onSubmit: () => void;
-  roles: string[];
+  roles: AdminRole[];
 };
 
 function AdminChangeRoleModal({
@@ -858,8 +868,8 @@ function AdminChangeRoleModal({
           onChange={(e) => onRoleChange(e.target.value)}
         >
           {roles.map((opt) => (
-            <option key={opt} value={opt}>
-              {humanizeRole(opt)}
+            <option key={opt.id} value={opt.id}>
+              {humanizeRole(opt.name)}
             </option>
           ))}
         </select>
@@ -1090,7 +1100,7 @@ function InviteAdminModal({
 }: {
   onClose: () => void;
   onSuccess: () => void;
-  roles: string[];
+  roles: AdminRole[];
 }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -1104,7 +1114,7 @@ function InviteAdminModal({
 
   useEffect(() => {
     if (roles.length > 0 && !role) {
-      setRole(roles[1] || roles[0]);
+      setRole(roles[1]?.name || roles[0]?.name || "");
     }
   }, [roles, role]);
 
@@ -1200,8 +1210,8 @@ function InviteAdminModal({
               className="text-primary-text h-10 w-full rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green"
             >
               {roles.map((r) => (
-                <option key={r} value={r}>
-                  {humanizeRole(r)}
+                <option key={r.id} value={r.name}>
+                  {humanizeRole(r.name)}
                 </option>
               ))}
             </select>

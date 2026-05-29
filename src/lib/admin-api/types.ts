@@ -420,15 +420,25 @@ export type AdminReferralDetailResult = {
 
 /* ── Admin Team Management ── */
 
+export type AdminRole = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
 /** Normalized row for admin team member list. */
 export type AdminTeamMember = {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   role: string;
+  roleId: string;
   status: string;
   dateOnboarded: string;
+  department: string;
 };
 
 export type AdminTeamListResult = {
@@ -448,9 +458,11 @@ export type AdminTeamInviteBody = {
 
 /** Body for `PUT /admin/team/{id}` — update team member details. */
 export type AdminTeamUpdateBody = {
-  firstName?: string;
-  lastName?: string;
-  role?: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  department: string;
+  roleId: string;
 };
 
 /** Normalized row for pending admin invitation. */

@@ -3,13 +3,13 @@
  */
 import { adminRequest, adminUrl } from "@/lib/admin-api/client";
 import type {
-  AdminChangeAdminRoleBody,
   AdminPendingInvite,
   AdminPendingInviteListResult,
   AdminTeamInviteBody,
   AdminTeamListResult,
   AdminTeamMember,
   AdminTeamUpdateBody,
+  AdminRole,
 } from "@/lib/admin-api/types";
 
 /* ── Helpers ── */
@@ -55,15 +55,18 @@ function normalizeTeamMember(raw: unknown): AdminTeamMember | null {
   const id = pickStr(o, ["id", "adminId", "userId", "uuid"]);
   if (!id) return null;
 
-  const first = pickStr(o, ["firstName", "first_name", "givenName"]);
-  const last = pickStr(o, ["lastName", "last_name", "familyName"]);
-  const fullFromParts = [first, last].filter(Boolean).join(" ").trim();
+  const firstName = pickStr(o, ["firstName", "first_name", "givenName"]);
+  const lastName = pickStr(o, ["lastName", "last_name", "familyName"]);
+  const fullFromParts = [firstName, lastName].filter(Boolean).join(" ").trim();
   const name = fullFromParts || pickStr(o, ["fullName", "full_name", "name", "displayName"]) || pickStr(o, ["email"]) || id;
 
   const email = pickStr(o, ["email", "emailAddress"]) || "—";
   const phone = pickStr(o, ["phone", "phoneNumber", "mobile"]) || "—";
   const roleRaw = pickStr(o, ["role", "roleName", "adminRole"]);
   const role = roleRaw ? humanizeRole(roleRaw) : "—";
+  
+  const roleId = pickStr(o, ["roleId", "role_id", "adminRoleId"]) || "";
+  const department = pickStr(o, ["department", "dept"]) || "—";
 
   const statusRaw = pickStr(o, ["status", "accountStatus", "adminStatus"]);
   const status = statusRaw ? humanizeStatus(statusRaw) : "—";
@@ -71,7 +74,7 @@ function normalizeTeamMember(raw: unknown): AdminTeamMember | null {
   const dateRaw = pickStr(o, ["createdAt", "created_at", "dateOnboarded", "dateAdded", "joinedAt"]);
   const dateOnboarded = dateRaw ? formatDate(dateRaw) : "—";
 
-  return { id, name, email, phone, role, status, dateOnboarded };
+  return { id, name, firstName, lastName, email, phone, role, roleId, status, dateOnboarded, department };
 }
 
 function normalizeInvitation(raw: unknown): AdminPendingInvite | null {
@@ -205,14 +208,6 @@ export async function postAdminTeamResetPassword(id: string): Promise<void> {
   });
 }
 
-/** `POST /admin/team/{id}/role` — Change admin role (kept for backward compat). */
-export async function postAdminTeamChangeRole(id: string, body: AdminChangeAdminRoleBody): Promise<void> {
-  await adminRequest(`/admin/team/${encodeURIComponent(id)}/role`, {
-    method: "POST",
-    body: JSON.stringify(body),
-    auth: true,
-  });
-}
 
 /* ── Invitation endpoints ── */
 
@@ -242,33 +237,27 @@ export async function deleteAdminInvitation(id: string): Promise<void> {
 }
 
 /** `GET /admin/roles` — List all admin roles. */
-export async function getAdminRoles(): Promise<string[]> {
+export async function getAdminRoles(): Promise<AdminRole[]> {
   const data = await adminRequest<unknown>("/admin/roles", { method: "GET" });
-  if (Array.isArray(data)) {
-    return data.map((item: unknown) => {
-      if (typeof item === "string") return item;
-      if (item && typeof item === "object") {
-        const r = item as Record<string, unknown>;
-        const val = r.name ?? r.role ?? r.id ?? r.value;
-        if (typeof val === "string") return val;
-      }
-      return String(item);
-    });
-  }
-  if (data && typeof data === "object") {
-    const r = data as Record<string, unknown>;
-    const list = r.roles ?? r.items ?? r.data;
-    if (Array.isArray(list)) {
-      return list.map((item: unknown) => {
-        if (typeof item === "string") return item;
-        if (item && typeof item === "object") {
-          const ri = item as Record<string, unknown>;
-          const val = ri.name ?? ri.role ?? ri.id ?? ri.value;
-          if (typeof val === "string") return val;
-        }
-        return String(item);
-      });
+  const rawList = (() => {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object") {
+      const r = data as Record<string, unknown>;
+      const list = r.roles ?? r.items ?? r.data;
+      if (Array.isArray(list)) return list;
     }
-  }
-  return [];
+    return [];
+  })();
+
+  return rawList.map((item: unknown): AdminRole => {
+    if (item && typeof item === "object") {
+      const r = item as Record<string, unknown>;
+      const id = String(r.id ?? r.roleId ?? r.value ?? "");
+      const name = String(r.name ?? r.role ?? r.label ?? "");
+      const description = r.description ? String(r.description) : undefined;
+      return { id, name, description };
+    }
+    const val = String(item);
+    return { id: val, name: val };
+  });
 }
