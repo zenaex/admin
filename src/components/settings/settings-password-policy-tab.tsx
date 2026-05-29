@@ -144,145 +144,7 @@ function ExpiryConfiguration({ ui, setUi, saving, onSave }: ExpiryProps) {
   );
 }
 
-type LengthProps = {
-  ui: AdminPasswordPolicyUiState;
-  setUi: React.Dispatch<React.SetStateAction<AdminPasswordPolicyUiState>>;
-  saving: boolean;
-  onSave: () => void;
-};
-
-function PasswordLength({ ui, setUi, saving, onSave }: LengthProps) {
-  const [openMin, setOpenMin] = useState(false);
-  const [openMax, setOpenMax] = useState(false);
-  const minOptions = Array.from({ length: 20 }, (_, i) => i + 1);
-  const maxOptions = Array.from({ length: 32 }, (_, i) => i + 1);
-
-  return (
-    <div className="space-y-4">
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => {
-            setOpenMin((o) => !o);
-            setOpenMax(false);
-          }}
-          className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm transition-colors hover:border-zinc-300"
-        >
-          <span className="text-primary-text">{`${ui.minLength} characters (min)`}</span>
-          <ArrowDown2 size={16} variant="Outline" color="currentColor" className={`transition-transform ${openMin ? "rotate-180" : ""}`} />
-        </button>
-        {openMin && (
-          <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-xl border border-zinc-200 bg-white py-1 shadow-lg">
-            {minOptions.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => {
-                  setUi((prev) => ({ ...prev, minLength: opt, maxLength: Math.max(opt, prev.maxLength) }));
-                  setOpenMin(false);
-                }}
-                className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-surface-subtle ${
-                  ui.minLength === opt ? "font-semibold text-primary-text" : "text-zinc-500"
-                }`}
-              >
-                {opt} characters
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => {
-            setOpenMax((o) => !o);
-            setOpenMin(false);
-          }}
-          className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm transition-colors hover:border-zinc-300"
-        >
-          <span className="text-primary-text">{`${ui.maxLength} characters (max)`}</span>
-          <ArrowDown2 size={16} variant="Outline" color="currentColor" className={`transition-transform ${openMax ? "rotate-180" : ""}`} />
-        </button>
-        {openMax && (
-          <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-xl border border-zinc-200 bg-white py-1 shadow-lg">
-            {maxOptions.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => {
-                  setUi((prev) => ({ ...prev, maxLength: opt, minLength: Math.min(prev.minLength, opt) }));
-                  setOpenMax(false);
-                }}
-                className={`w-full px-4 py-2 text-left text-sm transition-colors hover:bg-surface-subtle ${
-                  ui.maxLength === opt ? "font-semibold text-primary-text" : "text-zinc-500"
-                }`}
-              >
-                {opt} characters
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={onSave}
-          className="rounded-full bg-primary-green px-6 py-2.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-type ComboProps = {
-  ui: AdminPasswordPolicyUiState;
-  setUi: React.Dispatch<React.SetStateAction<AdminPasswordPolicyUiState>>;
-  saving: boolean;
-  onSave: () => void;
-};
-
-function CombinationSetting({ ui, setUi, saving, onSave }: ComboProps) {
-  return (
-    <div className="space-y-4">
-      {[
-        { label: "Set up digit only", key: "digitOnly" as const, checked: ui.digitOnly },
-        { label: "Set up alphabet only", key: "alphabetOnly" as const, checked: ui.alphabetOnly },
-        { label: "Alphanumeric and character", key: "alphanumeric" as const, checked: ui.alphanumeric },
-      ].map(({ label, key, checked }) => (
-        <label key={key} className="flex cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={(e) => setUi((prev) => ({ ...prev, [key]: e.target.checked }))}
-            className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-secondary-green"
-          />
-          <span className="text-sm text-primary-text">{label}</span>
-        </label>
-      ))}
-
-      <div className="pt-1">
-        <button
-          type="button"
-          disabled={saving}
-          onClick={onSave}
-          className="rounded-full bg-primary-green px-6 py-2.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-type PolicySubTab = "expiry" | "length" | "combination";
-
 export function SettingsPasswordPolicyTab() {
-  const [subTab, setSubTab] = useState<PolicySubTab>("expiry");
   const [ui, setUi] = useState<AdminPasswordPolicyUiState>(() => defaultPasswordPolicyUi());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -320,12 +182,6 @@ export function SettingsPasswordPolicyTab() {
     }
   }, [ui]);
 
-  const tabs: { id: PolicySubTab; label: string }[] = [
-    { id: "expiry", label: "Expiry Configuration" },
-    { id: "length", label: "Password Length" },
-    { id: "combination", label: "Combination Setting" },
-  ];
-
   if (loading) {
     return <p className="text-sm text-zinc-500">Loading password policy…</p>;
   }
@@ -342,30 +198,8 @@ export function SettingsPasswordPolicyTab() {
         </p>
       ) : null}
 
-      <div className="mb-6 flex items-center gap-6 rounded-full border border-outline bg-white px-5 py-3.5">
-        {tabs.map(({ id, label }) => {
-          const active = subTab === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setSubTab(id)}
-              className={`text-sm transition-colors ${
-                active
-                  ? "rounded-full bg-zinc-200 px-4.5 py-1.5 font-semibold text-primary-text"
-                  : "font-medium text-zinc-400 hover:text-zinc-600"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
       <div className="w-[566px] max-w-full rounded-xl border border-outline bg-white p-6">
-        {subTab === "expiry" && <ExpiryConfiguration ui={ui} setUi={setUi} saving={saving} onSave={() => void savePolicy()} />}
-        {subTab === "length" && <PasswordLength ui={ui} setUi={setUi} saving={saving} onSave={() => void savePolicy()} />}
-        {subTab === "combination" && <CombinationSetting ui={ui} setUi={setUi} saving={saving} onSave={() => void savePolicy()} />}
+        <ExpiryConfiguration ui={ui} setUi={setUi} saving={saving} onSave={() => void savePolicy()} />
       </div>
     </div>
   );

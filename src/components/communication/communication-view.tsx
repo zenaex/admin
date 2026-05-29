@@ -5,12 +5,15 @@ import { CalendarDays } from "lucide-react";
 
 import { CommunicationHeader } from "@/components/communication/communication-header";
 import { CommunicationPagination } from "@/components/communication/communication-pagination";
-import { CommunicationRow, CommunicationTable } from "@/components/communication/communication-table";
+import { CommunicationTable } from "@/components/communication/communication-table";
 import { CommunicationToolbar } from "@/components/communication/communication-toolbar";
+import { getAdminCampaigns } from "@/lib/admin-api/communications-api";
+import { ErrorAlert } from "@/components/ui/error-alert";
+import type { AdminCampaign } from "@/lib/admin-api/types";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 
-const COMMUNICATION_EXPORT_COLUMNS: ExportColumn<CommunicationRow>[] = [
+const COMMUNICATION_EXPORT_COLUMNS: ExportColumn<AdminCampaign>[] = [
   { header: "Campaign", value: (r) => r.campaign },
   { header: "Start Date", value: (r) => r.startDate },
   { header: "End Date", value: (r) => r.endDate },
@@ -28,54 +31,11 @@ import {
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
 
-const BASE_ROWS: Omit<CommunicationRow, "id">[] = [
-  {
-    campaign: "Summer savings bonus",
-    startDate: "Jan 6, 2026 | 9:32AM",
-    endDate: "Jan 6, 2026 | 9:32AM",
-    lastModified: "Jan 6, 2026 | 9:32AM",
-    status: "Publish",
-  },
-  {
-    campaign: "Summer savings bonus",
-    startDate: "Jan 6, 2026 | 9:32AM",
-    endDate: "Jan 6, 2026 | 9:32AM",
-    lastModified: "Jan 6, 2026 | 9:32AM",
-    status: "Publish",
-  },
-  {
-    campaign: "Summer savings bonus",
-    startDate: "Jan 6, 2026 | 9:32AM",
-    endDate: "Jan 6, 2026 | 9:32AM",
-    lastModified: "Jan 6, 2026 | 9:32AM",
-    status: "Unpublished",
-  },
-  {
-    campaign: "Summer savings bonus",
-    startDate: "Jan 6, 2026 | 9:32AM",
-    endDate: "Jan 6, 2026 | 9:32AM",
-    lastModified: "Jan 6, 2026 | 9:32AM",
-    status: "Pending",
-  },
-];
-
-function buildRows(count: number): CommunicationRow[] {
-  return Array.from({ length: count }, (_, i) => {
-    const base = BASE_ROWS[i % BASE_ROWS.length];
-    return {
-      ...base,
-      id: `communication-row-${i}`,
-      campaign: i < BASE_ROWS.length ? base.campaign : `${base.campaign} ${i + 1}`,
-    };
-  });
-}
-
-const ALL_ROWS = buildRows(180);
-
 const STATUS_OPTIONS = ["All statuses", "Publish", "Unpublished", "Pending"] as const;
 
 export function CommunicationView() {
   const [tableSearch, setTableSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "status" | "start">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
@@ -89,6 +49,43 @@ export function CommunicationView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
 
+  const [campaigns, setCampaigns] = useState<AdminCampaign[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(tableSearch), 400);
+    return () => clearTimeout(t);
+  }, [tableSearch]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [appliedStatus, debouncedSearch]);
+
+  const loadCampaigns = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getAdminCampaigns({
+        status: appliedStatus ?? undefined,
+        page,
+        limit: pageSize,
+        search: debouncedSearch || undefined,
+      });
+      setCampaigns(res.items);
+      setTotalItems(res.total);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load campaigns.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadCampaigns();
+  }, [appliedStatus, page, pageSize, debouncedSearch]);
+
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
   }, [filterMode]);
@@ -101,35 +98,12 @@ export function CommunicationView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase();
-    return ALL_ROWS.filter((r) => {
-      if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus) return false;
-      if (appliedStartLabel && !r.startDate.includes("Jan 6, 2026")) return false;
-      if (!q) return true;
-      return (
-        r.campaign.toLowerCase().includes(q) ||
-        r.status.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q)
-      );
-    });
-  }, [tableSearch, appliedStatus, appliedStartLabel]);
-
-  const totalItems = filteredRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const safePage = Math.min(page, totalPages);
-
-  const paginatedRows = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, safePage, pageSize]);
-
   const runExport = (format: "csv" | "json" | "pdf") => {
-    exportClientTable("communications", format, filteredRows, COMMUNICATION_EXPORT_COLUMNS);
+    exportClientTable("communications", format, campaigns, COMMUNICATION_EXPORT_COLUMNS);
   };
 
   const exportProps = {
-    exportDisabled: filteredRows.length === 0,
+    exportDisabled: campaigns.length === 0,
     onExportCsv: () => runExport("csv"),
     onExportPdf: () => runExport("pdf"),
     onExportJson: () => runExport("json"),
@@ -253,9 +227,17 @@ export function CommunicationView() {
           {...exportProps}
         />
       )}
-      <CommunicationTable rows={paginatedRows} />
+      {error ? (
+        <ErrorAlert error={error} onRetry={() => void loadCampaigns()} className="mt-6" />
+      ) : loading ? (
+        <div className="flex h-48 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-green border-t-transparent" />
+        </div>
+      ) : (
+        <CommunicationTable rows={campaigns} />
+      )}
       <CommunicationPagination
-        page={safePage}
+        page={page}
         pageSize={pageSize}
         totalItems={totalItems}
         onPageChange={setPage}

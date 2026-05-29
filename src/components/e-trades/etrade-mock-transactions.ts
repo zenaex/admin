@@ -1,3 +1,5 @@
+import { ALL_ETRADE_REQUESTS } from "./etrade-mock-requests";
+
 export type EtradeTxnListStatus = "Successful" | "Failed";
 
 export type EtradeTransactionListRow = {
@@ -6,27 +8,61 @@ export type EtradeTransactionListRow = {
   subtitle: string;
   amount: string;
   status: EtradeTxnListStatus;
+  tradeId: string;
+  customer: string;
+  dateCreated: string;
+  tradeValue: string;
+  opsInCharge: string;
 };
 
 const TITLES = [
-  "Request for BOA",
-  "Request for Cashapp",
-  "Request for Zelle",
-  "Request for Wire",
-  "Request for OTC",
+  "Cashapp Tag Request",
+  "Bank of America",
+  "BOA",
+  "OTC",
+  "Wire",
+  "Zelle",
+];
+
+const CUSTOMERS = [
+  "Naomi Salisu",
+  "Job Awolowo",
+  "Martha Kalio",
+  "Victoria Salisu",
+  "Mary Kalio",
+  "Joseph Anunobi",
+  "Sarah Ibe",
+  "Elizabeth Kanu",
+  "Elizabeth Amiesi",
+  "Margaret Idris",
 ];
 
 const STATUSES: EtradeTxnListStatus[] = ["Successful", "Failed"];
 
 export const ALL_ETRADE_TRANSACTION_ROWS: EtradeTransactionListRow[] = Array.from(
   { length: 120 },
-  (_, i) => ({
-    id: `etrade-txn-${i}`,
-    title: TITLES[i % TITLES.length],
-    subtitle: "Etrade • 9:18 AM",
-    amount: "$100.00",
-    status: STATUSES[i % STATUSES.length],
-  }),
+  (_, i) => {
+    const customerName = CUSTOMERS[i % CUSTOMERS.length];
+    const opsInCharge = CUSTOMERS[(i + 1) % CUSTOMERS.length];
+    const title = TITLES[i % TITLES.length];
+    const minute = (32 + (i * 7)) % 60;
+    const timeStr = `9:${minute.toString().padStart(2, "0")}AM`;
+    const valueAmount = 100000 + (i * 5000) % 50000;
+    const valueStr = `$${valueAmount.toLocaleString()}.00`;
+    
+    return {
+      id: `etrade-txn-${i}`,
+      title,
+      subtitle: `Etrade • ${timeStr}`,
+      amount: valueStr,
+      status: STATUSES[i % STATUSES.length],
+      tradeId: `Trade-WVA_S373${i.toString().padStart(3, "0")}OPN`,
+      customer: customerName,
+      dateCreated: `Jan 6, 2026 | ${timeStr}`,
+      tradeValue: valueStr,
+      opsInCharge,
+    };
+  }
 );
 
 /** QA: use in URL path or `?outcome=` (see getEtradeTransactionDetail). */
@@ -145,6 +181,76 @@ export function getEtradeTransactionDetail(
   outcomeOverride?: EtradeDetailOutcome,
 ): EtradeTransactionDetail {
   const fromQuery = outcomeOverride ? OUTCOME_BODY[outcomeOverride] : undefined;
+  
+  if (id.startsWith("etrade-req-")) {
+    const req = ALL_ETRADE_REQUESTS.find((r) => r.id === id);
+    if (req) {
+      let outcome: EtradeDetailOutcome = "approved";
+      if (req.status === "Pending") outcome = "pending";
+      else if (req.status === "Failed") outcome = "failed";
+
+      const rawAmt = parseFloat(req.tradeValue.replace(/[^\d.]/g, "")) || 0;
+      const ngnVal = rawAmt * 1046;
+      const ngnEquivalent = "₦" + ngnVal.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      return {
+        id,
+        outcome: outcomeOverride ?? outcome,
+        sessionId: "12324235334252526",
+        customerName: req.customer,
+        channel: "Etrade",
+        requestDetails: req.title,
+        country: "United States | USD",
+        tradeAmount: req.tradeValue,
+        rateFee: "1046/$1",
+        ngnEquivalent,
+        dateInitiated: req.dateCreated,
+        dateCompleted: outcome === "pending" ? "—" : req.dateCreated,
+        opsInCharge: req.opsInCharge,
+        approvedBy: outcome === "approved" ? "Ezekiel Olajolo" : "—",
+        dateApproved: outcome === "approved" ? req.dateCreated : "—",
+        device: "Iphone 15pro",
+        deviceId: "c83738d83yedhd",
+        location: "Ijebu Igbo, Ogun State",
+        locationCoordinate: "Lat: 40.748944",
+      };
+    }
+  }
+
+  if (id.startsWith("etrade-txn-")) {
+    const txn = ALL_ETRADE_TRANSACTION_ROWS.find((t) => t.id === id);
+    if (txn) {
+      let outcome: EtradeDetailOutcome = "approved";
+      if (txn.status === "Failed") outcome = "failed";
+
+      const rawAmt = parseFloat(txn.tradeValue.replace(/[^\d.]/g, "")) || 0;
+      const ngnVal = rawAmt * 1046;
+      const ngnEquivalent = "₦" + ngnVal.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      return {
+        id,
+        outcome: outcomeOverride ?? outcome,
+        sessionId: "12324235334252526",
+        customerName: txn.customer,
+        channel: "Etrade",
+        requestDetails: txn.title,
+        country: "United States | USD",
+        tradeAmount: txn.tradeValue,
+        rateFee: "1046/$1",
+        ngnEquivalent,
+        dateInitiated: txn.dateCreated,
+        dateCompleted: txn.dateCreated,
+        opsInCharge: txn.opsInCharge,
+        approvedBy: outcome === "approved" ? "Ezekiel Olajolo" : "—",
+        dateApproved: outcome === "approved" ? txn.dateCreated : "—",
+        device: "Iphone 15pro",
+        deviceId: "c83738d83yedhd",
+        location: "Ijebu Igbo, Ogun State",
+        locationCoordinate: "Lat: 40.748944",
+      };
+    }
+  }
+
   const fromId = DETAIL_BY_ID[id];
   const body = fromQuery ?? fromId ?? APPROVED_BODY;
   return { id, ...body };

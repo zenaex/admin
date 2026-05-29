@@ -3,13 +3,15 @@
  */
 import { adminRequest, adminUrl } from "@/lib/admin-api/client";
 import type {
-  AdminChangeAdminRoleBody,
   AdminPendingInvite,
   AdminPendingInviteListResult,
   AdminTeamInviteBody,
   AdminTeamListResult,
   AdminTeamMember,
   AdminTeamUpdateBody,
+  AdminRole,
+  AdminTeamDeactivateBody,
+  AdminTeamSuspendBody,
 } from "@/lib/admin-api/types";
 
 /* ── Helpers ── */
@@ -39,7 +41,7 @@ function humanizeStatus(s: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-function humanizeRole(s: string): string {
+export function humanizeRole(s: string): string {
   if (!s) return "—";
   return s
     .replace(/_/g, " ")
@@ -55,15 +57,18 @@ function normalizeTeamMember(raw: unknown): AdminTeamMember | null {
   const id = pickStr(o, ["id", "adminId", "userId", "uuid"]);
   if (!id) return null;
 
-  const first = pickStr(o, ["firstName", "first_name", "givenName"]);
-  const last = pickStr(o, ["lastName", "last_name", "familyName"]);
-  const fullFromParts = [first, last].filter(Boolean).join(" ").trim();
+  const firstName = pickStr(o, ["firstName", "first_name", "givenName"]);
+  const lastName = pickStr(o, ["lastName", "last_name", "familyName"]);
+  const fullFromParts = [firstName, lastName].filter(Boolean).join(" ").trim();
   const name = fullFromParts || pickStr(o, ["fullName", "full_name", "name", "displayName"]) || pickStr(o, ["email"]) || id;
 
   const email = pickStr(o, ["email", "emailAddress"]) || "—";
   const phone = pickStr(o, ["phone", "phoneNumber", "mobile"]) || "—";
   const roleRaw = pickStr(o, ["role", "roleName", "adminRole"]);
   const role = roleRaw ? humanizeRole(roleRaw) : "—";
+  
+  const roleId = pickStr(o, ["roleId", "role_id", "adminRoleId"]) || "";
+  const department = pickStr(o, ["department", "dept"]) || "—";
 
   const statusRaw = pickStr(o, ["status", "accountStatus", "adminStatus"]);
   const status = statusRaw ? humanizeStatus(statusRaw) : "—";
@@ -71,7 +76,7 @@ function normalizeTeamMember(raw: unknown): AdminTeamMember | null {
   const dateRaw = pickStr(o, ["createdAt", "created_at", "dateOnboarded", "dateAdded", "joinedAt"]);
   const dateOnboarded = dateRaw ? formatDate(dateRaw) : "—";
 
-  return { id, name, email, phone, role, status, dateOnboarded };
+  return { id, name, firstName, lastName, email, phone, role, roleId, status, dateOnboarded, department };
 }
 
 function normalizeInvitation(raw: unknown): AdminPendingInvite | null {
@@ -174,17 +179,19 @@ export async function putAdminTeamMember(id: string, body: AdminTeamUpdateBody):
 }
 
 /** `POST /admin/team/{id}/deactivate` — Deactivate an admin account. */
-export async function postAdminTeamDeactivate(id: string): Promise<void> {
+export async function postAdminTeamDeactivate(id: string, body: AdminTeamDeactivateBody): Promise<void> {
   await adminRequest(`/admin/team/${encodeURIComponent(id)}/deactivate`, {
     method: "POST",
+    body: JSON.stringify(body),
     auth: true,
   });
 }
 
 /** `POST /admin/team/{id}/suspend` — Suspend an admin account. */
-export async function postAdminTeamSuspend(id: string): Promise<void> {
+export async function postAdminTeamSuspend(id: string, body: AdminTeamSuspendBody): Promise<void> {
   await adminRequest(`/admin/team/${encodeURIComponent(id)}/suspend`, {
     method: "POST",
+    body: JSON.stringify(body),
     auth: true,
   });
 }
@@ -205,14 +212,6 @@ export async function postAdminTeamResetPassword(id: string): Promise<void> {
   });
 }
 
-/** `POST /admin/team/{id}/role` — Change admin role (kept for backward compat). */
-export async function postAdminTeamChangeRole(id: string, body: AdminChangeAdminRoleBody): Promise<void> {
-  await adminRequest(`/admin/team/${encodeURIComponent(id)}/role`, {
-    method: "POST",
-    body: JSON.stringify(body),
-    auth: true,
-  });
-}
 
 /* ── Invitation endpoints ── */
 
@@ -238,5 +237,31 @@ export async function deleteAdminInvitation(id: string): Promise<void> {
   await adminRequest(`/admin/invitations/${encodeURIComponent(id)}`, {
     method: "DELETE",
     auth: true,
+  });
+}
+
+/** `GET /admin/roles` — List all admin roles. */
+export async function getAdminRoles(): Promise<AdminRole[]> {
+  const data = await adminRequest<unknown>("/admin/roles", { method: "GET" });
+  const rawList = (() => {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object") {
+      const r = data as Record<string, unknown>;
+      const list = r.roles ?? r.items ?? r.data;
+      if (Array.isArray(list)) return list;
+    }
+    return [];
+  })();
+
+  return rawList.map((item: unknown): AdminRole => {
+    if (item && typeof item === "object") {
+      const r = item as Record<string, unknown>;
+      const id = String(r.id ?? r.roleId ?? r.value ?? "");
+      const name = String(r.name ?? r.role ?? r.label ?? "");
+      const description = r.description ? String(r.description) : undefined;
+      return { id, name, description };
+    }
+    const val = String(item);
+    return { id: val, name: val };
   });
 }

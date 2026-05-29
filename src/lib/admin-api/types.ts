@@ -420,15 +420,25 @@ export type AdminReferralDetailResult = {
 
 /* ── Admin Team Management ── */
 
+export type AdminRole = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
 /** Normalized row for admin team member list. */
 export type AdminTeamMember = {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   role: string;
+  roleId: string;
   status: string;
   dateOnboarded: string;
+  department: string;
 };
 
 export type AdminTeamListResult = {
@@ -442,13 +452,31 @@ export type AdminTeamInviteBody = {
   lastName: string;
   email: string;
   role: string;
+  phoneNumber: string;
+  department: string;
 };
 
 /** Body for `PUT /admin/team/{id}` — update team member details. */
 export type AdminTeamUpdateBody = {
-  firstName?: string;
-  lastName?: string;
-  role?: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  department: string;
+  roleId: string;
+};
+
+/** Body for `POST /admin/team/{id}/deactivate` — deactivate an admin account. */
+export type AdminTeamDeactivateBody = {
+  reason: string;
+  notes: string;
+};
+
+/** Body for `POST /admin/team/{id}/suspend` — suspend an admin account. */
+export type AdminTeamSuspendBody = {
+  reason: string;
+  notes: string;
+  suspendUntil: string;
+  message: string;
 };
 
 /** Normalized row for pending admin invitation. */
@@ -465,4 +493,47 @@ export type AdminPendingInvite = {
 export type AdminPendingInviteListResult = {
   items: AdminPendingInvite[];
   total: number;
+};
+
+/* ── Communications Campaign Types ── */
+
+export type AdminCampaignStatus = "Publish" | "Unpublished" | "Pending";
+
+export type AdminCampaign = {
+  id: string;
+  title: string;
+  description: string;
+  campaign: string;
+  status: AdminCampaignStatus;
+  campaignCategory: string;
+  campaignSubCategory: string;
+  targetAudience: string;
+  targetSubCategory: string;
+  communicationCategory: string;
+  content: string;
+  imageUrl?: string;
+  scheduleMode: "Immediate" | "Scheduled" | "Recurring";
+  period: string;
+  startDate: string;
+  endDate: string;
+  lastModified: string;
+};
+
+export type AdminCampaignListResult = {
+  items: AdminCampaign[];
+  total: number;
+};
+
+export type AdminCreateCampaignBody = {
+  title: string;
+  description: string;
+  campaignCategory: string;
+  campaignSubCategory: string;
+  targetAudience: string;
+  targetSubCategory: string;
+  communicationCategory: string;
+  content: string;
+  imageUrl?: string;
+  scheduleMode: "Immediate" | "Scheduled" | "Recurring";
+  period?: string;
 };

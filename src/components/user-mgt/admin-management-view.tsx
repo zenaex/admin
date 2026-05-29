@@ -20,12 +20,14 @@ import {
   postAdminTeamSuspend,
   postAdminTeamActivate,
   postAdminTeamResetPassword,
-  postAdminTeamChangeRole,
+  putAdminTeamMember,
   getAdminInvitations,
   postAdminInvitationResend,
   deleteAdminInvitation,
+  getAdminRoles,
+  humanizeRole,
 } from "@/lib/admin-api/team-api";
-import type { AdminSettingsPasswordResetRequestRow, AdminTeamMember, AdminPendingInvite } from "@/lib/admin-api/types";
+import type { AdminSettingsPasswordResetRequestRow, AdminTeamMember, AdminPendingInvite, AdminRole } from "@/lib/admin-api/types";
 import { uiRoleLabelToApiRole, isRealAdminId } from "@/lib/admin-api/users-api";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 
@@ -124,6 +126,7 @@ export function AdminManagementView() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(null);
   const [roleTarget, setRoleTarget] = useState<AdminTeamMember | null>(null);
   const [roleDraft, setRoleDraft] = useState<string>(INVITE_ROLE_OPTIONS[1]);
   const [deactivateTarget, setDeactivateTarget] = useState<AdminTeamMember | null>(null);
@@ -133,6 +136,38 @@ export function AdminManagementView() {
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
   const [adminSuccessMessage, setAdminSuccessMessage] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [dynamicRoles, setDynamicRoles] = useState<AdminRole[]>([]);
+
+  // Deactivate modal states
+  const [deactivateReason, setDeactivateReason] = useState("");
+  const [deactivateNotes, setDeactivateNotes] = useState("");
+
+  // Suspend modal states
+  const [suspendReason, setSuspendReason] = useState("");
+  const [suspendNotes, setSuspendNotes] = useState("");
+  const [suspendUntil, setSuspendUntil] = useState("");
+  const [suspendMessage, setSuspendMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getAdminRoles()
+      .then((list) => {
+        if (active && list && list.length > 0) {
+          setDynamicRoles(list);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load admin roles dynamically:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const resolvedRoles = useMemo<AdminRole[]>(() => {
+    if (dynamicRoles.length > 0) return dynamicRoles;
+    return INVITE_ROLE_OPTIONS.map((name) => ({ id: name, name }));
+  }, [dynamicRoles]);
 
   /* ── Live team data ── */
   const [teamMembers, setTeamMembers] = useState<AdminTeamMember[]>([]);
@@ -227,8 +262,12 @@ export function AdminManagementView() {
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await postAdminTeamChangeRole(roleTarget.id, {
-        newRole: uiRoleLabelToApiRole(roleDraft),
+      await putAdminTeamMember(roleTarget.id, {
+        firstName: roleTarget.firstName || roleTarget.name.split(" ")[0] || "",
+        lastName: roleTarget.lastName || roleTarget.name.split(" ").slice(1).join(" ") || "",
+        phoneNumber: roleTarget.phone === "—" ? "" : roleTarget.phone,
+        department: roleTarget.department === "—" ? "" : roleTarget.department,
+        roleId: roleDraft,
       });
       setRoleTarget(null);
       setAdminSuccessMessage(`Role updated for ${roleTarget.name}.`);
@@ -242,12 +281,21 @@ export function AdminManagementView() {
 
   const handleDeactivateAdminConfirm = async () => {
     if (!deactivateTarget) return;
+    if (!deactivateReason.trim()) {
+      setAdminActionError("Reason is required to deactivate.");
+      return;
+    }
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await postAdminTeamDeactivate(deactivateTarget.id);
+      await postAdminTeamDeactivate(deactivateTarget.id, {
+        reason: deactivateReason.trim(),
+        notes: deactivateNotes.trim(),
+      });
       const name = deactivateTarget.name;
       setDeactivateTarget(null);
+      setDeactivateReason("");
+      setDeactivateNotes("");
       setAdminSuccessMessage(`${name} has been deactivated.`);
       void loadTeam();
     } catch (e) {
@@ -259,12 +307,36 @@ export function AdminManagementView() {
 
   const handleSuspendAdminConfirm = async () => {
     if (!suspendTarget) return;
+    if (!suspendReason.trim()) {
+      setAdminActionError("Reason is required to suspend.");
+      return;
+    }
+    if (!suspendUntil) {
+      setAdminActionError("Suspend Until date is required.");
+      return;
+    }
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await postAdminTeamSuspend(suspendTarget.id);
+      let suspendUntilIso = "";
+      if (suspendUntil) {
+        const d = new Date(suspendUntil);
+        if (!Number.isNaN(d.getTime())) {
+          suspendUntilIso = d.toISOString();
+        }
+      }
+      await postAdminTeamSuspend(suspendTarget.id, {
+        reason: suspendReason.trim(),
+        notes: suspendNotes.trim(),
+        suspendUntil: suspendUntilIso,
+        message: suspendMessage.trim(),
+      });
       const name = suspendTarget.name;
       setSuspendTarget(null);
+      setSuspendReason("");
+      setSuspendNotes("");
+      setSuspendUntil("");
+      setSuspendMessage("");
       setAdminSuccessMessage(`${name} has been suspended.`);
       void loadTeam();
     } catch (e) {
@@ -552,7 +624,14 @@ export function AdminManagementView() {
                       <div className="relative">
                         <button
                           type="button"
-                          onClick={() => setOpenMenuId((id) => id === row.id ? null : row.id)}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuCoords({
+                              top: rect.bottom + 4,
+                              left: rect.right - 224, // width of dropdown (56 * 4 = 224px)
+                            });
+                            setOpenMenuId((id) => id === row.id ? null : row.id);
+                          }}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
                           aria-label={`Actions for ${row.name}`}
                         >
@@ -560,8 +639,22 @@ export function AdminManagementView() {
                         </button>
                         {openMenuId === row.id && (
                           <>
-                            <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
-                            <div className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg">
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setMenuCoords(null);
+                              }}
+                            />
+                            <div
+                              style={{
+                                position: "fixed",
+                                top: menuCoords ? `${menuCoords.top}px` : undefined,
+                                left: menuCoords ? `${menuCoords.left}px` : undefined,
+                                width: "224px",
+                              }}
+                              className="z-50 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-lg"
+                            >
                               <button
                                 type="button"
                                 disabled={!canActOnAdminRow(row)}
@@ -569,9 +662,16 @@ export function AdminManagementView() {
                                 onClick={() => {
                                   if (!canActOnAdminRow(row)) return;
                                   setAdminActionError(null);
-                                  setRoleDraft(row.role);
+                                  const matchingRole = resolvedRoles.find(
+                                    (r) =>
+                                      r.id === row.roleId ||
+                                      r.name.toLowerCase() === row.role.toLowerCase() ||
+                                      humanizeRole(r.name).toLowerCase() === row.role.toLowerCase()
+                                  );
+                                  setRoleDraft(matchingRole ? matchingRole.id : row.roleId || resolvedRoles[0]?.id || "");
                                   setRoleTarget(row);
                                   setOpenMenuId(null);
+                                  setMenuCoords(null);
                                 }}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
@@ -580,13 +680,54 @@ export function AdminManagementView() {
                               </button>
                               <button
                                 type="button"
-                                disabled
-                                title="Not available yet"
+                                disabled={!canActOnAdminRow(row)}
+                                title={canActOnAdminRow(row) ? "Reset Password" : MOCK_ADMIN_ACTION_HINT}
+                                onClick={() => {
+                                  if (!canActOnAdminRow(row)) return;
+                                  setAdminActionError(null);
+                                  setResetPwTarget(row);
+                                  setOpenMenuId(null);
+                                  setMenuCoords(null);
+                                }}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 <PasswordCheck size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
                                 Reset Password
                               </button>
+                              {row.status.toLowerCase().includes("suspend") ? (
+                                <button
+                                  type="button"
+                                  disabled={!canActOnAdminRow(row)}
+                                  title={canActOnAdminRow(row) ? "Activate admin" : MOCK_ADMIN_ACTION_HINT}
+                                  onClick={() => {
+                                    if (!canActOnAdminRow(row)) return;
+                                    setOpenMenuId(null);
+                                    setMenuCoords(null);
+                                    void handleActivateAdmin(row);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  <Refresh size={16} variant="Outline" className="text-zinc-500" />
+                                  Activate
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={!canActOnAdminRow(row)}
+                                  title={canActOnAdminRow(row) ? "Suspend admin" : MOCK_ADMIN_ACTION_HINT}
+                                  onClick={() => {
+                                    if (!canActOnAdminRow(row)) return;
+                                    setAdminActionError(null);
+                                    setSuspendTarget(row);
+                                    setOpenMenuId(null);
+                                    setMenuCoords(null);
+                                  }}
+                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  <Forbidden size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
+                                  Suspend
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 disabled={!canActOnAdminRow(row)}
@@ -596,6 +737,7 @@ export function AdminManagementView() {
                                   setAdminActionError(null);
                                   setDeactivateTarget(row);
                                   setOpenMenuId(null);
+                                  setMenuCoords(null);
                                 }}
                                 className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
@@ -669,35 +811,101 @@ export function AdminManagementView() {
             if (!adminActionLoading) setRoleTarget(null);
           }}
           onSubmit={() => void handleChangeRoleSubmit()}
+          roles={resolvedRoles}
         />
       ) : null}
 
       {deactivateTarget ? (
         <ConfirmModal
           title="Deactivate admin"
-          message={`Are you sure you want to deactivate ${deactivateTarget.name}?`}
           confirmLabel={adminActionLoading ? "Please wait…" : "Deactivate"}
           cancelLabel="Cancel"
           variant="danger"
           onConfirm={() => void handleDeactivateAdminConfirm()}
           onCancel={() => {
-            if (!adminActionLoading) setDeactivateTarget(null);
+            if (!adminActionLoading) {
+              setDeactivateTarget(null);
+              setDeactivateReason("");
+              setDeactivateNotes("");
+            }
           }}
-        />
+        >
+          <div className="grid gap-3 text-left">
+            <p className="text-center text-sm text-zinc-400">
+              Are you sure you want to deactivate {deactivateTarget.name}?
+            </p>
+            <InputField
+              id="deact-reason"
+              label="Reason *"
+              value={deactivateReason}
+              onChange={(e) => setDeactivateReason(e.target.value)}
+              placeholder="e.g. Inactivity"
+              required
+            />
+            <InputField
+              id="deact-notes"
+              label="Notes"
+              value={deactivateNotes}
+              onChange={(e) => setDeactivateNotes(e.target.value)}
+              placeholder="Optional notes"
+            />
+          </div>
+        </ConfirmModal>
       ) : null}
 
       {suspendTarget ? (
         <ConfirmModal
           title="Suspend admin"
-          message={`Are you sure you want to suspend ${suspendTarget.name}?`}
           confirmLabel={adminActionLoading ? "Please wait…" : "Suspend"}
           cancelLabel="Cancel"
           variant="danger"
           onConfirm={() => void handleSuspendAdminConfirm()}
           onCancel={() => {
-            if (!adminActionLoading) setSuspendTarget(null);
+            if (!adminActionLoading) {
+              setSuspendTarget(null);
+              setSuspendReason("");
+              setSuspendNotes("");
+              setSuspendUntil("");
+              setSuspendMessage("");
+            }
           }}
-        />
+        >
+          <div className="grid gap-3 text-left">
+            <p className="text-center text-sm text-zinc-400">
+              Are you sure you want to suspend {suspendTarget.name}?
+            </p>
+            <InputField
+              id="susp-reason"
+              label="Reason *"
+              value={suspendReason}
+              onChange={(e) => setSuspendReason(e.target.value)}
+              placeholder="e.g. Policy violation"
+              required
+            />
+            <InputField
+              id="susp-notes"
+              label="Notes"
+              value={suspendNotes}
+              onChange={(e) => setSuspendNotes(e.target.value)}
+              placeholder="Optional notes"
+            />
+            <InputField
+              id="susp-until"
+              label="Suspend Until *"
+              type="datetime-local"
+              value={suspendUntil}
+              onChange={(e) => setSuspendUntil(e.target.value)}
+              required
+            />
+            <InputField
+              id="susp-message"
+              label="Message"
+              value={suspendMessage}
+              onChange={(e) => setSuspendMessage(e.target.value)}
+              placeholder="Optional message to the user"
+            />
+          </div>
+        </ConfirmModal>
       ) : null}
 
       {resetPwTarget ? (
@@ -720,6 +928,7 @@ export function AdminManagementView() {
           onSuccess={() => {
             void loadTeam();
           }}
+          roles={resolvedRoles}
         />
       ) : null}
 
@@ -741,6 +950,7 @@ type AdminChangeRoleModalProps = {
   onRoleChange: (role: string) => void;
   onClose: () => void;
   onSubmit: () => void;
+  roles: AdminRole[];
 };
 
 function AdminChangeRoleModal({
@@ -750,6 +960,7 @@ function AdminChangeRoleModal({
   onRoleChange,
   onClose,
   onSubmit,
+  roles,
 }: AdminChangeRoleModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -764,9 +975,9 @@ function AdminChangeRoleModal({
           disabled={loading}
           onChange={(e) => onRoleChange(e.target.value)}
         >
-          {INVITE_ROLE_OPTIONS.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
+          {roles.map((opt) => (
+            <option key={opt.id} value={opt.id}>
+              {humanizeRole(opt.name)}
             </option>
           ))}
         </select>
@@ -989,104 +1200,44 @@ function RoleCard({ role }: { role: (typeof ROLES)[number] }) {
   );
 }
 
-function InviteAdminForm({ onSuccess }: { onSuccess?: () => void }) {
+
+function InviteAdminModal({
+  onClose,
+  onSuccess,
+  roles,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  roles: AdminRole[];
+}) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<string>(INVITE_ROLE_OPTIONS[1]);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [department, setDepartment] = useState("");
+  const [role, setRole] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !role) return;
-    setError(null);
-    setSuccess(null);
-    setSubmitting(true);
-    try {
-      await postAdminTeamInvite({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim(),
-        role: uiRoleLabelToApiRole(role),
-      });
-      setSuccess("Invitation sent.");
-      setFirstName("");
-      setLastName("");
-      setEmail("");
-      onSuccess?.();
-    } catch (err) {
-      setError(err instanceof AdminApiError ? err.message : "Could not send invitation.");
-    } finally {
-      setSubmitting(false);
+  useEffect(() => {
+    if (roles.length > 0 && !role) {
+      setRole(roles[1]?.name || roles[0]?.name || "");
     }
-  };
-
-  return (
-    <div className="mb-6 rounded-xl border border-outline bg-white p-5">
-      <h3 className="text-[15px] font-semibold text-primary-text">Invite admin</h3>
-      <p className="mt-1 text-xs text-zinc-500">Sends an email with an accept link (super admin only).</p>
-      <form onSubmit={handleSubmit} className="mt-4 grid gap-3 sm:grid-cols-2">
-        {error ? (
-          <p className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {error}
-          </p>
-        ) : null}
-        {success ? (
-          <p className="sm:col-span-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
-            {success}
-          </p>
-        ) : null}
-        <InputField id="inv-fn" label="First name" value={firstName} onChange={(ev) => setFirstName(ev.target.value)} />
-        <InputField id="inv-ln" label="Last name" value={lastName} onChange={(ev) => setLastName(ev.target.value)} />
-        <InputField
-          id="inv-em"
-          label="Email"
-          type="email"
-          className="sm:col-span-2"
-          value={email}
-          onChange={(ev) => setEmail(ev.target.value)}
-        />
-        <div className="sm:col-span-2">
-          <label htmlFor="inv-role" className="mb-1.5 block text-[11px] font-medium text-gray-500">
-            Role
-          </label>
-          <select
-            id="inv-role"
-            value={role}
-            onChange={(ev) => setRole(ev.target.value)}
-            className="text-primary-text h-10 w-full max-w-md rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green"
-          >
-            {INVITE_ROLE_OPTIONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="sm:col-span-2">
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Sending…" : "Send invitation"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<string>(INVITE_ROLE_OPTIONS[1]);
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  }, [roles, role]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !role) return;
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !email.trim() ||
+      !phoneNumber.trim() ||
+      !department.trim() ||
+      !role
+    ) {
+      return;
+    }
     setError(null);
     setSuccess(null);
     setSubmitting(true);
@@ -1096,11 +1247,15 @@ function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSucce
         lastName: lastName.trim(),
         email: email.trim(),
         role: uiRoleLabelToApiRole(role),
+        phoneNumber: phoneNumber.trim(),
+        department: department.trim(),
       });
       setSuccess("Invitation sent.");
       setFirstName("");
       setLastName("");
       setEmail("");
+      setPhoneNumber("");
+      setDepartment("");
       onSuccess();
       setTimeout(() => onClose(), 1200);
     } catch (err) {
@@ -1138,6 +1293,20 @@ function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             value={email}
             onChange={(ev) => setEmail(ev.target.value)}
           />
+          <InputField
+            id="modal-ph"
+            label="Phone number"
+            type="tel"
+            value={phoneNumber}
+            onChange={(ev) => setPhoneNumber(ev.target.value)}
+          />
+          <InputField
+            id="modal-dept"
+            label="Department"
+            type="text"
+            value={department}
+            onChange={(ev) => setDepartment(ev.target.value)}
+          />
           <div>
             <label htmlFor="modal-role" className="mb-1.5 block text-[11px] font-medium text-gray-500">
               Role
@@ -1148,9 +1317,9 @@ function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSucce
               onChange={(ev) => setRole(ev.target.value)}
               className="text-primary-text h-10 w-full rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green"
             >
-              {INVITE_ROLE_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
+              {roles.map((r) => (
+                <option key={r.id} value={r.name}>
+                  {humanizeRole(r.name)}
                 </option>
               ))}
             </select>
@@ -1471,7 +1640,6 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
 
   return (
     <>
-      {showInvite ? <InviteAdminForm onSuccess={() => void load()} /> : null}
       {filterMode ? (
         <TableFilterModeBar
           filterBarRef={filterBarRef}
@@ -1592,14 +1760,14 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
-            aria-label="Filter"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
             onClick={() => {
               setSearch("");
               setFilterMode(true);
             }}
           >
-            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+            <ListFilter size={16} strokeWidth={2} color="var(--color-brand-navy)" />
+            Filter
           </button>
           <TableExportMenu
             disabled={filtered.length === 0}
@@ -1618,42 +1786,29 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
             <tr className="bg-outline text-xs text-zinc-400">
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Role</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Sent</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Onboarded</th>
               <th className="h-11 w-48 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
             </tr>
           </thead>
           <tbody>
             {paginatedRows.map((row) => (
               <tr key={row.id} className="transition-colors hover:bg-zinc-50">
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-primary-text">
-                      {[row.firstName, row.lastName].filter(Boolean).join(" ") || "—"}
-                    </span>
-                    <span className="text-xs text-zinc-400">{row.email}</span>
-                  </div>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-primary-text font-medium align-middle">
+                  {row.email}
                 </td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
-                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.dateSent}</td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">
+                  {row.dateSent.replace(",", " |")}
+                </td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
-                  <div className="flex items-center gap-4">
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => void handleResend(row.id, row.email)}
-                      className="text-[13px] font-bold text-primary-text underline underline-offset-4 hover:text-brand-navy transition-colors disabled:opacity-50"
-                    >
-                      Resend Invite
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => setCancelTarget(row)}
-                      className="text-[13px] font-bold text-red-500 underline underline-offset-4 hover:text-red-700 transition-colors disabled:opacity-50"
-                    >
-                      Cancel Invite
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => void handleResend(row.id, row.email)}
+                    className="text-[13px] font-bold text-[#0B294F] underline underline-offset-4 hover:opacity-80 transition-opacity disabled:opacity-50"
+                  >
+                    Resend Invite
+                  </button>
                 </td>
               </tr>
             ))}

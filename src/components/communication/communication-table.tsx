@@ -2,21 +2,15 @@
 
 import { More } from "iconsax-react";
 import { useRouter } from "next/navigation";
+import type { AdminCampaign } from "@/lib/admin-api/types";
 
-export type CommunicationRow = {
-  id: string;
-  campaign: string;
-  startDate: string;
-  endDate: string;
-  lastModified: string;
-  status: "Publish" | "Unpublished" | "Pending";
-};
+export type CommunicationRow = AdminCampaign;
 
 type CommunicationTableProps = {
-  rows: CommunicationRow[];
+  rows: AdminCampaign[];
 };
 
-const statusClassMap: Record<CommunicationRow["status"], string> = {
+const statusClassMap: Record<AdminCampaign["status"], string> = {
   Publish: "bg-green-100 text-green-700",
   Unpublished: "bg-red-100 text-red-700",
   Pending: "bg-orange-100 text-orange-700",

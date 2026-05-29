@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowDown2, DocumentDownload } from "iconsax-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, DocumentDownload } from "iconsax-react";
 
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import {
   getEtradeTransactionDetail,
   parseEtradeDetailOutcome,
   type EtradeTransactionDetail,
+  type EtradeDetailOutcome,
 } from "@/components/e-trades/etrade-mock-transactions";
 
 const BORDER = "#EEEEEE";
@@ -34,23 +36,42 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
     () => getEtradeTransactionDetail(transactionId, outcomeOverride),
     [transactionId, outcomeOverride],
   );
-  const [actionOpen, setActionOpen] = useState(false);
 
-  const banner = bannerForOutcome(detail.outcome);
+  const [outcome, setOutcome] = useState<EtradeDetailOutcome>(detail.outcome);
+  const [actionOpen, setActionOpen] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const banner = bannerForOutcome(outcome);
+
+  const handleApproveSubmit = () => {
+    setShowApproveConfirm(false);
+    setOutcome("approved");
+    setShowSuccessModal(true);
+  };
+
+  const handleDeclineSubmit = () => {
+    setShowDeclineConfirm(false);
+    setOutcome("failed");
+    setShowSuccessModal(true);
+  };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden relative">
       <header className="sticky top-0 z-20 shrink-0 bg-background">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <nav className="flex flex-wrap items-center gap-2 text-sm text-zinc-500">
-            <Link href="/dashboard/e-trades" className="font-medium text-secondary-green hover:underline">
+          <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+            <Link
+              href="/dashboard/e-trades"
+              className="inline-flex items-center gap-1 text-primary-text hover:underline"
+            >
+              <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
               Etrade
             </Link>
-            <span aria-hidden className="text-zinc-400">
-              /
-            </span>
+            <ArrowRight2 size={14} variant="Outline" color="currentColor" />
             <span className="text-primary-text">Transaction Details</span>
-          </nav>
+          </div>
 
           <div className="relative">
             <button
@@ -81,7 +102,10 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
         </div>
 
         <div
-          className={["mt-4 rounded-xl px-4 py-3 text-center text-sm font-semibold", banner.className].join(" ")}
+          className={[
+            "mt-4 flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold",
+            banner.className,
+          ].join(" ")}
         >
           {banner.label}
         </div>
@@ -99,12 +123,12 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
         </div>
       </header>
 
-      <div className="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 [-webkit-overflow-scrolling:touch]">
+      <div className="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 pb-24 [-webkit-overflow-scrolling:touch]">
         <section>
           <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
             Transaction Details
           </h2>
-          <TransactionDetailsGrid detail={detail} />
+          <TransactionDetailsGrid detail={detail} outcome={outcome} />
         </section>
 
         <section className="mt-8">
@@ -117,20 +141,80 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
           />
         </section>
       </div>
+
+      {/* Sticky Bottom Actions Bar for Pending requests */}
+      {outcome === "pending" && (
+        <div className="sticky bottom-0 z-40 -mx-8 mt-auto flex items-center justify-center gap-4 border-t border-zinc-100 bg-white px-6 py-5">
+          <button
+            type="button"
+            onClick={() => setShowDeclineConfirm(true)}
+            className="h-12 min-w-[160px] rounded-full border border-zinc-200 bg-white px-8 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-50"
+          >
+            Decline Trade
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowApproveConfirm(true)}
+            className="h-12 min-w-[180px] rounded-full bg-[#C1FF00] px-8 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90 shadow-sm"
+          >
+            Approve Trade
+          </button>
+        </div>
+      )}
+
+      {/* Modals */}
+      {showDeclineConfirm && (
+        <ConfirmModal
+          title="Decline Etrade"
+          message="Are you sure you want to decline this etrade request?"
+          confirmLabel="Decline"
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={handleDeclineSubmit}
+          onCancel={() => setShowDeclineConfirm(false)}
+        />
+      )}
+
+      {showApproveConfirm && (
+        <ConfirmModal
+          title="Approve Etrade"
+          message="Are you sure you want to approve this etrade request?"
+          confirmLabel="Approve"
+          cancelLabel="Cancel"
+          variant="approve"
+          onConfirm={handleApproveSubmit}
+          onCancel={() => setShowApproveConfirm(false)}
+        />
+      )}
+
+      {showSuccessModal && (
+        <SuccessModal
+          message={
+            outcome === "failed"
+              ? "Etrade transaction has been declined"
+              : "Etrade transaction has been successfully approved"
+          }
+          confirmLabel="Done"
+          onContinue={() => {
+            setShowSuccessModal(false);
+            router.push("/dashboard/e-trades?tab=requests");
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function bannerForOutcome(outcome: EtradeTransactionDetail["outcome"]): { label: string; className: string } {
+function bannerForOutcome(outcome: EtradeDetailOutcome): { label: string; className: string } {
   switch (outcome) {
     case "approved":
-      return { label: "Approved", className: "bg-green-50 text-green-800" };
+      return { label: "Successful", className: "bg-green-50 text-[#166534]" };
     case "pending":
-      return { label: "Pending!", className: "bg-orange-50 text-orange-800" };
+      return { label: "Pending Approval", className: "border border-orange-200 bg-orange-50 text-orange-600" };
     case "failed":
-      return { label: "Failed!", className: "bg-red-50 text-red-800" };
+      return { label: "Failed", className: "border border-red-100 bg-red-50 text-red-700" };
     default:
-      return { label: "Approved", className: "bg-green-50 text-green-800" };
+      return { label: "Successful", className: "bg-green-50 text-[#166534]" };
   }
 }
 
@@ -158,10 +242,19 @@ function PipeHighlightedCell({ value }: { value: string }) {
   );
 }
 
-function TransactionDetailsGrid({ detail }: { detail: EtradeTransactionDetail }) {
+function TransactionDetailsGrid({
+  detail,
+  outcome,
+}: {
+  detail: EtradeTransactionDetail;
+  outcome: EtradeDetailOutcome;
+}) {
   const cellBorder = `1px solid ${BORDER}`;
   const thBase = "px-4 py-3 text-left text-xs font-semibold align-middle";
   const tdBase = "px-4 py-4 text-left text-sm font-normal align-top";
+
+  const isApproved = outcome === "approved";
+  const isPending = outcome === "pending";
 
   const row1Headers = ["Session ID", "Customer Names", "Channel", "Request Details", "Country"];
   const row1Cells: ReactNode[] = [
@@ -186,14 +279,14 @@ function TransactionDetailsGrid({ detail }: { detail: EtradeTransactionDetail })
     detail.rateFee,
     detail.ngnEquivalent,
     <PipeHighlightedCell key="di" value={detail.dateInitiated} />,
-    <PipeHighlightedCell key="dc" value={detail.dateCompleted} />,
+    <PipeHighlightedCell key="dc" value={isPending ? "—" : detail.dateInitiated} />,
   ];
 
   const row3Headers = ["Ops in Charge", "Approved By", "Date Approved", "\u00a0", "\u00a0"];
   const row3Cells: ReactNode[] = [
     detail.opsInCharge,
-    detail.approvedBy,
-    <PipeHighlightedCell key="da" value={detail.dateApproved} />,
+    isApproved ? "Ezekiel Olajolo" : "—",
+    <PipeHighlightedCell key="da" value={isApproved ? detail.dateInitiated : "—"} />,
     "\u00a0",
     "\u00a0",
   ];
@@ -317,8 +410,7 @@ function DataBlockTable({
   collapseTopBorder?: boolean;
 }) {
   const cellBorder = `1px solid ${BORDER}`;
-  const thBase =
-    "px-4 py-3 text-left text-xs font-semibold align-middle";
+  const thBase = "px-4 py-3 text-left text-xs font-semibold align-middle";
   const tdBase = "px-4 py-4 text-left text-sm font-normal align-top";
   const n = headers.length;
 
