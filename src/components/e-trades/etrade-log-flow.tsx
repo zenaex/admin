@@ -131,33 +131,39 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
       </div>
 
       {/* Stepper */}
-      <div className="mx-auto mb-8 flex max-w-[280px] items-center justify-between relative px-2">
-        <div className="absolute top-[8px] left-[20px] right-[20px] h-[2px] bg-zinc-100 z-0">
-          <div
-            className="h-full bg-primary-text transition-all duration-300"
-            style={{ width: step === 2 ? "100%" : "0%" }}
-          />
-        </div>
+      <div className="mx-auto mb-10 w-full max-w-sm relative flex items-center justify-between px-12">
+        {/* Thin connector line */}
+        <div className="absolute top-[13px] left-[62px] right-[62px] h-[1.5px] bg-[#E8EDF2] z-0" />
         
         {/* Step 1: Trade */}
-        <div className="flex flex-col items-center gap-1.5 z-10">
-          <div className="h-4.5 w-4.5 rounded-full bg-primary-text flex items-center justify-center border-4 border-white shadow-sm ring-1 ring-zinc-200">
-            <div className="h-1.5 w-1.5 rounded-full bg-[#C1FF00]" />
+        <div className="flex flex-col items-center z-10 select-none">
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors duration-300 ${
+            step === 2 ? "bg-zinc-950" : "bg-[#E8EDF2]"
+          }`}>
+            {step === 2 ? (
+              <Check className="w-3.5 h-3.5 text-[#C1FF00] stroke-[3]" />
+            ) : (
+              <div className="w-2.5 h-2.5 rounded-full bg-zinc-950" />
+            )}
           </div>
-          <span className="text-[10px] font-bold text-zinc-800">Trade</span>
+          <span className="mt-2 text-[12px] font-medium text-[#718096] min-w-[50px] text-center">
+            Trade
+          </span>
         </div>
 
         {/* Step 2: Confirm */}
-        <div className="flex flex-col items-center gap-1.5 z-10">
-          <div className={`h-4.5 w-4.5 rounded-full flex items-center justify-center border-4 border-white shadow-sm ring-1 transition-all duration-300 ${
-            step === 2 
-              ? "bg-primary-text ring-zinc-200" 
-              : "bg-zinc-200 ring-zinc-100"
-          }`}>
-            {step === 2 && <div className="h-1.5 w-1.5 rounded-full bg-[#C1FF00]" />}
+        <div className="flex flex-col items-center z-10 select-none">
+          <div className="w-7 h-7 flex items-center justify-center">
+            {step === 2 ? (
+              <div className="w-7 h-7 rounded-full bg-[#E8EDF2] flex items-center justify-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-zinc-950" />
+              </div>
+            ) : (
+              <div className="w-2.5 h-2.5 rounded-full bg-[#E8EDF2]" />
+            )}
           </div>
-          <span className={`text-[10px] font-bold transition-colors duration-300 ${
-            step === 2 ? "text-zinc-800" : "text-zinc-400"
+          <span className={`mt-2 text-[12px] font-medium min-w-[50px] text-center ${
+            step === 2 ? "text-[#718096]" : "text-[#A0AEC0]"
           }`}>
             Confirm
           </span>
