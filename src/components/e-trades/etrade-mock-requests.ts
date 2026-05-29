@@ -3,14 +3,18 @@ import type { EtradeRequestRow } from "@/components/e-trades/etrade-types";
 const ETRADE_TYPES = [
   "Cashapp Tag Request",
   "Bank of America",
-  "BOA",
-  "OTC",
-  "Wire",
-  "Zelle"
+  "Bank of America",
+  "Bank of America",
+  "Bank of America",
+  "Bank of America",
+  "Bank of America",
+  "Bank of America",
+  "Barik of America",
+  "Bank of America"
 ];
 
 const CUSTOMERS = [
-  "Naomi Salisu",
+  "Nsomi Salisu",
   "Job Awolowo",
   "Martha Kalio",
   "Victoria Salisu",
@@ -29,13 +33,8 @@ export const ALL_ETRADE_REQUESTS: EtradeRequestRow[] = Array.from({ length: 100 
   const opsInCharge = CUSTOMERS[(i + 1) % CUSTOMERS.length];
   const etradeType = ETRADE_TYPES[i % ETRADE_TYPES.length];
   
-  // Vary minutes and values
-  const minute = (32 + (i * 7)) % 60;
-  const timeStr = `9:${minute.toString().padStart(2, "0")}AM`;
-  
-  const valueAmount = 100000 + (i * 5000) % 50000;
-  const valueStr = `$${valueAmount.toLocaleString()}.00`;
-  
+  const timeStr = "9:32AM";
+  const valueStr = "$100,000.00";
   const status = STATUSES[i % STATUSES.length];
 
   return {
@@ -44,7 +43,7 @@ export const ALL_ETRADE_REQUESTS: EtradeRequestRow[] = Array.from({ length: 100 
     subtitle: `Etrade • ${timeStr}`,
     status,
     etradeType,
-    tradeId: `Trade-WVA_S373${i.toString().padStart(3, "0")}OPN`,
+    tradeId: "Trade-WVA_S373OOOPN",
     customer: customerName,
     dateCreated: `Jan 6, 2026 | ${timeStr}`,
     tradeValue: valueStr,
@@ -52,4 +51,11 @@ export const ALL_ETRADE_REQUESTS: EtradeRequestRow[] = Array.from({ length: 100 
   };
 });
 
-export const ETRADE_TYPE_FILTER_OPTIONS = ETRADE_TYPES;
+export const ETRADE_TYPE_FILTER_OPTIONS = [
+  "Cashapp Tag Request",
+  "Bank of America",
+  "BOA",
+  "OTC",
+  "Wire",
+  "Zelle"
+];

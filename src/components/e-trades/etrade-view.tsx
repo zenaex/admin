@@ -194,11 +194,11 @@ export function EtradeView() {
 
         <button
           type="button"
-          onClick={() => alert("Create Trade clicked (Mock)")}
+          onClick={() => alert("Log a Trade clicked (Mock)")}
           className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#C1FF00] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90 shadow-sm"
         >
-          <Plus size={16} strokeWidth={3} />
-          Create Trade
+          <span className="text-[16px] font-extrabold mr-0.5">+</span>
+          Log a Trade
         </button>
       </div>
     </div>
