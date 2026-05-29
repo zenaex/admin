@@ -138,6 +138,16 @@ export function AdminManagementView() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [dynamicRoles, setDynamicRoles] = useState<AdminRole[]>([]);
 
+  // Deactivate modal states
+  const [deactivateReason, setDeactivateReason] = useState("");
+  const [deactivateNotes, setDeactivateNotes] = useState("");
+
+  // Suspend modal states
+  const [suspendReason, setSuspendReason] = useState("");
+  const [suspendNotes, setSuspendNotes] = useState("");
+  const [suspendUntil, setSuspendUntil] = useState("");
+  const [suspendMessage, setSuspendMessage] = useState("");
+
   useEffect(() => {
     let active = true;
     getAdminRoles()
@@ -271,12 +281,21 @@ export function AdminManagementView() {
 
   const handleDeactivateAdminConfirm = async () => {
     if (!deactivateTarget) return;
+    if (!deactivateReason.trim()) {
+      setAdminActionError("Reason is required to deactivate.");
+      return;
+    }
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await postAdminTeamDeactivate(deactivateTarget.id);
+      await postAdminTeamDeactivate(deactivateTarget.id, {
+        reason: deactivateReason.trim(),
+        notes: deactivateNotes.trim(),
+      });
       const name = deactivateTarget.name;
       setDeactivateTarget(null);
+      setDeactivateReason("");
+      setDeactivateNotes("");
       setAdminSuccessMessage(`${name} has been deactivated.`);
       void loadTeam();
     } catch (e) {
@@ -288,12 +307,36 @@ export function AdminManagementView() {
 
   const handleSuspendAdminConfirm = async () => {
     if (!suspendTarget) return;
+    if (!suspendReason.trim()) {
+      setAdminActionError("Reason is required to suspend.");
+      return;
+    }
+    if (!suspendUntil) {
+      setAdminActionError("Suspend Until date is required.");
+      return;
+    }
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await postAdminTeamSuspend(suspendTarget.id);
+      let suspendUntilIso = "";
+      if (suspendUntil) {
+        const d = new Date(suspendUntil);
+        if (!Number.isNaN(d.getTime())) {
+          suspendUntilIso = d.toISOString();
+        }
+      }
+      await postAdminTeamSuspend(suspendTarget.id, {
+        reason: suspendReason.trim(),
+        notes: suspendNotes.trim(),
+        suspendUntil: suspendUntilIso,
+        message: suspendMessage.trim(),
+      });
       const name = suspendTarget.name;
       setSuspendTarget(null);
+      setSuspendReason("");
+      setSuspendNotes("");
+      setSuspendUntil("");
+      setSuspendMessage("");
       setAdminSuccessMessage(`${name} has been suspended.`);
       void loadTeam();
     } catch (e) {
@@ -775,29 +818,94 @@ export function AdminManagementView() {
       {deactivateTarget ? (
         <ConfirmModal
           title="Deactivate admin"
-          message={`Are you sure you want to deactivate ${deactivateTarget.name}?`}
           confirmLabel={adminActionLoading ? "Please wait…" : "Deactivate"}
           cancelLabel="Cancel"
           variant="danger"
           onConfirm={() => void handleDeactivateAdminConfirm()}
           onCancel={() => {
-            if (!adminActionLoading) setDeactivateTarget(null);
+            if (!adminActionLoading) {
+              setDeactivateTarget(null);
+              setDeactivateReason("");
+              setDeactivateNotes("");
+            }
           }}
-        />
+        >
+          <div className="grid gap-3 text-left">
+            <p className="text-center text-sm text-zinc-400">
+              Are you sure you want to deactivate {deactivateTarget.name}?
+            </p>
+            <InputField
+              id="deact-reason"
+              label="Reason *"
+              value={deactivateReason}
+              onChange={(e) => setDeactivateReason(e.target.value)}
+              placeholder="e.g. Inactivity"
+              required
+            />
+            <InputField
+              id="deact-notes"
+              label="Notes"
+              value={deactivateNotes}
+              onChange={(e) => setDeactivateNotes(e.target.value)}
+              placeholder="Optional notes"
+            />
+          </div>
+        </ConfirmModal>
       ) : null}
 
       {suspendTarget ? (
         <ConfirmModal
           title="Suspend admin"
-          message={`Are you sure you want to suspend ${suspendTarget.name}?`}
           confirmLabel={adminActionLoading ? "Please wait…" : "Suspend"}
           cancelLabel="Cancel"
           variant="danger"
           onConfirm={() => void handleSuspendAdminConfirm()}
           onCancel={() => {
-            if (!adminActionLoading) setSuspendTarget(null);
+            if (!adminActionLoading) {
+              setSuspendTarget(null);
+              setSuspendReason("");
+              setSuspendNotes("");
+              setSuspendUntil("");
+              setSuspendMessage("");
+            }
           }}
-        />
+        >
+          <div className="grid gap-3 text-left">
+            <p className="text-center text-sm text-zinc-400">
+              Are you sure you want to suspend {suspendTarget.name}?
+            </p>
+            <InputField
+              id="susp-reason"
+              label="Reason *"
+              value={suspendReason}
+              onChange={(e) => setSuspendReason(e.target.value)}
+              placeholder="e.g. Policy violation"
+              required
+            />
+            <InputField
+              id="susp-notes"
+              label="Notes"
+              value={suspendNotes}
+              onChange={(e) => setSuspendNotes(e.target.value)}
+              placeholder="Optional notes"
+            />
+            <InputField
+              id="susp-until"
+              label="Suspend Until *"
+              type="datetime-local"
+              value={suspendUntil}
+              onChange={(e) => setSuspendUntil(e.target.value)}
+              required
+            />
+            <InputField
+              id="susp-message"
+              label="Message"
+              value={suspendMessage}
+              onChange={(e) => setSuspendMessage(e.target.value)}
+              placeholder="Optional message to the user"
+            />
+          </div>
+        </ConfirmModal>
       ) : null}
 
       {resetPwTarget ? (

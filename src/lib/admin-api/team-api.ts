@@ -10,6 +10,8 @@ import type {
   AdminTeamMember,
   AdminTeamUpdateBody,
   AdminRole,
+  AdminTeamDeactivateBody,
+  AdminTeamSuspendBody,
 } from "@/lib/admin-api/types";
 
 /* ── Helpers ── */
@@ -177,17 +179,19 @@ export async function putAdminTeamMember(id: string, body: AdminTeamUpdateBody):
 }
 
 /** `POST /admin/team/{id}/deactivate` — Deactivate an admin account. */
-export async function postAdminTeamDeactivate(id: string): Promise<void> {
+export async function postAdminTeamDeactivate(id: string, body: AdminTeamDeactivateBody): Promise<void> {
   await adminRequest(`/admin/team/${encodeURIComponent(id)}/deactivate`, {
     method: "POST",
+    body: JSON.stringify(body),
     auth: true,
   });
 }
 
 /** `POST /admin/team/{id}/suspend` — Suspend an admin account. */
-export async function postAdminTeamSuspend(id: string): Promise<void> {
+export async function postAdminTeamSuspend(id: string, body: AdminTeamSuspendBody): Promise<void> {
   await adminRequest(`/admin/team/${encodeURIComponent(id)}/suspend`, {
     method: "POST",
+    body: JSON.stringify(body),
     auth: true,
   });
 }

@@ -465,6 +465,20 @@ export type AdminTeamUpdateBody = {
   roleId: string;
 };
 
+/** Body for `POST /admin/team/{id}/deactivate` — deactivate an admin account. */
+export type AdminTeamDeactivateBody = {
+  reason: string;
+  notes: string;
+};
+
+/** Body for `POST /admin/team/{id}/suspend` — suspend an admin account. */
+export type AdminTeamSuspendBody = {
+  reason: string;
+  notes: string;
+  suspendUntil: string;
+  message: string;
+};
+
 /** Normalized row for pending admin invitation. */
 export type AdminPendingInvite = {
   id: string;
