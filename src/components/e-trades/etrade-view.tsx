@@ -16,7 +16,8 @@ import {
 import { ALL_ETRADE_TRANSACTION_ROWS } from "@/components/e-trades/etrade-mock-transactions";
 import { EtradeRequestList } from "@/components/e-trades/etrade-request-list";
 import { EtradeTransactionList } from "@/components/e-trades/etrade-transaction-list";
-import type { EtradeTabId } from "@/components/e-trades/etrade-types";
+import type { EtradeTabId, EtradeRequestRow } from "@/components/e-trades/etrade-types";
+import { EtradeLogFlow } from "@/components/e-trades/etrade-log-flow";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import {
   TableFilterApplyClear,
@@ -39,6 +40,8 @@ export function EtradeView() {
   const tabFromUrl = searchParams?.get("tab");
 
   const [activeTab, setActiveTab] = useState<EtradeTabId>("requests");
+  const [requests, setRequests] = useState<EtradeRequestRow[]>(ALL_ETRADE_REQUESTS);
+  const [isLoggingTrade, setIsLoggingTrade] = useState(false);
   const [tableSearch, setTableSearch] = useState("");
   const [page, setPage] = useState(1);
   const [txnPage, setTxnPage] = useState(1);
@@ -106,7 +109,7 @@ export function EtradeView() {
 
   const filteredRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
-    return ALL_ETRADE_REQUESTS.filter((r) => {
+    return requests.filter((r) => {
       if (appliedType && appliedType !== "All types" && r.etradeType !== appliedType) return false;
       if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus)
         return false;
@@ -118,7 +121,7 @@ export function EtradeView() {
         r.etradeType.toLowerCase().includes(q);
       return matchSearch;
     });
-  }, [tableSearch, appliedType, appliedStatus, appliedDateLabel]);
+  }, [tableSearch, appliedType, appliedStatus, appliedDateLabel, requests]);
 
   const filteredTxnRows = useMemo(() => {
     const q = tableSearch.trim().toLowerCase();
@@ -194,7 +197,7 @@ export function EtradeView() {
 
         <button
           type="button"
-          onClick={() => alert("Log a Trade clicked (Mock)")}
+          onClick={() => setIsLoggingTrade(true)}
           className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#C1FF00] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90 shadow-sm"
         >
           <span className="text-[16px] font-extrabold mr-0.5">+</span>
@@ -203,6 +206,17 @@ export function EtradeView() {
       </div>
     </div>
   );
+
+  if (isLoggingTrade) {
+    return (
+      <EtradeLogFlow
+        onBack={() => setIsLoggingTrade(false)}
+        onSuccess={(newTrade) => {
+          setRequests((prev) => [newTrade, ...prev]);
+        }}
+      />
+    );
+  }
 
   return (
     <div>
