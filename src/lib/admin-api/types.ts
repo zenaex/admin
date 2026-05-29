@@ -442,6 +442,8 @@ export type AdminTeamInviteBody = {
   lastName: string;
   email: string;
   role: string;
+  phoneNumber: string;
+  department: string;
 };
 
 /** Body for `PUT /admin/team/{id}` — update team member details. */

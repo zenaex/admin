@@ -39,7 +39,7 @@ function humanizeStatus(s: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-function humanizeRole(s: string): string {
+export function humanizeRole(s: string): string {
   if (!s) return "—";
   return s
     .replace(/_/g, " ")
@@ -239,4 +239,36 @@ export async function deleteAdminInvitation(id: string): Promise<void> {
     method: "DELETE",
     auth: true,
   });
+}
+
+/** `GET /admin/roles` — List all admin roles. */
+export async function getAdminRoles(): Promise<string[]> {
+  const data = await adminRequest<unknown>("/admin/roles", { method: "GET" });
+  if (Array.isArray(data)) {
+    return data.map((item: unknown) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        const r = item as Record<string, unknown>;
+        const val = r.name ?? r.role ?? r.id ?? r.value;
+        if (typeof val === "string") return val;
+      }
+      return String(item);
+    });
+  }
+  if (data && typeof data === "object") {
+    const r = data as Record<string, unknown>;
+    const list = r.roles ?? r.items ?? r.data;
+    if (Array.isArray(list)) {
+      return list.map((item: unknown) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const ri = item as Record<string, unknown>;
+          const val = ri.name ?? ri.role ?? ri.id ?? ri.value;
+          if (typeof val === "string") return val;
+        }
+        return String(item);
+      });
+    }
+  }
+  return [];
 }

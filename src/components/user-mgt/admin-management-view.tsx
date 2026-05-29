@@ -24,6 +24,8 @@ import {
   getAdminInvitations,
   postAdminInvitationResend,
   deleteAdminInvitation,
+  getAdminRoles,
+  humanizeRole,
 } from "@/lib/admin-api/team-api";
 import type { AdminSettingsPasswordResetRequestRow, AdminTeamMember, AdminPendingInvite } from "@/lib/admin-api/types";
 import { uiRoleLabelToApiRole, isRealAdminId } from "@/lib/admin-api/users-api";
@@ -134,6 +136,28 @@ export function AdminManagementView() {
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
   const [adminSuccessMessage, setAdminSuccessMessage] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    getAdminRoles()
+      .then((list) => {
+        if (active && list && list.length > 0) {
+          setDynamicRoles(list);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load admin roles dynamically:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const resolvedRoles = useMemo(() => {
+    if (dynamicRoles.length > 0) return dynamicRoles;
+    return Array.from(INVITE_ROLE_OPTIONS);
+  }, [dynamicRoles]);
 
   /* ── Live team data ── */
   const [teamMembers, setTeamMembers] = useState<AdminTeamMember[]>([]);
@@ -734,6 +758,7 @@ export function AdminManagementView() {
             if (!adminActionLoading) setRoleTarget(null);
           }}
           onSubmit={() => void handleChangeRoleSubmit()}
+          roles={resolvedRoles}
         />
       ) : null}
 
@@ -785,6 +810,7 @@ export function AdminManagementView() {
           onSuccess={() => {
             void loadTeam();
           }}
+          roles={resolvedRoles}
         />
       ) : null}
 
@@ -806,6 +832,7 @@ type AdminChangeRoleModalProps = {
   onRoleChange: (role: string) => void;
   onClose: () => void;
   onSubmit: () => void;
+  roles: string[];
 };
 
 function AdminChangeRoleModal({
@@ -815,6 +842,7 @@ function AdminChangeRoleModal({
   onRoleChange,
   onClose,
   onSubmit,
+  roles,
 }: AdminChangeRoleModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -829,9 +857,9 @@ function AdminChangeRoleModal({
           disabled={loading}
           onChange={(e) => onRoleChange(e.target.value)}
         >
-          {INVITE_ROLE_OPTIONS.map((opt) => (
+          {roles.map((opt) => (
             <option key={opt} value={opt}>
-              {opt}
+              {humanizeRole(opt)}
             </option>
           ))}
         </select>
@@ -1054,104 +1082,44 @@ function RoleCard({ role }: { role: (typeof ROLES)[number] }) {
   );
 }
 
-function InviteAdminForm({ onSuccess }: { onSuccess?: () => void }) {
+
+function InviteAdminModal({
+  onClose,
+  onSuccess,
+  roles,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  roles: string[];
+}) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<string>(INVITE_ROLE_OPTIONS[1]);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [department, setDepartment] = useState("");
+  const [role, setRole] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !role) return;
-    setError(null);
-    setSuccess(null);
-    setSubmitting(true);
-    try {
-      await postAdminTeamInvite({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim(),
-        role: uiRoleLabelToApiRole(role),
-      });
-      setSuccess("Invitation sent.");
-      setFirstName("");
-      setLastName("");
-      setEmail("");
-      onSuccess?.();
-    } catch (err) {
-      setError(err instanceof AdminApiError ? err.message : "Could not send invitation.");
-    } finally {
-      setSubmitting(false);
+  useEffect(() => {
+    if (roles.length > 0 && !role) {
+      setRole(roles[1] || roles[0]);
     }
-  };
-
-  return (
-    <div className="mb-6 rounded-xl border border-outline bg-white p-5">
-      <h3 className="text-[15px] font-semibold text-primary-text">Invite admin</h3>
-      <p className="mt-1 text-xs text-zinc-500">Sends an email with an accept link (super admin only).</p>
-      <form onSubmit={handleSubmit} className="mt-4 grid gap-3 sm:grid-cols-2">
-        {error ? (
-          <p className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {error}
-          </p>
-        ) : null}
-        {success ? (
-          <p className="sm:col-span-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
-            {success}
-          </p>
-        ) : null}
-        <InputField id="inv-fn" label="First name" value={firstName} onChange={(ev) => setFirstName(ev.target.value)} />
-        <InputField id="inv-ln" label="Last name" value={lastName} onChange={(ev) => setLastName(ev.target.value)} />
-        <InputField
-          id="inv-em"
-          label="Email"
-          type="email"
-          className="sm:col-span-2"
-          value={email}
-          onChange={(ev) => setEmail(ev.target.value)}
-        />
-        <div className="sm:col-span-2">
-          <label htmlFor="inv-role" className="mb-1.5 block text-[11px] font-medium text-gray-500">
-            Role
-          </label>
-          <select
-            id="inv-role"
-            value={role}
-            onChange={(ev) => setRole(ev.target.value)}
-            className="text-primary-text h-10 w-full max-w-md rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green"
-          >
-            {INVITE_ROLE_OPTIONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="sm:col-span-2">
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Sending…" : "Send invitation"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<string>(INVITE_ROLE_OPTIONS[1]);
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  }, [roles, role]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !role) return;
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !email.trim() ||
+      !phoneNumber.trim() ||
+      !department.trim() ||
+      !role
+    ) {
+      return;
+    }
     setError(null);
     setSuccess(null);
     setSubmitting(true);
@@ -1161,11 +1129,15 @@ function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSucce
         lastName: lastName.trim(),
         email: email.trim(),
         role: uiRoleLabelToApiRole(role),
+        phoneNumber: phoneNumber.trim(),
+        department: department.trim(),
       });
       setSuccess("Invitation sent.");
       setFirstName("");
       setLastName("");
       setEmail("");
+      setPhoneNumber("");
+      setDepartment("");
       onSuccess();
       setTimeout(() => onClose(), 1200);
     } catch (err) {
@@ -1203,6 +1175,20 @@ function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             value={email}
             onChange={(ev) => setEmail(ev.target.value)}
           />
+          <InputField
+            id="modal-ph"
+            label="Phone number"
+            type="tel"
+            value={phoneNumber}
+            onChange={(ev) => setPhoneNumber(ev.target.value)}
+          />
+          <InputField
+            id="modal-dept"
+            label="Department"
+            type="text"
+            value={department}
+            onChange={(ev) => setDepartment(ev.target.value)}
+          />
           <div>
             <label htmlFor="modal-role" className="mb-1.5 block text-[11px] font-medium text-gray-500">
               Role
@@ -1213,9 +1199,9 @@ function InviteAdminModal({ onClose, onSuccess }: { onClose: () => void; onSucce
               onChange={(ev) => setRole(ev.target.value)}
               className="text-primary-text h-10 w-full rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green"
             >
-              {INVITE_ROLE_OPTIONS.map((r) => (
+              {roles.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {humanizeRole(r)}
                 </option>
               ))}
             </select>
