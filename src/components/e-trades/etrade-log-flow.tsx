@@ -226,48 +226,48 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
         </div>
       </div>
 
-      {/* Stepper */}
-      <div className="mx-auto mb-10 w-full max-w-sm relative flex items-center justify-between px-12">
-        {/* Thin connector line */}
-        <div className="absolute top-[13px] left-[62px] right-[67px] h-[1.5px] bg-[#E8EDF2] z-0" />
-        
-        {/* Step 1: Trade */}
-        <div className="flex flex-col items-center z-10 select-none">
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors duration-300 ${
-            step === 2 ? "bg-zinc-950" : "bg-[#E8EDF2]"
-          }`}>
-            {step === 2 ? (
-              <Check className="w-3.5 h-3.5 text-[#C1FF00] stroke-[3]" />
-            ) : (
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-950" />
-            )}
-          </div>
-          <span className="mt-2 text-[12px] font-medium text-[#718096] min-w-[50px] text-center">
-            Trade
-          </span>
-        </div>
-
-        {/* Step 2: Confirm */}
-        <div className="flex flex-col items-center z-10 select-none">
-          <div className="w-7 h-7 flex items-center justify-center">
-            {step === 2 ? (
-              <div className="w-7 h-7 rounded-full bg-[#E8EDF2] flex items-center justify-center">
+      {/* Main Container Card wrapping Stepper + Forms */}
+      <div className="mx-auto max-w-[620px] rounded-3xl border border-zinc-100 bg-white px-8 pb-10 pt-10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+        {/* Stepper */}
+        <div className="mx-auto mb-10 w-full max-w-sm relative flex items-center justify-between px-12">
+          {/* Thin connector line */}
+          <div className="absolute top-[13px] left-[62px] right-[67px] h-[1.5px] bg-[#E8EDF2] z-0" />
+          
+          {/* Step 1: Trade */}
+          <div className="flex flex-col items-center z-10 select-none">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors duration-300 ${
+              step === 2 ? "bg-zinc-950" : "bg-[#E8EDF2]"
+            }`}>
+              {step === 2 ? (
+                <Check className="w-3.5 h-3.5 text-[#C1FF00] stroke-[3]" />
+              ) : (
                 <div className="w-2.5 h-2.5 rounded-full bg-zinc-950" />
-              </div>
-            ) : (
-              <div className="w-2.5 h-2.5 rounded-full bg-[#E8EDF2]" />
-            )}
+              )}
+            </div>
+            <span className="mt-2 text-[12px] font-medium text-[#718096] min-w-[50px] text-center">
+              Trade
+            </span>
           </div>
-          <span className={`mt-2 text-[12px] font-medium min-w-[50px] text-center ${
-            step === 2 ? "text-[#718096]" : "text-[#A0AEC0]"
-          }`}>
-            Confirm
-          </span>
-        </div>
-      </div>
 
-      {/* Form Container */}
-      <div className="mx-auto max-w-[620px] rounded-3xl border border-zinc-100 bg-white px-8 pb-10 pt-8 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+          {/* Step 2: Confirm */}
+          <div className="flex flex-col items-center z-10 select-none">
+            <div className="w-7 h-7 flex items-center justify-center">
+              {step === 2 ? (
+                <div className="w-7 h-7 rounded-full bg-[#E8EDF2] flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-950" />
+                </div>
+              ) : (
+                <div className="w-2.5 h-2.5 rounded-full bg-[#E8EDF2]" />
+              )}
+            </div>
+            <span className={`mt-2 text-[12px] font-medium min-w-[50px] text-center ${
+              step === 2 ? "text-[#718096]" : "text-[#A0AEC0]"
+            }`}>
+              Confirm
+            </span>
+          </div>
+        </div>
+
         {step === 1 ? (
           <form onSubmit={handleContinue} className="grid gap-4.5">
             <h2 className="text-center text-[19px] font-bold text-brand-navy mb-2">
