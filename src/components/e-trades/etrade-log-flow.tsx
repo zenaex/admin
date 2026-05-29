@@ -6,6 +6,7 @@ import { ArrowLeft2, ArrowRight2 } from "iconsax-react";
 import { InputField } from "@/components/input-field";
 import { SuccessModal } from "@/components/provider/provider-modals";
 import type { EtradeRequestRow } from "@/components/e-trades/etrade-types";
+import { getAdminCustomersList } from "@/lib/admin-api/customers-api";
 
 type EtradeLogFlowProps = {
   onBack: () => void;
@@ -56,6 +57,10 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const [initialCustomers, setInitialCustomers] = useState<CustomerOption[]>(CUSTOMER_OPTIONS);
+  const [customers, setCustomers] = useState<CustomerOption[]>(CUSTOMER_OPTIONS);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+
   // Handle click outside for customer dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -72,11 +77,71 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
     };
   }, []);
 
-  const filteredCustomers = CUSTOMER_OPTIONS.filter(
-    (c) =>
-      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      c.username.toLowerCase().includes(customerSearch.toLowerCase())
-  );
+  // Fetch initial list on mount
+  useEffect(() => {
+    let active = true;
+    const fetchInitial = async () => {
+      setLoadingCustomers(true);
+      try {
+        const res = await getAdminCustomersList({ page: 1, pageSize: 50 });
+        if (active && res.items.length > 0) {
+          const mapped = res.items.map((item) => ({
+            name: item.name,
+            username: item.username.startsWith("@") ? item.username.slice(1) : item.username,
+          }));
+          setInitialCustomers(mapped);
+          setCustomers(mapped);
+
+          const foundDefault = mapped.find((c) => c.name.toLowerCase().includes("okunola"));
+          if (foundDefault) {
+            setSelectedCustomer(foundDefault);
+          } else if (mapped.length > 0) {
+            setSelectedCustomer(mapped[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load customer list from API", err);
+      } finally {
+        if (active) setLoadingCustomers(false);
+      }
+    };
+    void fetchInitial();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Debounced search fetch
+  useEffect(() => {
+    if (!customerSearch.trim()) {
+      setCustomers(initialCustomers);
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      setLoadingCustomers(true);
+      try {
+        const res = await getAdminCustomersList({ search: customerSearch.trim(), page: 1, pageSize: 20 });
+        if (active) {
+          const mapped = res.items.map((item) => ({
+            name: item.name,
+            username: item.username.startsWith("@") ? item.username.slice(1) : item.username,
+          }));
+          setCustomers(mapped);
+        }
+      } catch (err) {
+        console.error("Search API failed", err);
+      } finally {
+        if (active) setLoadingCustomers(false);
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [customerSearch, initialCustomers]);
 
   // Run live calculations based on inputs
   useEffect(() => {
@@ -270,16 +335,20 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
                       onChange={(e) => setCustomerSearch(e.target.value)}
                       autoFocus
                     />
-                    <Search
-                      size={16}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400"
-                    />
+                    {loadingCustomers ? (
+                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
+                    ) : (
+                      <Search
+                        size={16}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400"
+                      />
+                    )}
                   </div>
 
                   {/* Customer Scroll List */}
                   <div className="max-h-[220px] overflow-y-auto pr-1 flex flex-col gap-1">
-                    {filteredCustomers.length > 0 ? (
-                      filteredCustomers.map((c) => {
+                    {customers.length > 0 ? (
+                      customers.map((c) => {
                         const initials = c.name
                           .split(" ")
                           .map((p) => p[0])
