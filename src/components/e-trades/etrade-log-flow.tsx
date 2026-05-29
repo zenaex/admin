@@ -229,7 +229,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
       {/* Stepper */}
       <div className="mx-auto mb-10 w-full max-w-sm relative flex items-center justify-between px-12">
         {/* Thin connector line */}
-        <div className="absolute top-[13px] left-[62px] right-[62px] h-[1.5px] bg-[#E8EDF2] z-0" />
+        <div className="absolute top-[13px] left-[62px] right-[67px] h-[1.5px] bg-[#E8EDF2] z-0" />
         
         {/* Step 1: Trade */}
         <div className="flex flex-col items-center z-10 select-none">
