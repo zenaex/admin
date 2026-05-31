@@ -18,6 +18,7 @@ import {
   markupRateInputValue,
   type MarkupType,
 } from "@/lib/product-mgt/rate-preview";
+import { postCreateSwapPair } from "@/lib/admin-api/exchange-rates-api";
 
 const MARKUP_TYPES = ["Flat", "Percentage", "% capped @"] as const;
 
@@ -53,10 +54,23 @@ export function CreateSwapPairView() {
     setStep("confirm");
   };
 
-  const handleCreate = () => {
-    const row = buildSwapPairRow(draft);
-    appendExtraSwapPairRow(row);
-    router.push("/dashboard/product-mgt?tab=exchange-rates&ratesSubTab=swap-crypto");
+  const handleCreate = async () => {
+    try {
+      await postCreateSwapPair({
+        base: draft.baseCode,
+        quote: draft.quoteCode,
+        markupType: draft.markupType,
+        baseMarkupRate: parseFloat(draft.baseToQuoteRate) || 0,
+        quoteMarkupRate: parseFloat(draft.quoteToBaseRate) || 0,
+      });
+
+      const row = buildSwapPairRow(draft);
+      appendExtraSwapPairRow(row);
+      router.push("/dashboard/product-mgt?tab=exchange-rates&ratesSubTab=swap-crypto");
+    } catch (e) {
+      console.error("Failed to create swap pair:", e);
+      alert(e instanceof Error ? e.message : "Failed to create swap pair");
+    }
   };
 
   return (

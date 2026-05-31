@@ -1,18 +1,19 @@
 "use client";
 // Renders the Giftcard Rate subtab interface with expandable hierarchical brands table
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useEffect } from "react";
 import { ArrowDown2, Setting2 } from "iconsax-react";
-
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { GiftcardBrandCell } from "@/components/product-mgt/giftcard-brand-cell";
 import { GiftcardRateUpdateFlow } from "@/components/product-mgt/giftcard-rate-update-flow";
 import { getGiftcardBrands } from "@/components/product-mgt/exchange-rate-fixtures";
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
+import { getGiftcardRates } from "@/lib/admin-api/exchange-rates-api";
 
 export function GiftcardRatesPanel() {
   const [brands, setBrands] = useState<GiftcardBrand[]>(() => getGiftcardBrands());
+  const [loading, setLoading] = useState(true);
   const [expandedBrands, setExpandedBrands] = useState<Set<string>>(
     () => new Set(["gc-apple-ecode"]) // Expand Apple E-code by default for a gorgeous visual layout
   );
@@ -20,6 +21,24 @@ export function GiftcardRatesPanel() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [editBrand, setEditBrand] = useState<GiftcardBrand | null>(null);
+
+  const loadGiftcardRates = async () => {
+    setLoading(true);
+    try {
+      const res = await getGiftcardRates();
+      if (res && res.length > 0) {
+        setBrands(res);
+      }
+    } catch (e) {
+      console.error("Failed to load giftcard rates:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadGiftcardRates();
+  }, []);
 
   const toggleExpand = (id: string) => {
     setExpandedBrands((prev) => {
@@ -81,7 +100,13 @@ export function GiftcardRatesPanel() {
             </tr>
           </thead>
           <tbody>
-            {paginatedBrands.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
+                  Loading...
+                </td>
+              </tr>
+            ) : paginatedBrands.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
                   No giftcard brands found.

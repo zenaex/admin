@@ -7,8 +7,8 @@ import { GiftcardRateSetupModal, type GiftcardRateFormValues } from "@/component
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import { formatUpdatedDate } from "@/lib/product-mgt/rate-preview";
 import type { MarkupType } from "@/lib/product-mgt/rate-preview";
+import { postConfigureGiftcardRate } from "@/lib/admin-api/exchange-rates-api";
 
-/** Steps of the rate update flow modal container */
 type FlowStep = "setup" | "confirm" | "success";
 
 type GiftcardRateUpdateFlowProps = {
@@ -69,36 +69,52 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
     return `$1/₦${finalNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!form || !activeBrand) return;
 
-    const commValueDisplay =
-      form.commissionType === "Percentage"
-        ? `${form.commissionRate}%`
-        : form.commissionType === "% capped @"
-          ? `${form.commissionRate}%@₦50`
-          : `₦${parseFloat(form.commissionRate || "100").toLocaleString()} FLAT`;
+    try {
+      await postConfigureGiftcardRate(activeBrand.id, {
+        rmbRate: form.rmbRate,
+        markupType: form.commissionType,
+        markupRate: parseFloat(form.commissionRate) || 0,
+        denominations: form.denominations.map((d) => ({
+          id: d.id,
+          label: d.label,
+          vendorRate: parseFloat(d.vendorRate) || 0,
+        })),
+      });
 
-    const updatedBrand: GiftcardBrand = {
-      ...activeBrand,
-      commissionType: form.commissionType,
-      ourCommission: commValueDisplay,
-      rmbRate: form.rmbRate,
-      denominations: activeBrand.denominations.map((denom) => {
-        const formDenom = form.denominations.find((fd) => fd.id === denom.id);
-        const updatedVendorRateClean = formDenom ? formDenom.vendorRate : denom.vendorRate.replace(/[^\d.]/g, "");
-        
-        return {
-          ...denom,
-          vendorRate: `$${parseFloat(updatedVendorRateClean).toFixed(2)}`,
-          finalRate: calculateFinalRate(form.commissionType, form.commissionRate, updatedVendorRateClean),
-          dateUpdated: formatUpdatedDate(),
-        };
-      }),
-    };
+      const commValueDisplay =
+        form.commissionType === "Percentage"
+          ? `${form.commissionRate}%`
+          : form.commissionType === "% capped @"
+            ? `${form.commissionRate}%@₦50`
+            : `₦${parseFloat(form.commissionRate || "100").toLocaleString()} FLAT`;
 
-    onApplied(updatedBrand);
-    setStep("success");
+      const updatedBrand: GiftcardBrand = {
+        ...activeBrand,
+        commissionType: form.commissionType,
+        ourCommission: commValueDisplay,
+        rmbRate: form.rmbRate,
+        denominations: activeBrand.denominations.map((denom) => {
+          const formDenom = form.denominations.find((fd) => fd.id === denom.id);
+          const updatedVendorRateClean = formDenom ? formDenom.vendorRate : denom.vendorRate.replace(/[^\d.]/g, "");
+
+          return {
+            ...denom,
+            vendorRate: `$${parseFloat(updatedVendorRateClean).toFixed(2)}`,
+            finalRate: calculateFinalRate(form.commissionType, form.commissionRate, updatedVendorRateClean),
+            dateUpdated: formatUpdatedDate(),
+          };
+        }),
+      };
+
+      onApplied(updatedBrand);
+      setStep("success");
+    } catch (e) {
+      console.error("Failed to configure giftcard rate:", e);
+      alert(e instanceof Error ? e.message : "Failed to configure giftcard rate");
+    }
   };
 
   const countryDisplay = activeBrand.country === "United State" || activeBrand.country.startsWith("United State") ? "USA" : activeBrand.country;

@@ -11,6 +11,7 @@ import {
   formatUpdatedDate,
   type RateFormValues,
 } from "@/lib/product-mgt/rate-preview";
+import { postConfigureFiatRate } from "@/lib/admin-api/exchange-rates-api";
 
 type FlowStep = "setup" | "confirm" | "success";
 
@@ -47,20 +48,33 @@ export function FiatRateUpdateFlow({ row, onClose, onApplied }: FiatRateUpdateFl
     setStep("confirm");
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!form) return;
-    const preview = buildRatePreview(form, row.currencyCode);
-    const updated: ExchangeRateRow = {
-      ...row,
-      commissionType: form.markupType,
-      ourCommission: formatOurCommission(form.markupType, form.markupRate),
-      baseRate: preview.baseRateForRow,
-      finalRate: preview.finalRateForRow,
-      dateUpdated: formatUpdatedDate(),
-    };
-    setAppliedPreview(preview.finalRateDisplay);
-    onApplied(updated);
-    setStep("success");
+    try {
+      const base = row.currencyCode;
+      const quote = "NGN";
+      await postConfigureFiatRate(base, quote, {
+        markupType: form.markupType,
+        markupRate: parseFloat(form.markupRate) || 0,
+        baseRate: parseFloat(form.baseRate) || 0,
+      });
+
+      const preview = buildRatePreview(form, row.currencyCode);
+      const updated: ExchangeRateRow = {
+        ...row,
+        commissionType: form.markupType,
+        ourCommission: formatOurCommission(form.markupType, form.markupRate),
+        baseRate: preview.baseRateForRow,
+        finalRate: preview.finalRateForRow,
+        dateUpdated: formatUpdatedDate(),
+      };
+      setAppliedPreview(preview.finalRateDisplay);
+      onApplied(updated);
+      setStep("success");
+    } catch (e) {
+      console.error("Failed to configure fiat rate:", e);
+      alert(e instanceof Error ? e.message : "Failed to configure fiat rate");
+    }
   };
 
   if (step === "setup") {
