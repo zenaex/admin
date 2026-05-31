@@ -644,7 +644,7 @@ function TransactionHistoryTab({
         (r) =>
           r.referenceNo.toLowerCase().includes(q) ||
           r.customerName.toLowerCase().includes(q) ||
-          r.biller.toLowerCase().includes(q),
+          r.provider.toLowerCase().includes(q),
       )
     : rows;
 
@@ -674,7 +674,7 @@ function TransactionHistoryTab({
         { header: "Customer Name", value: (r) => r.customerName },
         { header: "Channel", value: (r) => r.channel },
         { header: "Amount", value: (r) => r.amount },
-        { header: "Biller", value: (r) => r.biller },
+        { header: "Provider", value: (r) => r.provider },
         { header: "Status", value: (r) => r.status },
         { header: "Date", value: (r) => r.date },
       ]);
@@ -768,7 +768,7 @@ function TransactionHistoryTab({
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Customer Names</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Channel</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Amount</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Biller</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Provider</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Status</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date</th>
             </tr>
@@ -806,7 +806,7 @@ function TransactionHistoryTab({
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.customerName}</td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.channel}</td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.amount}</td>
-                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.biller}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.provider}</td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                     <TxStatusBadge status={row.status} />
                   </td>

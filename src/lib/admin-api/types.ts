@@ -173,7 +173,7 @@ export type AdminCustomerTransactionRow = {
   customerName: string;
   channel: string;
   amount: string;
-  biller: string;
+  provider: string;
   status: string;
   date: string;
 };
@@ -458,10 +458,10 @@ export type AdminTeamInviteBody = {
 
 /** Body for `PUT /admin/team/{id}` — update team member details. */
 export type AdminTeamUpdateBody = {
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  department: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  department?: string;
   roleId: string;
 };
 

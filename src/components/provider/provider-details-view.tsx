@@ -81,7 +81,7 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [productStatuses, setProductStatuses] = useState<Record<string, boolean>>({});
-  const [billerActive, setBillerActive] = useState(false);
+  const [providerActive, setProviderActive] = useState(false);
 
   const commissionFilterOptions = useMemo(() => {
     const types = Array.from(new Set(products.map((p) => p.commissionType))).sort();
@@ -102,7 +102,7 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
       setProducts(result.products);
       setTotalProducts(result.totalProducts);
       setProductStatuses(Object.fromEntries(result.products.map((p) => [p.id, p.status])));
-      setBillerActive(result.provider.status === "Active");
+      setProviderActive(result.provider.status === "Active");
     } catch (e) {
       setProviderDetail(null);
       setProducts([]);
@@ -121,7 +121,7 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
   }, [loadDetail]);
 
   // Modal state
-  type PendingToggle = { type: "biller" } | { type: "product"; id: string; value: boolean };
+  type PendingToggle = { type: "provider" } | { type: "product"; id: string; value: boolean };
   const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(null);
   const [showSuccess, setShowSuccess] = useState<{ message: string } | null>(null);
   const [editingProduct, setEditingProduct] = useState<AdminProviderProductRow | null>(null);
@@ -193,17 +193,17 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
     setPendingToggle({ type: "product", id, value });
   };
 
-  const requestBillerToggle = () => {
-    setPendingToggle({ type: "biller" });
+  const requestProviderToggle = () => {
+    setPendingToggle({ type: "provider" });
   };
 
   const handleConfirm = () => {
     if (!pendingToggle) return;
-    if (pendingToggle.type === "biller") {
-      const next = !billerActive;
-      setBillerActive(next);
+    if (pendingToggle.type === "provider") {
+      const next = !providerActive;
+      setProviderActive(next);
       setPendingToggle(null);
-      setShowSuccess({ message: `Biller has been successfully ${next ? "activated" : "deactivated"}` });
+      setShowSuccess({ message: `Provider has been successfully ${next ? "activated" : "deactivated"}` });
     } else {
       setProductStatuses((prev) => ({ ...prev, [pendingToggle.id]: pendingToggle.value }));
       setPendingToggle(null);
@@ -277,9 +277,9 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
                   </td>
                   <td className="px-4 py-5">
                     <StatusToggle
-                      checked={billerActive}
-                      onChange={requestBillerToggle}
-                      label="Toggle biller status"
+                      checked={providerActive}
+                      onChange={requestProviderToggle}
+                      label="Toggle provider status"
                     />
                   </td>
                 </tr>
@@ -498,9 +498,9 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
       {/* Confirmation modal */}
       {pendingToggle && (
         <ConfirmModal
-          title={pendingToggle.type === "biller" ? "Deactivate Biller" : (pendingToggle.value ? "Activate Product" : "Deactivate Product")}
-          message={pendingToggle.type === "biller" ? "Are you sure you want to deactivate this biller?" : (pendingToggle.value ? "Are you sure you want to activate this product?" : "Are you sure you want to deactivate this product?")}
-          confirmLabel={pendingToggle.type === "biller" ? "Yes, Deactivate" : (pendingToggle.value ? "Yes, Activate" : "Yes, Deactivate")}
+          title={pendingToggle.type === "provider" ? "Deactivate Provider" : (pendingToggle.value ? "Activate Product" : "Deactivate Product")}
+          message={pendingToggle.type === "provider" ? "Are you sure you want to deactivate this provider?" : (pendingToggle.value ? "Are you sure you want to activate this product?" : "Are you sure you want to deactivate this product?")}
+          confirmLabel={pendingToggle.type === "provider" ? "Yes, Deactivate" : (pendingToggle.value ? "Yes, Activate" : "Yes, Deactivate")}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
         />

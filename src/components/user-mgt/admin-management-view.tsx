@@ -262,13 +262,7 @@ export function AdminManagementView() {
     setAdminActionError(null);
     setAdminActionLoading(true);
     try {
-      await putAdminTeamMember(roleTarget.id, {
-        firstName: roleTarget.firstName || roleTarget.name.split(" ")[0] || "",
-        lastName: roleTarget.lastName || roleTarget.name.split(" ").slice(1).join(" ") || "",
-        phoneNumber: roleTarget.phone === "—" ? "" : roleTarget.phone,
-        department: roleTarget.department === "—" ? "" : roleTarget.department,
-        roleId: roleDraft,
-      });
+      await putAdminTeamMember(roleTarget.id, { roleId: roleDraft });
       setRoleTarget(null);
       setAdminSuccessMessage(`Role updated for ${roleTarget.name}.`);
       void loadTeam();
@@ -1007,11 +1001,11 @@ function AdminChangeRoleModal({
 /* ── Roles & Permission tab ── */
 const ROLES = [
   { name: "Super Admin", icon: <People size={22} variant="Outline" color="currentColor" />, members: 10, description: "Super admin has all permissions including; Create User, and all" },
-  { name: "Admin", icon: <Setting2 size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create billers, delete products, create products, and five more." },
-  { name: "Operations", icon: <Chart size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create billers, delete products, create products, and five more." },
-  { name: "Compliance", icon: <ShieldTick size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create billers, delete products, create products, and five more." },
-  { name: "Customer Care", icon: <Headphone size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create billers, delete products, create products, and five more." },
-  { name: "Tech Support", icon: <Code1 size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create billers, delete products, create products, and five more." },
+  { name: "Admin", icon: <Setting2 size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
+  { name: "Operations", icon: <Chart size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
+  { name: "Compliance", icon: <ShieldTick size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
+  { name: "Customer Care", icon: <Headphone size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
+  { name: "Tech Support", icon: <Code1 size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
 ];
 
 const MEMBER_AVATARS = ["AT", "TA", "TA"];
