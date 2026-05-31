@@ -293,10 +293,63 @@ export async function postCreateSwapPair(body: {
   });
 }
 
+
+
 /** `POST /admin/rates/sheets` — Upload a gift card rate sheet from a CSV URL */
 export async function postUploadRateSheet(body: { csvUrl: string }): Promise<void> {
   await adminRequest("/admin/rates/sheets", {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+/** `GET /admin/rates/fiat/{base}/{quote}/base-rate` — Fetch live Base Rate for a fiat pair */
+export async function getAdminLiveBaseRate(base: string, quote: string): Promise<number> {
+  try {
+    const body = await adminRequest<unknown>(`/admin/rates/fiat/${encodeURIComponent(base)}/${encodeURIComponent(quote)}/base-rate`, { method: "GET" });
+    const r = asRecord(body);
+    const inner = r ? (asRecord(r.data) ?? r) : {};
+    return pickNum(inner, ["baseRate", "base_rate", "rate"]) ?? 0;
+  } catch (e) {
+    console.error(`Failed to fetch live base rate for fiat pair ${base}/${quote}:`, e);
+    return 0;
+  }
+}
+
+/** `GET /rates/fiat` — Get the converted fiat rate for a given amount and currency pair */
+export async function getPublicFiatRate(query: { amount: number; base: string; quote: string }): Promise<unknown> {
+  const qs = buildQuery({
+    amount: query.amount,
+    base: query.base,
+    quote: query.quote,
+  });
+  // Strip '/admin' if the client or URL base has it, to target public path safely
+  return adminRequest<unknown>(`/rates/fiat${qs}`, { method: "GET", auth: false });
+}
+
+/** `GET /rates/crypto` — Get the swap rate for a given amount and crypto asset pair */
+export async function getPublicCryptoRate(query: { amount: number; base: string; quote: string }): Promise<unknown> {
+  const qs = buildQuery({
+    amount: query.amount,
+    base: query.base,
+    quote: query.quote,
+  });
+  return adminRequest<unknown>(`/rates/crypto${qs}`, { method: "GET", auth: false });
+}
+
+/** `GET /rates/gift-card` — Get the current buy rate for a gift card provider/currency */
+export async function getPublicGiftcardRate(query: { provider: string; currency: string }): Promise<unknown> {
+  const qs = buildQuery({
+    provider: query.provider,
+    currency: query.currency,
+  });
+  return adminRequest<unknown>(`/rates/gift-card${qs}`, { method: "GET", auth: false });
+}
+
+/** `GET /rates/sell-crypto` — Get the markup applied when selling a crypto asset back to the platform */
+export async function getPublicSellCryptoRate(query: { cryptoSlug: string }): Promise<unknown> {
+  const qs = buildQuery({
+    cryptoSlug: query.cryptoSlug,
+  });
+  return adminRequest<unknown>(`/rates/sell-crypto${qs}`, { method: "GET", auth: false });
 }
