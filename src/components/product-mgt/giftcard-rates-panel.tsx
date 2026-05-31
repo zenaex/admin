@@ -2,7 +2,8 @@
 // Renders the Giftcard Rate subtab interface with expandable hierarchical brands table
 
 import { Fragment, useMemo, useState } from "react";
-import { Add, ArrowDown2, Setting2 } from "iconsax-react";
+import { ArrowDown2, Setting2 } from "iconsax-react";
+
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { GiftcardBrandCell } from "@/components/product-mgt/giftcard-brand-cell";
@@ -64,16 +65,6 @@ export function GiftcardRatesPanel() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-3 text-xs font-semibold text-primary-text transition-opacity hover:opacity-90"
-            onClick={() => setEditBrand(brands[0])}
-          >
-            <Add size={16} variant="Outline" color="currentColor" />
-            Add Rate Sheet
-          </button>
         </div>
       </div>
 
@@ -143,9 +134,14 @@ export function GiftcardRatesPanel() {
                         {brand.rmbRate}
                       </td>
                       <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                        <span className="text-zinc-300">
+                        <button
+                          type="button"
+                          className="text-zinc-400 hover:text-zinc-600 transition-colors"
+                          onClick={() => setEditBrand(brand)}
+                          aria-label={`Settings for ${brand.brandName}`}
+                        >
                           <Setting2 size={20} variant="Outline" color="currentColor" />
-                        </span>
+                        </button>
                       </td>
                     </tr>
 
