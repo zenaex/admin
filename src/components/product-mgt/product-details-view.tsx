@@ -19,6 +19,12 @@ import {
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
+import {
+  getAdminProductDetails,
+  getAdminProductProviders,
+  patchAdminProductToggle,
+  ProductDetailResult,
+} from "@/lib/admin-api/products-api";
 
 type ProviderRow = {
   id: string;
@@ -29,39 +35,9 @@ type ProviderRow = {
   status: boolean;
 };
 
-/* ── Mock product detail ── */
-const PRODUCT_DETAIL = {
-  productName: "MTN-VTU",
-  productCategory: "Utility",
-  dateCreated: "Jan 6, 2025 | 9:32AM",
-  phoneNumber: "08077857878",
-  commissionType: "Percentage",
-  commissionRate: "1.0%",
-  cap: "₦50 FLAT",
-  status: true,
-};
-
-/* ── Mock providers list ── */
-const BASE_PROVIDERS: Omit<ProviderRow, "id">[] = [
-  { providerName: "MTN",   commissionType: "Percentage",  commissionRate: "1.0%",  cap: "-", status: true  },
-  { providerName: "Shago", commissionType: "% capped @",  commissionRate: "₦5000", cap: "-", status: false },
-  { providerName: "Baxi",  commissionType: "Flat",        commissionRate: "₦3000", cap: "-", status: true  },
-  { providerName: "Quidax",commissionType: "% capped @",  commissionRate: "₦5000", cap: "-", status: true  },
-];
-
-const ALL_PROVIDERS: ProviderRow[] = Array.from({ length: 36 }, (_, i) => ({
-  ...BASE_PROVIDERS[i % BASE_PROVIDERS.length],
-  id: `prov-${i}`,
-  providerName:
-    i < BASE_PROVIDERS.length
-      ? BASE_PROVIDERS[i].providerName
-      : `${BASE_PROVIDERS[i % BASE_PROVIDERS.length].providerName} (${i + 1})`,
-}));
-
-const PROVIDER_COMMISSION_FILTER = ["All types", ...Array.from(new Set(BASE_PROVIDERS.map((p) => p.commissionType)))];
+const PROVIDER_COMMISSION_FILTER = ["All types", "Percentage", "% capped @", "Flat", "None"];
 const PROVIDER_ROW_STATUS_FILTER = ["All statuses", "Active", "Inactive"] as const;
 
-/* ── Status toggle ── */
 function StatusToggle({
   checked, onChange, label,
 }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -86,7 +62,6 @@ function StatusToggle({
   );
 }
 
-/* ── Main view ── */
 export function ProductDetailsView({ id: _id }: { id?: string }) {
   const [providerSearch, setProviderSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
@@ -101,12 +76,49 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
-  const [productActive, setProductActive] = useState(PRODUCT_DETAIL.status);
-  const [providerStatuses, setProviderStatuses] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(ALL_PROVIDERS.map((p) => [p.id, p.status])),
-  );
+
+  const [productDetail, setProductDetail] = useState<ProductDetailResult | null>(null);
+  const [productActive, setProductActive] = useState(false);
+  const [providers, setProviders] = useState<ProviderRow[]>([]);
+  const [providerStatuses, setProviderStatuses] = useState<Record<string, boolean>>({});
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [pendingToggle, setPendingToggle] = useState<{ id: string; value: boolean } | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const loadProductData = async () => {
+    if (!_id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const details = await getAdminProductDetails(_id);
+      setProductDetail(details);
+      setProductActive(details.status);
+
+      const providerList = await getAdminProductProviders(_id);
+      const mappedProviders: ProviderRow[] = providerList.map((pName, idx) => ({
+        id: `prov-${idx}`,
+        providerName: pName,
+        commissionType: details.commissionType,
+        commissionRate: details.commissionRate,
+        cap: details.cap,
+        status: true,
+      }));
+      setProviders(mappedProviders);
+      setProviderStatuses(Object.fromEntries(mappedProviders.map((p) => [p.id, p.status])));
+    } catch (e) {
+      console.error("Failed to load product details:", e);
+      setError("Failed to load product details from server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProductData();
+  }, [_id]);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -124,7 +136,7 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
 
   const filteredProviders = useMemo(() => {
     const q = providerSearch.trim().toLowerCase();
-    return ALL_PROVIDERS.filter((p) => {
+    return providers.filter((p) => {
       if (appliedCommission && appliedCommission !== "All types" && p.commissionType !== appliedCommission)
         return false;
       if (appliedRowStatus && appliedRowStatus !== "All statuses") {
@@ -135,9 +147,10 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
       if (!q) return true;
       return p.providerName.toLowerCase().includes(q);
     });
-  }, [providerSearch, providerStatuses, appliedCommission, appliedRowStatus]);
+  }, [providerSearch, providerStatuses, appliedCommission, appliedRowStatus, providers]);
 
   const safePage = Math.min(page, Math.max(1, Math.ceil(filteredProviders.length / pageSize)));
+  
   const runProviderExport = (format: "csv" | "json" | "pdf") => {
     const columns: ExportColumn<ProviderRow>[] = [
       { header: "Provider", value: (r) => r.providerName },
@@ -157,11 +170,17 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
     [filteredProviders, safePage, pageSize],
   );
 
-  const handleConfirm = () => {
-    if (!pendingToggle) return;
-    setProviderStatuses((prev) => ({ ...prev, [pendingToggle.id]: pendingToggle.value }));
-    setSuccessMsg(pendingToggle.value ? "Provider has been activated successfully." : "Provider has been deactivated successfully.");
-    setPendingToggle(null);
+  const handleConfirm = async () => {
+    if (!pendingToggle || !_id) return;
+    try {
+      await patchAdminProductToggle(_id, pendingToggle.value);
+      setProviderStatuses((prev) => ({ ...prev, [pendingToggle.id]: pendingToggle.value }));
+      setSuccessMsg(pendingToggle.value ? "Provider has been activated successfully." : "Provider has been deactivated successfully.");
+      setPendingToggle(null);
+    } catch (e) {
+      console.error("Failed to toggle provider active status:", e);
+      alert(e instanceof Error ? e.message : "Failed to update status");
+    }
   };
 
   return (
@@ -185,44 +204,58 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
         </button>
       </div>
 
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       {/* Product Details */}
       <section>
         <h2 className="text-[18px] font-semibold text-primary-text">Product Details</h2>
         <div className="mt-4 overflow-x-auto rounded-xl border border-outline bg-white">
-          {/* Detail row table */}
-          <table className="w-full border-collapse text-left text-sm">
-            <thead>
-              <tr className="bg-surface-subtle text-zinc-500">
-                <th className="border-b border-outline px-4 py-3 font-medium">Product Name</th>
-                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Product Category</th>
-                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Date Created</th>
-                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Phone Number</th>
-                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Commission type</th>
-                <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Commission Rate</th>
-                <th className="border-b border-outline px-4 py-3 font-medium">CAP</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-4 py-5 border-r border-outline font-medium text-primary-text">{PRODUCT_DETAIL.productName}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PRODUCT_DETAIL.productCategory}</td>
-                <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">{PRODUCT_DETAIL.dateCreated}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PRODUCT_DETAIL.phoneNumber}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PRODUCT_DETAIL.commissionType}</td>
-                <td className="px-4 py-5 border-r border-outline text-zinc-500">{PRODUCT_DETAIL.commissionRate}</td>
-                <td className="px-4 py-5 text-zinc-500">{PRODUCT_DETAIL.cap}</td>
-              </tr>
-            </tbody>
-          </table>
+          {loading ? (
+            <div className="p-8 text-center text-sm text-zinc-500">Loading details...</div>
+          ) : productDetail ? (
+            <>
+              {/* Detail row table */}
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="bg-surface-subtle text-zinc-500">
+                    <th className="border-b border-outline px-4 py-3 font-medium">Product Name</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Product Category</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Date Created</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Phone Number</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Commission type</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium border-r border-outline">Commission Rate</th>
+                    <th className="border-b border-outline px-4 py-3 font-medium">CAP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="px-4 py-5 border-r border-outline font-medium text-primary-text">{productDetail.productName}</td>
+                    <td className="px-4 py-5 border-r border-outline text-zinc-500">{productDetail.productCategory}</td>
+                    <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">{productDetail.dateCreated}</td>
+                    <td className="px-4 py-5 border-r border-outline text-zinc-500">{productDetail.phoneNumber}</td>
+                    <td className="px-4 py-5 border-r border-outline text-zinc-500">{productDetail.commissionType}</td>
+                    <td className="px-4 py-5 border-r border-outline text-zinc-500">{productDetail.commissionRate}</td>
+                    <td className="px-4 py-5 text-zinc-500">{productDetail.cap}</td>
+                  </tr>
+                </tbody>
+              </table>
 
-          {/* Status row */}
-          <div className="border-t border-outline px-4 py-4">
-            <p className="mb-2 text-xs font-medium text-zinc-400">Status</p>
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${productActive ? "bg-green-500" : "bg-zinc-400"}`} />
-              <span className="text-sm font-medium text-primary-text">{productActive ? "Active" : "Inactive"}</span>
-            </div>
-          </div>
+              {/* Status row */}
+              <div className="border-t border-outline px-4 py-4">
+                <p className="mb-2 text-xs font-medium text-zinc-400">Status</p>
+                <div className="flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 rounded-full ${productActive ? "bg-green-500" : "bg-zinc-400"}`} />
+                  <span className="text-sm font-medium text-primary-text">{productActive ? "Active" : "Inactive"}</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="p-8 text-center text-sm text-zinc-500">No details found.</div>
+          )}
         </div>
       </section>
 
@@ -362,33 +395,43 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
               </tr>
             </thead>
             <tbody>
-              {paginatedProviders.map((row) => {
-                const active = providerStatuses[row.id] ?? row.status;
-                return (
-                  <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
-                    <td className="h-16 border-b border-outline px-4 py-0 font-medium text-primary-text align-middle">{row.providerName}</td>
-                    <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.commissionType}</td>
-                    <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.commissionRate}</td>
-                    <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.cap}</td>
-                    <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                      <StatusToggle
-                        checked={active}
-                        onChange={(val) => setPendingToggle({ id: row.id, value: val })}
-                        label={`Toggle status for ${row.providerName}`}
-                      />
-                    </td>
-                    <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                      <button
-                        type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
-                        aria-label={`Edit ${row.providerName}`}
-                      >
-                        <Edit size={16} variant="Outline" color="currentColor" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Loading providers...</td>
+                </tr>
+              ) : filteredProviders.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">No providers found.</td>
+                </tr>
+              ) : (
+                paginatedProviders.map((row) => {
+                  const active = providerStatuses[row.id] ?? row.status;
+                  return (
+                    <tr key={row.id} className="transition-colors hover:bg-surface-subtle">
+                      <td className="h-16 border-b border-outline px-4 py-0 font-medium text-primary-text align-middle">{row.providerName}</td>
+                      <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.commissionType}</td>
+                      <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.commissionRate}</td>
+                      <td className="h-16 border-b border-outline px-4 py-0 text-zinc-500 align-middle">{row.cap}</td>
+                      <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+                        <StatusToggle
+                          checked={active}
+                          onChange={(val) => setPendingToggle({ id: row.id, value: val })}
+                          label={`Toggle status for ${row.providerName}`}
+                        />
+                      </td>
+                      <td className="h-16 border-b border-outline px-4 py-0 align-middle">
+                        <button
+                          type="button"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
+                          aria-label={`Edit ${row.providerName}`}
+                        >
+                          <Edit size={16} variant="Outline" color="currentColor" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
