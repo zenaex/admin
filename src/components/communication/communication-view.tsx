@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays } from "lucide-react";
 
@@ -224,6 +225,7 @@ export function CommunicationView() {
             setTableSearch("");
             setFilterMode(true);
           }}
+          createHref="/dashboard/communication/new"
           {...exportProps}
         />
       )}

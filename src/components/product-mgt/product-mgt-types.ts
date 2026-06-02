@@ -29,6 +29,9 @@ export type ExchangeRateRow = {
   currencyCode: string;
   currencyName: string;
   countryCode?: string | null;
+  /** Fiat rows: `GET /admin/rates/fiat` baseCurrency / quoteCurrency */
+  fiatBase?: string;
+  fiatQuote?: string;
   /** Swap Crypto rows: two-asset pair metadata */
   swapPair?: SwapPairMeta;
   commissionType: string;

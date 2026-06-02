@@ -68,7 +68,7 @@ function extractTotal(data: unknown, fallback: number): number {
   const dataInner = asRecord(r.data);
   const pagination = asRecord(r.pagination) ?? (dataInner ? asRecord(dataInner.pagination) : null);
   const n =
-    pickNum(r, ["total", "totalCount", "count", "totalItems", "totalElements"]) ??
+    pickNum(r, ["total", "totalCount", "count", "totalItems", "totalElements", "limit"]) ??
     (dataInner ? pickNum(dataInner, ["total", "totalCount", "count", "totalItems", "totalElements"]) : undefined) ??
     (pagination ? pickNum(pagination, ["total", "totalCount", "count", "totalElements"]) : undefined) ??
     (meta ? pickNum(meta, ["total", "totalCount", "count", "totalElements"]) : undefined);
@@ -106,17 +106,80 @@ function formatCommissionValue(type: string, rate: number | string): string {
   return cleaned;
 }
 
+const FIAT_CURRENCY_NAMES: Record<string, string> = {
+  USD: "US Dollar",
+  NGN: "Nigeria Naira",
+  GHS: "Ghana Cedi",
+  GBP: "British Pound",
+  EUR: "Euro",
+};
+
+function fiatCurrencyDisplayName(code: string): string {
+  const c = code.trim().toUpperCase();
+  return FIAT_CURRENCY_NAMES[c] ?? c;
+}
+
+function pickMarkupValue(o: Record<string, unknown>): string {
+  const direct = pickString(o, [
+    "markupValue",
+    "markup_value",
+    "markupRate",
+    "markup_rate",
+    "ourCommission",
+    "our_commission",
+    "commissionRate",
+    "commission",
+    "rate",
+  ]);
+  if (direct) return direct;
+  const num = pickNum(o, ["markupValue", "markup_value", "markupRate", "markup_rate"]);
+  if (num !== undefined) return String(num);
+  return "";
+}
+
+function resolveFiatPairDisplay(baseCurrency: string, quoteCurrency: string) {
+  const base = baseCurrency.trim().toUpperCase() || "NGN";
+  const quote = quoteCurrency.trim().toUpperCase() || "USD";
+  if (base === "NGN") {
+    return { currencyCode: quote, currencyName: fiatCurrencyDisplayName(quote), fiatBase: base, fiatQuote: quote };
+  }
+  if (quote === "NGN") {
+    return { currencyCode: base, currencyName: fiatCurrencyDisplayName(base), fiatBase: base, fiatQuote: quote };
+  }
+  return { currencyCode: quote, currencyName: fiatCurrencyDisplayName(quote), fiatBase: base, fiatQuote: quote };
+}
+
 function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeRateSubTab): ExchangeRateRow | null {
   const o = asRecord(raw);
   if (!o) return null;
 
   const id = pickString(o, ["id", "rateId", "rate_id", "uuid"]) || `rate-${subTab}-${index}`;
-  const currencyCode = pickString(o, ["currencyCode", "currency_code", "code", "symbol", "base"]) || "—";
-  const currencyName = pickString(o, ["currencyName", "currency_name", "name", "title"]) || currencyCode;
+
+  const baseCurrency = pickString(o, ["baseCurrency", "base_currency", "baseCode", "base_code"]);
+  const quoteCurrency = pickString(o, ["quoteCurrency", "quote_currency", "quoteCode", "quote_code"]);
+
+  let currencyCode = pickString(o, ["currencyCode", "currency_code", "code", "symbol"]) || "";
+  let currencyName = pickString(o, ["currencyName", "currency_name", "name", "title"]) || "";
+  let fiatBase: string | undefined;
+  let fiatQuote: string | undefined;
+
+  if (subTab === "fiat" && (baseCurrency || quoteCurrency)) {
+    const pair = resolveFiatPairDisplay(baseCurrency || "NGN", quoteCurrency || currencyCode || "USD");
+    currencyCode = pair.currencyCode;
+    currencyName = pair.currencyName;
+    fiatBase = pair.fiatBase;
+    fiatQuote = pair.fiatQuote;
+  } else {
+    currencyCode = currencyCode || pickString(o, ["base"]) || "—";
+    currencyName = currencyName || currencyCode;
+  }
+
   const countryCode = pickString(o, ["countryCode", "country_code", "country"]) || null;
 
-  const commissionType = humanizeCommissionType(pickString(o, ["commissionType", "commission_type", "markupType", "markup_type"]));
-  const commissionRateVal = pickString(o, ["ourCommission", "our_commission", "commissionRate", "markupRate", "rate", "commission"]);
+  const commissionType = humanizeCommissionType(
+    pickString(o, ["commissionType", "commission_type", "markupType", "markup_type"]),
+  );
+  const commissionRateVal = pickMarkupValue(o);
   const ourCommission = commissionRateVal ? formatCommissionValue(commissionType, commissionRateVal) : "—";
 
   const baseRateVal = pickString(o, ["baseRate", "base_rate", "base"]);
@@ -144,6 +207,8 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
     currencyCode,
     currencyName,
     countryCode,
+    fiatBase,
+    fiatQuote,
     commissionType,
     ourCommission,
     baseRate,
@@ -163,8 +228,10 @@ function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | nu
   const country = pickString(o, ["country", "brandCountry"]) || "USA";
   const countryCode = pickString(o, ["countryCode", "country_code"]) || "US";
 
-  const commissionType = humanizeCommissionType(pickString(o, ["commissionType", "commission_type", "markupType", "markup_type"]));
-  const commissionRateVal = pickString(o, ["ourCommission", "our_commission", "markupRate", "commissionRate"]);
+  const commissionType = humanizeCommissionType(
+    pickString(o, ["commissionType", "commission_type", "markupType", "markup_type"]),
+  );
+  const commissionRateVal = pickMarkupValue(o);
   const ourCommission = commissionRateVal ? formatCommissionValue(commissionType, commissionRateVal) : "—";
 
   const rmbRate = pickString(o, ["rmbRate", "rmb_rate", "rmb"]) || "—";

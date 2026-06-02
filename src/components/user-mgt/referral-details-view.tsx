@@ -230,25 +230,25 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
       <div className="flex gap-3">
         <StatCard
           label="Total Referrals Made"
-          value={stats?.totalReferralsMade ?? "—"}
+          value={stats?.totalReferralsMade ?? "0"}
           accentColor="#BCEB0F"
           icon={<People size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Onboarded Referred Users"
-          value={stats?.onboardedReferredUsers ?? "—"}
+          value={stats?.onboardedReferredUsers ?? "0"}
           accentColor="#3B82F6"
           icon={<UserTick size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Pending Referred Users"
-          value={stats?.pendingReferredUsers ?? "—"}
+          value={stats?.pendingReferredUsers ?? "0"}
           accentColor="#EF4444"
           icon={<UserRemove size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Total Rewards Earned"
-          value={stats?.totalRewardsEarned ?? "—"}
+          value={stats?.totalRewardsEarned ?? "0.00"}
           accentColor="#013220"
           icon={<WalletMoney size={20} variant="Outline" color="currentColor" />}
         />
