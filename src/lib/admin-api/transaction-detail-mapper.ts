@@ -35,6 +35,62 @@ function channelKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function parseJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value === "string" && value.trim()) {
+    try {
+      return asRecord(JSON.parse(value) as unknown);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function readProviderLogRequestPayload(o: Record<string, unknown>): Record<string, unknown> | null {
+  const sources: unknown[] = [o.providerLog, o.provider_log];
+  const meta = asRecord(o.metadata) ?? asRecord(o.meta);
+  if (meta) {
+    sources.push(meta.providerLog, meta.provider_log);
+  }
+
+  for (const value of sources) {
+    const logRec = parseJsonRecord(value);
+    if (!logRec) continue;
+    const request =
+      asRecord(logRec.request_payload) ??
+      asRecord(logRec.requestPayload) ??
+      asRecord(logRec.request);
+    if (request) return request;
+  }
+  return null;
+}
+
+/** e.g. `MTN-SME-1GB-30D` → `1GB 30days` */
+export function formatDataBundleDisplay(raw: string): string {
+  const t = raw.trim().replace(/^"|"$/g, "");
+  if (!t) return "";
+
+  const gbMatch = t.match(/(\d+(?:\.\d+)?)\s*GB/i);
+  const dayMatch = t.match(/(\d+)\s*D(?!ata|evice)/i) ?? t.match(/(\d+)\s*days?/i);
+  if (gbMatch && dayMatch) {
+    return `${gbMatch[1]}GB ${dayMatch[1]}days`;
+  }
+
+  const parts = t.split(/[-_]/).filter(Boolean);
+  const gbPart = parts.find((p) => /^\d+(\.\d+)?gb$/i.test(p));
+  const dayPart = parts.find((p) => /^\d+d$/i.test(p));
+  if (gbPart && dayPart) {
+    const size = gbPart.match(/^(\d+(?:\.\d+)?)/i)?.[1] ?? gbPart.replace(/gb$/i, "");
+    const days = dayPart.replace(/d$/i, "");
+    return `${size}GB ${days}days`;
+  }
+
+  return t;
+}
+
 function mapOutcome(statusRaw: string): EsimTransactionOutcome | null {
   if (!statusRaw.trim()) return null;
   const k = statusRaw.toLowerCase();
@@ -444,16 +500,25 @@ export function mapApiDetailToTransactionModel(
       : "");
 
   const bankBlock = pickNestedRecord(o, ["bank", "bankAccount", "account", "beneficiary", "destination"]);
+  const providerLogRequest = readProviderLogRequestPayload(o);
 
   const uploadedRaw = pickString(o, ["dateUploaded", "uploadedAt", "uploaded_at"]);
   const product =
     pickString(o, ["product", "productName", "product_name"]) ||
     pickNestedString(o, [["product", "name"], ["product", "title"], ["service", "name"]]) ||
     "";
-  const plan =
-    pickString(o, ["plan", "planName", "plan_name", "bundle"]) ||
-    pickNestedString(o, [["product", "plan"], ["plan", "name"]]) ||
+  const planRaw =
+    pickFromBlocks(o, detailBlocks, ["dataBundle", "data_bundle"]) ||
+    pickString(o, ["dataBundle", "data_bundle", "plan", "planName", "plan_name", "bundle"]) ||
+    pickNestedString(o, [
+      ["metadata", "dataBundle"],
+      ["meta", "dataBundle"],
+      ["product", "dataBundle"],
+      ["product", "plan"],
+      ["plan", "name"],
+    ]) ||
     "";
+  const plan = planRaw ? formatDataBundleDisplay(planRaw) : "";
   const cashback = pickString(o, ["cashback", "cashBack", "cash_back", "reward"]) || "";
 
   const model: TransactionDetailModel = {
@@ -506,12 +571,21 @@ export function mapApiDetailToTransactionModel(
     withdrawalBankName:
       pickString(o, ["bankName", "bank_name"]) ||
       (bankBlock ? pickString(bankBlock, ["bankName", "name", "bank"]) : "") ||
+      (providerLogRequest
+        ? pickString(providerLogRequest, ["providerBankCode", "provider_bank_code", "bankCode", "bank_code"])
+        : "") ||
       "",
     withdrawalAccountName:
+      (providerLogRequest
+        ? pickString(providerLogRequest, ["accountName", "account_name"])
+        : "") ||
       pickString(o, ["accountName", "account_name"]) ||
       (bankBlock ? pickString(bankBlock, ["accountName", "name"]) : "") ||
       "",
     withdrawalAccountNumber:
+      (providerLogRequest
+        ? pickString(providerLogRequest, ["accountNumber", "account_number"])
+        : "") ||
       pickString(o, ["accountNumber", "account_number"]) ||
       (bankBlock ? pickString(bankBlock, ["accountNumber", "number"]) : "") ||
       "",
