@@ -345,7 +345,7 @@ function mapTransactionRowToCustomerRow(
     customerName,
     channel: row.channel,
     amount: row.amount,
-    biller: row.provider,
+    provider: row.provider,
     status: row.status,
     date: row.date,
   };

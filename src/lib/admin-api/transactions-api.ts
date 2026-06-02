@@ -418,6 +418,50 @@ function humanizeLabel(s: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
+export function readChannelRaw(o: Record<string, unknown>): string {
+  return (
+    pickString(o, [
+      "channel",
+      "productChannel",
+      "product_channel",
+      "category",
+      "transactionType",
+      "transaction_type",
+      "productType",
+      "product_type",
+      "service",
+    ]) ||
+    pickString(o, ["type"]) ||
+    ""
+  );
+}
+
+function pickTransactionChannel(o: Record<string, unknown>): string {
+  const raw = readChannelRaw(o);
+  return raw ? humanizeLabel(raw) : "—";
+}
+
+function pickTransactionProduct(o: Record<string, unknown>): string {
+  const raw =
+    pickString(o, [
+      "product",
+      "productName",
+      "product_name",
+      "productSlug",
+      "product_slug",
+      "categorySlug",
+      "category_slug",
+      "category",
+      "service",
+      "transactionType",
+      "transaction_type",
+      "productType",
+      "product_type",
+      "type",
+    ]) || pickNestedString(o, [["product", "name"], ["product", "slug"], ["product", "type"]]);
+  return raw ? humanizeLabel(raw) : "—";
+}
+
 function formatPersonName(rec: Record<string, unknown>): string {
   const first = pickString(rec, [
     "firstName",
@@ -1001,25 +1045,8 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
         (amountBlock ? pickString(amountBlock, ["formatted", "display"]) : "") ||
         "—";
 
-  const channelRaw =
-    pickString(o, [
-      "channel",
-      "productChannel",
-      "product_channel",
-      "productSlug",
-      "product_slug",
-      "categorySlug",
-      "category_slug",
-      "category",
-      "transactionType",
-      "transaction_type",
-      "productType",
-      "product_type",
-      "service",
-    ]) ||
-    pickString(o, ["type"]) ||
-    "";
-  const channel = channelRaw ? humanizeLabel(channelRaw) : "—";
+  const channel = pickTransactionChannel(o);
+  const product = pickTransactionProduct(o);
 
   let provider = pickProviderLabel(o);
   if (provider === "—") {
@@ -1044,7 +1071,7 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
       "network_provider",
     ]);
     if (narr) provider = humanizeLabel(narr);
-    else if (channelRaw) provider = humanizeLabel(channelRaw);
+    else if (product && product !== "—") provider = product;
   }
 
   const statusRaw = readStatusRaw(o);
@@ -1071,6 +1098,7 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
     refNo: referenceNo,
     customerName,
     channel,
+    product,
     amount,
     provider,
     status,

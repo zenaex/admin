@@ -6,10 +6,11 @@ import { CardReceive, CardSend, ChartSquare, WalletMoney } from "iconsax-react";
 import { ExchangeRatesPanel } from "@/components/product-mgt/exchange-rates-panel";
 import { ProductMgtMainTabs } from "@/components/product-mgt/product-mgt-main-tabs";
 import { PRODUCT_MGT_STATS } from "@/components/product-mgt/product-mgt-stats";
-import type { ProductMgtMainTab } from "@/components/product-mgt/product-mgt-types";
+import type { ProductMgtMainTab, ProductMgtStats } from "@/components/product-mgt/product-mgt-types";
 import { ProductsPanel } from "@/components/product-mgt/products-panel";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { StatCard } from "@/components/ui/stat-card";
+import { getAdminProductsSummary } from "@/lib/admin-api/products-api";
 
 const MAIN_TABS: { id: ProductMgtMainTab; label: string }[] = [
   { id: "products", label: "Products" },
@@ -26,10 +27,17 @@ export function ProductMgtView() {
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams?.get("tab") ?? null;
   const [mainTab, setMainTab] = useState<ProductMgtMainTab>(() => parseMainTab(tabFromUrl));
+  const [stats, setStats] = useState<ProductMgtStats>(PRODUCT_MGT_STATS);
 
   useEffect(() => {
     setMainTab(parseMainTab(tabFromUrl));
   }, [tabFromUrl]);
+
+  useEffect(() => {
+    getAdminProductsSummary()
+      .then((data) => setStats(data))
+      .catch((err) => console.error("Error loading product stats summary:", err));
+  }, []);
 
   const setTab = (id: ProductMgtMainTab) => {
     setMainTab(id);
@@ -37,13 +45,11 @@ export function ProductMgtView() {
     router.replace(`/dashboard/product-mgt${qs}`, { scroll: false });
   };
 
-  const stats = PRODUCT_MGT_STATS;
-
   return (
-    <div>
+    <div className="flex flex-col gap-6">
       <ProviderHeader title="Product & Rate Management" />
 
-      <div className="mt-6 flex gap-3">
+      <div className="flex gap-3">
         <StatCard
           label="Total Products"
           value={stats.totalProducts}

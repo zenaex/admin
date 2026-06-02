@@ -7,6 +7,7 @@ import { ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
+import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
@@ -644,7 +645,7 @@ function TransactionHistoryTab({
         (r) =>
           r.referenceNo.toLowerCase().includes(q) ||
           r.customerName.toLowerCase().includes(q) ||
-          r.biller.toLowerCase().includes(q),
+          r.provider.toLowerCase().includes(q),
       )
     : rows;
 
@@ -674,7 +675,7 @@ function TransactionHistoryTab({
         { header: "Customer Name", value: (r) => r.customerName },
         { header: "Channel", value: (r) => r.channel },
         { header: "Amount", value: (r) => r.amount },
-        { header: "Biller", value: (r) => r.biller },
+        { header: "Provider", value: (r) => r.provider },
         { header: "Status", value: (r) => r.status },
         { header: "Date", value: (r) => r.date },
       ]);
@@ -768,7 +769,7 @@ function TransactionHistoryTab({
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Customer Names</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Channel</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Amount</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Biller</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Provider</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Status</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date</th>
             </tr>
@@ -806,7 +807,7 @@ function TransactionHistoryTab({
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.customerName}</td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.channel}</td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.amount}</td>
-                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.biller}</td>
+                  <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.provider}</td>
                   <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                     <TxStatusBadge status={row.status} />
                   </td>
@@ -836,6 +837,39 @@ function TransactionHistoryTab({
       )}
     </>
   );
+}
+
+const WALLET_ASSET_META: Record<string, { name: string; code: string; bgClass: string; textClass: string }> = {
+  BTC: { name: "Bitcoin", code: "BTC", bgClass: "bg-[#F7931A]", textClass: "text-white" },
+  ETH: { name: "Ethereum", code: "ETH", bgClass: "bg-[#E5E7EB]", textClass: "text-[#374151]" },
+  ADA: { name: "Cardano", code: "ADA", bgClass: "bg-[#EEF2FF]", textClass: "text-[#1D4ED8]" },
+  TRX: { name: "Tron", code: "TRX", bgClass: "bg-[#EF4444]", textClass: "text-white" },
+  SOL: { name: "Solana", code: "SOL", bgClass: "bg-[#EDE9FE]", textClass: "text-[#7C3AED]" },
+  USDT: { name: "Tether", code: "USDT", bgClass: "bg-[#10B981]", textClass: "text-white" },
+};
+
+function pickWalletDisplayMeta(wallet: AdminCustomerWalletItem) {
+  const rawType = String(wallet.walletType ?? "").trim();
+  const rawCurrency = String(wallet.currency ?? "").trim().toUpperCase();
+  const code = rawCurrency || (rawType ? rawType.slice(0, 6).toUpperCase() : "WALLET");
+  const known = WALLET_ASSET_META[code];
+  if (known) return known;
+
+  if (rawType) {
+    return {
+      name: rawType,
+      code,
+      bgClass: "bg-zinc-200",
+      textClass: "text-zinc-700",
+    };
+  }
+
+  return {
+    name: code,
+    code,
+    bgClass: "bg-zinc-200",
+    textClass: "text-zinc-700",
+  };
 }
 
 function WalletTab({ accountId }: { accountId: string }) {
@@ -887,36 +921,44 @@ function WalletTab({ accountId }: { accountId: string }) {
 
   return (
     <section className="mt-6">
-      <h2 className="text-[18px] font-semibold text-primary-text">Wallet Details</h2>
-      <div className="mt-4 rounded-xl border border-outline bg-white">
+      <div className="rounded-2xl border border-zinc-100 bg-white">
+        <div className="px-5 pt-4 pb-2">
+          <h2 className="text-[18px] font-semibold text-primary-text">Wallet Details</h2>
+        </div>
         {wallets.map((w, idx) => {
-          const label = w.walletType || w.currency || "Wallet";
-          const sub = [w.currency, w.status].filter(Boolean).join(" · ") || "—";
-          const addr = pickStr(w as unknown as Record<string, unknown>, ["address", "walletAddress", "publicKey"]) || w.walletId || "—";
+          const display = pickWalletDisplayMeta(w);
+          const addr =
+            pickStr(w as unknown as Record<string, unknown>, ["address", "walletAddress", "publicKey"]) ||
+            w.walletId ||
+            "—";
           return (
             <div
               key={`${w.walletId ?? idx}`}
-              className={`flex flex-wrap items-center gap-4 px-5 py-4 ${idx < wallets.length - 1 ? "border-b border-outline" : ""}`}
+              className={`grid grid-cols-[220px_1fr] items-center gap-3 px-5 py-3 ${idx < wallets.length - 1 ? "border-b border-zinc-100" : ""}`}
             >
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-primary-text">{label}</span>
-                <span className="text-xs text-zinc-400">{sub}</span>
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${display.bgClass} ${display.textClass}`}
+                >
+                  {display.code.slice(0, 1)}
+                </span>
+                <div className="flex flex-col leading-tight">
+                  <span className="text-sm font-semibold text-primary-text">{display.name}</span>
+                  <span className="text-[11px] font-medium text-zinc-400">{display.code}</span>
+                </div>
               </div>
-              <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:max-w-[60%]">
-                <span className="truncate text-sm font-medium text-primary-text" title={addr}>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-sm font-semibold text-zinc-700" title={addr}>
                   {addr}
                 </span>
                 <button
                   type="button"
                   onClick={() => handleCopy(addr, idx)}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:text-zinc-600"
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
                   aria-label="Copy address"
                 >
                   {copiedIdx === idx ? <span className="text-xs font-medium text-green-600">✓</span> : <Copy size={16} variant="Outline" color="currentColor" />}
                 </button>
-              </div>
-              <div className="w-full text-xs text-zinc-500 sm:w-auto sm:text-right">
-                Available: {w.availableBalance ?? "—"} · Current: {w.currentBalance ?? "—"} · Held: {w.heldBalance ?? "—"}
               </div>
             </div>
           );
@@ -1028,6 +1070,7 @@ function AuditLogTab({ accountId }: { accountId: string }) {
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1060,25 +1103,133 @@ function AuditLogTab({ accountId }: { accountId: string }) {
     );
   if (logs.length === 0) return <p className="mt-6 text-sm text-zinc-500">No audit entries.</p>;
 
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const toOrdinal = (n: number) => {
+    const rem10 = n % 10;
+    const rem100 = n % 100;
+    if (rem10 === 1 && rem100 !== 11) return `${n}st`;
+    if (rem10 === 2 && rem100 !== 12) return `${n}nd`;
+    if (rem10 === 3 && rem100 !== 13) return `${n}rd`;
+    return `${n}th`;
+  };
+  const formatBadgeTime = (time: string) => {
+    const d = new Date(time);
+    if (Number.isNaN(d.getTime())) return time || "—";
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  };
+  const formatGroupLabel = (d: Date) => {
+    const base = `${toOrdinal(d.getDate())} ${d.toLocaleDateString(undefined, { month: "long" })}, ${d.getFullYear()}`;
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startOfRow = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayDiff = Math.round((startOfToday.getTime() - startOfRow.getTime()) / 86400000);
+    if (dayDiff === 0) return `Today - ${base}`;
+    if (dayDiff === 1) return `Yesterday - ${base}`;
+    return base;
+  };
+
+  const normalized = logs.map((log, idx) => {
+    const time = pickStr(log, ["timestamp", "createdAt", "created_at", "time", "date"]);
+    const message = pickStr(log, ["message", "action", "description", "event", "type"]);
+    const ua = pickStr(log, ["userAgent", "user_agent", "browser"]);
+    const ip = pickStr(log, ["ip", "ipAddress", "ip_address", "clientIp"]);
+    const parsed = time ? new Date(time) : null;
+    const hasValidDate = Boolean(parsed && !Number.isNaN(parsed.getTime()));
+    const dayLabel = hasValidDate ? formatGroupLabel(parsed!) : "Unknown date";
+    return {
+      id: `${idx}-${time}-${message}`,
+      time,
+      message,
+      ua,
+      ip,
+      dayLabel,
+      raw: log,
+    };
+  });
+
+  const q = search.trim().toLowerCase();
+  const visible = q
+    ? normalized.filter((row) =>
+        [row.message, row.ua, row.ip, row.time].join(" ").toLowerCase().includes(q),
+      )
+    : normalized;
+
+  const groups = visible.reduce(
+    (acc, row) => {
+      if (!acc[row.dayLabel]) acc[row.dayLabel] = [];
+      acc[row.dayLabel].push(row);
+      return acc;
+    },
+    {} as Record<string, typeof visible>,
+  );
+
   return (
-    <section className="mt-6 space-y-3">
-      {logs.map((log, idx) => {
-        const time = pickStr(log, ["timestamp", "createdAt", "created_at", "time", "date"]);
-        const message = pickStr(log, ["message", "action", "description", "event", "type"]);
-        const ua = pickStr(log, ["userAgent", "user_agent", "browser"]);
-        const ip = pickStr(log, ["ip", "ipAddress", "ip_address", "clientIp"]);
-        return (
-          <div
-            key={idx}
-            className="grid grid-cols-1 gap-2 rounded-xl border border-outline bg-white px-4 py-4 text-sm sm:grid-cols-[auto_1fr_auto_auto]"
+    <section className="mt-6">
+      <AuditTrailToolbar
+        className="rounded-xl border border-zinc-100 bg-[#FAFAFA] px-3 py-2.5"
+        title="Activities"
+        tableSearch={search}
+        onTableSearchChange={setSearch}
+        onFilterClick={() => {}}
+        rightSlot={
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-surface-subtle"
           >
-            <span className="rounded-md bg-outline px-2 py-1 text-sidebar-dark">{time ? formatWhen(time) : "—"}</span>
-            <span className="text-sidebar-dark">{message || JSON.stringify(log)}</span>
-            <span className="text-sidebar-dark">{ua || "—"}</span>
-            <span className="text-sidebar-dark">{ip || "—"}</span>
+            Jan 6, 2024 - Jan 6, 2024
+          </button>
+        }
+        exportDisabled={visible.length === 0}
+        onExportCsv={() =>
+          exportClientTable(`customer-${accountId}-audit-log`, "csv", visible, [
+            { header: "Timestamp", value: (r) => r.time || "—" },
+            { header: "Activity", value: (r) => r.message || JSON.stringify(r.raw) },
+            { header: "User Agent", value: (r) => r.ua || "—" },
+            { header: "IP", value: (r) => r.ip || "—" },
+          ])
+        }
+        onExportPdf={() =>
+          exportClientTable(`customer-${accountId}-audit-log`, "pdf", visible, [
+            { header: "Timestamp", value: (r) => r.time || "—" },
+            { header: "Activity", value: (r) => r.message || JSON.stringify(r.raw) },
+            { header: "User Agent", value: (r) => r.ua || "—" },
+            { header: "IP", value: (r) => r.ip || "—" },
+          ])
+        }
+        onExportJson={() =>
+          exportClientTable(`customer-${accountId}-audit-log`, "json", visible, [
+            { header: "Timestamp", value: (r) => r.time || "—" },
+            { header: "Activity", value: (r) => r.message || JSON.stringify(r.raw) },
+            { header: "User Agent", value: (r) => r.ua || "—" },
+            { header: "IP", value: (r) => r.ip || "—" },
+          ])
+        }
+      />
+
+      <div className="mt-5 space-y-7">
+        {Object.entries(groups).map(([dayLabel, rows]) => (
+          <div key={dayLabel}>
+            <h3 className="mb-3 text-[18px] leading-none font-medium text-zinc-900">
+              {dayLabel}
+            </h3>
+            <div className="space-y-3">
+              {rows.map((row) => (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-[132px_1fr_230px_120px] items-center gap-4 rounded-xl bg-[#FAFAFA] px-4 py-4 text-sm"
+                >
+                  <span className="inline-flex w-fit rounded-md bg-[#ECEFF1] px-2.5 py-1 text-xs font-medium text-zinc-600">
+                    {row.time ? formatBadgeTime(row.time) : "—"}
+                  </span>
+                  <span className="truncate text-[14px] text-zinc-700">{row.message || JSON.stringify(row.raw)}</span>
+                  <span className="truncate text-[14px] text-zinc-700">{row.ua || "—"}</span>
+                  <span className="text-right text-[14px] text-zinc-700">{row.ip || "—"}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </section>
   );
 }

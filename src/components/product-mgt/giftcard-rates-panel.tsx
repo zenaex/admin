@@ -1,17 +1,19 @@
 "use client";
 // Renders the Giftcard Rate subtab interface with expandable hierarchical brands table
 
-import { Fragment, useMemo, useState } from "react";
-import { Add, ArrowDown2, Setting2 } from "iconsax-react";
+import { Fragment, useMemo, useState, useEffect } from "react";
+import { ArrowDown2, Setting2 } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { GiftcardBrandCell } from "@/components/product-mgt/giftcard-brand-cell";
 import { GiftcardRateUpdateFlow } from "@/components/product-mgt/giftcard-rate-update-flow";
 import { getGiftcardBrands } from "@/components/product-mgt/exchange-rate-fixtures";
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
+import { getGiftcardRates } from "@/lib/admin-api/exchange-rates-api";
 
 export function GiftcardRatesPanel() {
   const [brands, setBrands] = useState<GiftcardBrand[]>(() => getGiftcardBrands());
+  const [loading, setLoading] = useState(true);
   const [expandedBrands, setExpandedBrands] = useState<Set<string>>(
     () => new Set(["gc-apple-ecode"]) // Expand Apple E-code by default for a gorgeous visual layout
   );
@@ -19,6 +21,24 @@ export function GiftcardRatesPanel() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [editBrand, setEditBrand] = useState<GiftcardBrand | null>(null);
+
+  const loadGiftcardRates = async () => {
+    setLoading(true);
+    try {
+      const res = await getGiftcardRates();
+      if (res && res.length > 0) {
+        setBrands(res);
+      }
+    } catch (e) {
+      console.error("Failed to load giftcard rates:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadGiftcardRates();
+  }, []);
 
   const toggleExpand = (id: string) => {
     setExpandedBrands((prev) => {
@@ -65,16 +85,6 @@ export function GiftcardRatesPanel() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-3 text-xs font-semibold text-primary-text transition-opacity hover:opacity-90"
-            onClick={() => setEditBrand(brands[0])}
-          >
-            <Add size={16} variant="Outline" color="currentColor" />
-            Add Rate Sheet
-          </button>
-        </div>
       </div>
 
       {/* Expandable Table */}
@@ -90,7 +100,13 @@ export function GiftcardRatesPanel() {
             </tr>
           </thead>
           <tbody>
-            {paginatedBrands.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
+                  Loading...
+                </td>
+              </tr>
+            ) : paginatedBrands.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
                   No giftcard brands found.
@@ -143,9 +159,14 @@ export function GiftcardRatesPanel() {
                         {brand.rmbRate}
                       </td>
                       <td className="h-16 border-b border-outline px-4 py-0 align-middle">
-                        <span className="text-zinc-300">
+                        <button
+                          type="button"
+                          className="text-[#001928] transition-colors hover:opacity-80"
+                          onClick={() => setEditBrand(brand)}
+                          aria-label={`Settings for ${brand.brandName}`}
+                        >
                           <Setting2 size={20} variant="Outline" color="currentColor" />
-                        </span>
+                        </button>
                       </td>
                     </tr>
 

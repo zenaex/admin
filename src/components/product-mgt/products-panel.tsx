@@ -7,7 +7,6 @@ import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagin
 import { ProductMgtSubTabs } from "@/components/product-mgt/product-mgt-sub-tabs";
 import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 import {
-  ALL_PRODUCTS,
   COMMISSION_TYPE_FILTER,
   PRODUCT_STATUS_FILTER,
   PRODUCT_TABS,
@@ -25,6 +24,13 @@ import {
   TableFilterPill,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import {
+  getAdminProductsList,
+  patchAdminProductToggle,
+  patchAdminProductSwitchProvider,
+  getAdminProductProviders,
+} from "@/lib/admin-api/products-api";
+import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 
 function StatusToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -47,8 +53,33 @@ function StatusToggle({ checked, onChange }: { checked: boolean; onChange: (v: b
   );
 }
 
-function ProviderDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function ProviderDropdown({
+  productSlug,
+  value,
+  onChange,
+}: {
+  productSlug: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [options, setOptions] = useState<string[]>(PRODUCT_PROVIDERS);
+
+  useEffect(() => {
+    if (open) {
+      setLoading(true);
+      getAdminProductProviders(productSlug)
+        .then((list) => {
+          if (list.length > 0) {
+            setOptions(list);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [open, productSlug]);
+
   return (
     <div className="relative">
       <button
@@ -66,21 +97,27 @@ function ProviderDropdown({ value, onChange }: { value: string; onChange: (v: st
       </button>
       {open ? (
         <div className="absolute left-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
-          {PRODUCT_PROVIDERS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => {
-                onChange(p);
-                setOpen(false);
-              }}
-              className={`w-full px-3 py-2 text-left text-xs transition-colors hover:bg-surface-subtle ${
-                value === p ? "font-semibold text-primary-text" : "text-zinc-500"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+          {loading ? (
+            <div className="px-3 py-2 text-xs text-zinc-400">Loading...</div>
+          ) : options.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-zinc-400">No providers</div>
+          ) : (
+            options.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => {
+                  onChange(p);
+                  setOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left text-xs transition-colors hover:bg-surface-subtle ${
+                  value === p ? "font-semibold text-primary-text" : "text-zinc-500"
+                }`}
+              >
+                {p}
+              </button>
+            ))
+          )}
         </div>
       ) : null}
     </div>
@@ -105,8 +142,17 @@ export function ProductsPanel() {
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
+
+  const [products, setProducts] = useState<ProductRow[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [statuses, setStatuses] = useState<Record<string, ProductStatus>>({});
   const [providers, setProviders] = useState<Record<string, string>>({});
+
+  const [pendingToggle, setPendingToggle] = useState<{ row: ProductRow; nextActive: boolean } | null>(null);
+  const [showSuccess, setShowSuccess] = useState<{ message: string } | null>(null);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -120,50 +166,72 @@ export function ProductsPanel() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const filteredProducts = useMemo(() => {
-    const category = TAB_CATEGORY_MAP[activeTab];
-    const q = search.trim().toLowerCase();
-    return ALL_PRODUCTS.filter((p) => {
-      if (category && p.productCategory !== category) return false;
-      const st = statuses[p.id] ?? p.status;
-      const prov = providers[p.id] ?? p.switchProvider;
-      if (appliedProductStatus && appliedProductStatus !== "All statuses" && st !== appliedProductStatus)
-        return false;
-      if (appliedSwitchProvider && appliedSwitchProvider !== "All providers" && prov !== appliedSwitchProvider)
-        return false;
-      if (
-        appliedCommissionType &&
-        appliedCommissionType !== "All types" &&
-        p.commissionType !== appliedCommissionType
-      )
-        return false;
-      if (q)
-        return (
-          p.productName.toLowerCase().includes(q) ||
-          p.productCategory.toLowerCase().includes(q) ||
-          p.id.toLowerCase().includes(q)
-        );
-      return true;
-    });
+  const loadProducts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getAdminProductsList({
+        page,
+        pageSize,
+        search: search.trim() || undefined,
+        status: appliedProductStatus || undefined,
+        provider: appliedSwitchProvider || undefined,
+        commissionType: appliedCommissionType || undefined,
+        category: TAB_CATEGORY_MAP[activeTab] || undefined,
+      });
+      setProducts(res.items);
+      setTotalItems(res.total);
+    } catch (e) {
+      console.error("Failed to load products:", e);
+      setError("Failed to load products from server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProducts();
   }, [
-    activeTab,
+    page,
+    pageSize,
     search,
-    statuses,
-    providers,
     appliedProductStatus,
     appliedSwitchProvider,
     appliedCommissionType,
+    activeTab,
   ]);
-
-  const totalItems = filteredProducts.length;
-  const safePage = Math.min(page, Math.max(1, Math.ceil(totalItems / pageSize)));
-  const paginatedRows = useMemo(
-    () => filteredProducts.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filteredProducts, safePage, pageSize],
-  );
 
   const getStatus = (row: ProductRow) => statuses[row.id] ?? row.status;
   const getProvider = (row: ProductRow) => providers[row.id] ?? row.switchProvider;
+
+  const handleStatusToggleRequest = (row: ProductRow, nextActive: boolean) => {
+    setPendingToggle({ row, nextActive });
+  };
+
+  const handleStatusToggleConfirm = async () => {
+    if (!pendingToggle) return;
+    const { row, nextActive } = pendingToggle;
+    try {
+      await patchAdminProductToggle(row.id, nextActive);
+      setStatuses((prev) => ({ ...prev, [row.id]: nextActive ? "Active" : "Inactive" }));
+      setPendingToggle(null);
+      setShowSuccess({ message: `Product has been successfully ${nextActive ? "activated" : "deactivated"}` });
+    } catch (e) {
+      console.error("Failed to toggle status:", e);
+      alert(e instanceof Error ? e.message : "Failed to toggle status");
+    }
+  };
+
+  const handleProviderSwitch = async (row: ProductRow, nextProvider: string) => {
+    try {
+      await patchAdminProductSwitchProvider(row.id, nextProvider);
+      setProviders((prev) => ({ ...prev, [row.id]: nextProvider }));
+      setShowSuccess({ message: `Active provider for ${row.productName} updated to ${nextProvider}` });
+    } catch (e) {
+      console.error("Failed to switch provider:", e);
+      alert(e instanceof Error ? e.message : "Failed to switch provider");
+    }
+  };
 
   return (
     <>
@@ -304,6 +372,12 @@ export function ProductsPanel() {
         />
       )}
 
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       <div className="mt-4 overflow-x-auto rounded-[8px]">
         <table className="w-full border-collapse bg-white text-left text-sm">
           <thead>
@@ -319,54 +393,69 @@ export function ProductsPanel() {
             </tr>
           </thead>
           <tbody>
-            {paginatedRows.map((row) => (
-              <tr
-                key={row.id}
-                onClick={() => router.push(`/dashboard/product-mgt/${row.id}`)}
-                className="cursor-pointer transition-colors hover:bg-surface-subtle"
-              >
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle font-medium text-primary-text">
-                  {row.productName}
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                  {row.productCategory}
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                  {row.commissionType}
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                  {row.commissionRate}
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">{row.cap}</td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
-                  <ProviderDropdown
-                    value={getProvider(row)}
-                    onChange={(v) => setProviders((prev) => ({ ...prev, [row.id]: v }))}
-                  />
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
-                  <StatusToggle
-                    checked={getStatus(row) === "Active"}
-                    onChange={(v) => setStatuses((prev) => ({ ...prev, [row.id]: v ? "Active" : "Inactive" }))}
-                  />
-                </td>
-                <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className="text-zinc-400 transition-colors hover:text-zinc-600"
-                    aria-label="Edit"
-                  >
-                    <Edit size={18} variant="Outline" color="currentColor" />
-                  </button>
+            {loading ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
+                  Loading...
                 </td>
               </tr>
-            ))}
+            ) : products.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
+                  No products.
+                </td>
+              </tr>
+            ) : (
+              products.map((row) => (
+                <tr
+                  key={row.id}
+                  onClick={() => router.push(`/dashboard/product-mgt/${row.id}`)}
+                  className="cursor-pointer transition-colors hover:bg-surface-subtle"
+                >
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle font-medium text-primary-text">
+                    {row.productName}
+                  </td>
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
+                    {row.productCategory}
+                  </td>
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
+                    {row.commissionType}
+                  </td>
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">
+                    {row.commissionRate}
+                  </td>
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle text-zinc-500">{row.cap}</td>
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
+                    <ProviderDropdown
+                      productSlug={row.id}
+                      value={getProvider(row)}
+                      onChange={(v) => handleProviderSwitch(row, v)}
+                    />
+                  </td>
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
+                    <StatusToggle
+                      checked={getStatus(row) === "Active"}
+                      onChange={(v) => handleStatusToggleRequest(row, v)}
+                    />
+                  </td>
+                  <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="text-zinc-400 transition-colors hover:text-zinc-600"
+                      aria-label="Edit"
+                    >
+                      <Edit size={18} variant="Outline" color="currentColor" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
       <AuditTrailPagination
-        page={safePage}
+        page={page}
         pageSize={pageSize}
         totalItems={totalItems}
         onPageChange={(p) => setPage(p)}
@@ -375,6 +464,27 @@ export function ProductsPanel() {
           setPage(1);
         }}
       />
+
+      {/* Confirmation Modal */}
+      {pendingToggle && (
+        <ConfirmModal
+          variant={pendingToggle.nextActive ? "approve" : "danger"}
+          title={pendingToggle.nextActive ? "Activate Product" : "Deactivate Product"}
+          message={`Are you sure you want to ${pendingToggle.nextActive ? "activate" : "deactivate"} this product?`}
+          confirmLabel={pendingToggle.nextActive ? "Activate" : "Deactivate"}
+          cancelLabel="Cancel"
+          onConfirm={handleStatusToggleConfirm}
+          onCancel={() => setPendingToggle(null)}
+        />
+      )}
+
+      {/* Success Modal */}
+      {showSuccess && (
+        <SuccessModal
+          message={showSuccess.message}
+          onContinue={() => setShowSuccess(null)}
+        />
+      )}
     </>
   );
 }

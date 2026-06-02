@@ -10,6 +10,7 @@ import {
   formatUpdatedDate,
   type MarkupFormValues,
 } from "@/lib/product-mgt/rate-preview";
+import { postConfigureSellCryptoRate } from "@/lib/admin-api/exchange-rates-api";
 
 type FlowStep = "setup" | "confirm" | "success";
 
@@ -44,16 +45,27 @@ export function SellCryptoRateUpdateFlow({ row, onClose, onApplied }: SellCrypto
     setStep("confirm");
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!form) return;
-    const updated: ExchangeRateRow = {
-      ...row,
-      commissionType: form.markupType,
-      ourCommission: formatOurCommission(form.markupType, form.markupRate),
-      dateUpdated: formatUpdatedDate(),
-    };
-    onApplied(updated);
-    setStep("success");
+    try {
+      const cryptoSlug = row.currencyCode.toLowerCase();
+      await postConfigureSellCryptoRate(cryptoSlug, {
+        markupType: form.markupType,
+        markupRate: parseFloat(form.markupRate) || 0,
+      });
+
+      const updated: ExchangeRateRow = {
+        ...row,
+        commissionType: form.markupType,
+        ourCommission: formatOurCommission(form.markupType, form.markupRate),
+        dateUpdated: formatUpdatedDate(),
+      };
+      onApplied(updated);
+      setStep("success");
+    } catch (e) {
+      console.error("Failed to configure sell crypto rate:", e);
+      alert(e instanceof Error ? e.message : "Failed to configure sell crypto rate");
+    }
   };
 
   if (step === "setup") {

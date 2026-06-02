@@ -6,6 +6,7 @@ import { CountryFlag } from "@/components/ui/country-flag";
 import type { ExchangeRateRow } from "@/components/product-mgt/product-mgt-types";
 import { getNgnBase, parseFormFromRow, type RateFormValues } from "@/lib/product-mgt/rate-preview";
 import { resolveCountryCode } from "@/lib/country/resolve-country-code";
+import { getAdminLiveBaseRate } from "@/lib/admin-api/exchange-rates-api";
 
 const MARKUP_TYPES = ["Flat", "Percentage", "% capped @"] as const;
 
@@ -25,7 +26,16 @@ export function FiatRateSetupModal({ row, onClose, onSubmit }: FiatRateSetupModa
   useEffect(() => {
     setForm(parseFormFromRow(row));
     setSwapped(false);
-  }, [row.id]);
+
+    // Fetch live base rate from FX provider
+    getAdminLiveBaseRate(row.currencyCode, "NGN")
+      .then((liveRate) => {
+        if (liveRate > 0) {
+          setForm((f) => ({ ...f, baseRate: String(liveRate) }));
+        }
+      })
+      .catch((err) => console.error("Error loading live base rate:", err));
+  }, [row.id, row.currencyCode]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

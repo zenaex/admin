@@ -10,6 +10,7 @@ import {
   formatUpdatedDate,
   type SwapPairFormValues,
 } from "@/lib/product-mgt/rate-preview";
+import { postConfigureSwapCryptoRate } from "@/lib/admin-api/exchange-rates-api";
 
 type FlowStep = "setup" | "confirm" | "success";
 
@@ -46,16 +47,29 @@ export function SwapCryptoRateUpdateFlow({ row, onClose, onApplied }: SwapCrypto
     setStep("confirm");
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!form) return;
-    const updated: ExchangeRateRow = {
-      ...row,
-      commissionType: form.markupType,
-      ourCommission: formatSwapPairOurCommission(form),
-      dateUpdated: formatUpdatedDate(),
-    };
-    onApplied(updated);
-    setStep("success");
+    try {
+      const base = pair.baseCode.toLowerCase();
+      const quote = pair.quoteCode.toLowerCase();
+      await postConfigureSwapCryptoRate(base, quote, {
+        markupType: form.markupType,
+        baseMarkupRate: parseFloat(form.baseToQuoteRate) || 0,
+        quoteMarkupRate: parseFloat(form.quoteToBaseRate) || 0,
+      });
+
+      const updated: ExchangeRateRow = {
+        ...row,
+        commissionType: form.markupType,
+        ourCommission: formatSwapPairOurCommission(form),
+        dateUpdated: formatUpdatedDate(),
+      };
+      onApplied(updated);
+      setStep("success");
+    } catch (e) {
+      console.error("Failed to configure swap crypto rate:", e);
+      alert(e instanceof Error ? e.message : "Failed to configure swap crypto rate");
+    }
   };
 
   if (step === "setup") {

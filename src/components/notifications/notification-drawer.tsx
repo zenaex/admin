@@ -104,9 +104,13 @@ export function NotificationDrawerTrigger({
             <div className="space-y-4 overflow-y-auto px-4 py-4">
               {SAMPLE_NOTIFICATIONS.map((item) => (
                 <article key={item.id} className="flex gap-2.5">
-                  <div className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-green">
-                    <Image src="/notification-icon.svg" alt="" width={14} height={14} />
-                  </div>
+                  <Image
+                    src="/logo/Logo-small.svg"
+                    alt=""
+                    width={24}
+                    height={24}
+                    className="mt-0.5 h-6 w-6 shrink-0"
+                  />
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold leading-snug text-black">
                       {item.title}
