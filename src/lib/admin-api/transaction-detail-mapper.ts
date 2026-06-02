@@ -637,11 +637,33 @@ export function mapApiDetailToTransactionModel(
     networkFee: pickFromBlocks(o, detailBlocks, ["networkFee", "network_fee", "gasFee", "gas_fee"]),
     meterNumber: pickFromBlocks(o, detailBlocks, ["meterNumber", "meter_number", "meterNo", "meter_no"]),
     address: pickFromBlocks(o, detailBlocks, ["address", "streetAddress", "street_address", "location"]),
-    accountName: pickFromBlocks(o, detailBlocks, ["accountName", "account_name", "name", "recipientName"]),
+    accountName:
+      (providerLogRequest
+        ? pickString(providerLogRequest, [
+            "customerName",
+            "customer_name",
+            "accountName",
+            "account_name",
+            "recipientName",
+            "recipient_name",
+          ])
+        : "") ||
+      pickFromBlocks(o, detailBlocks, ["accountName", "account_name", "recipientName", "recipient_name"]),
     accountNumber: pickFromBlocks(o, detailBlocks, ["accountNumber", "account_number", "number", "recipientNumber"]),
     phoneNumber: pickFromBlocks(o, detailBlocks, ["phoneNumber", "phone_number", "phone", "msisdn"]),
     smartcardNo: pickFromBlocks(o, detailBlocks, ["smartcardNo", "smartcard_no", "smartCard", "cardNumber"]),
-    bettingId: pickFromBlocks(o, detailBlocks, ["bettingId", "betting_id", "betId", "customerId"]),
+    bettingId:
+      (providerLogRequest
+        ? pickString(providerLogRequest, [
+            "bettingAccountId",
+            "betting_account_id",
+            "bettingId",
+            "betting_id",
+            "betId",
+            "bet_id",
+          ])
+        : "") ||
+      pickFromBlocks(o, detailBlocks, ["bettingId", "betting_id", "betId", "bet_id"]),
     device: (deviceBlock ? pickString(deviceBlock, ["device", "name", "model"]) : "") || pickString(o, ["device"]),
     deviceId:
       (deviceBlock ? pickString(deviceBlock, ["deviceId", "device_id", "id"]) : "") ||
