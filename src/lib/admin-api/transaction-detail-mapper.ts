@@ -85,17 +85,40 @@ function formatAmountFromRecord(o: Record<string, unknown>): string {
   );
 }
 
-function detectUtilityVariant(o: Record<string, unknown>, combined: string): UtilityDetailVariant {
-  if (combined.includes("electric")) return "electricity";
-  if (combined.includes("data") || combined.includes("airtime")) return "data";
-  if (combined.includes("tv") || combined.includes("cable")) return "tv";
-  if (combined.includes("bet")) return "electricity";
-  const product = pickNestedString(o, [["product", "name"], ["product", "type"], ["product", "category"]]);
-  const pk = channelKey(product);
-  if (pk.includes("electric")) return "electricity";
-  if (pk.includes("data") || pk.includes("airtime")) return "data";
-  if (pk.includes("tv")) return "tv";
-  if (pk.includes("bet")) return "electricity";
+function isDebitCreditLikeChannel(s: string): boolean {
+  const k = channelKey(s);
+  return k === "debit" || k === "credit" || k === "withdraw" || k === "withdrawal";
+}
+
+/** Prefer product/category/type signals over debit/credit channel labels. */
+function buildUtilityVariantKey(o: Record<string, unknown>): string {
+  const rawChannel = readChannelRaw(o);
+  const channelPart = isDebitCreditLikeChannel(rawChannel) ? "" : channelKey(rawChannel);
+  const parts = [
+    pickString(o, ["categorySlug", "category_slug", "category"]),
+    pickString(o, ["productSlug", "product_slug"]),
+    pickString(o, ["product", "productName", "product_name"]),
+    pickString(o, ["displayCategory", "display_category"]),
+    pickString(o, ["transactionType", "transaction_type", "type"]),
+    pickNestedString(o, [
+      ["product", "name"],
+      ["product", "type"],
+      ["product", "category"],
+      ["product", "slug"],
+    ]),
+    channelPart,
+    pickString(o, ["subType", "subtype"]),
+  ];
+  return parts.map(channelKey).join("");
+}
+
+function detectUtilityVariant(o: Record<string, unknown>): UtilityDetailVariant {
+  const key = buildUtilityVariantKey(o);
+
+  if (key.includes("betting") || key.includes("sportybet")) return "electricity";
+  if (key.includes("airtime") || key.includes("data")) return "data";
+  if (key.includes("tv") || key.includes("cable")) return "tv";
+  if (key.includes("electric")) return "electricity";
   return "electricity";
 }
 
@@ -124,7 +147,9 @@ function detectChannel(o: Record<string, unknown>): {
     ["product", "category"],
     ["metadata", "productType"],
   ]);
-  const combined = channelKey(raw) + channelKey(productHint) + channelKey(pickString(o, ["subType", "subtype"]));
+  const utilityKey = buildUtilityVariantKey(o);
+  const combined =
+    utilityKey + channelKey(raw) + channelKey(productHint) + channelKey(pickString(o, ["subType", "subtype"]));
 
   if (combined.includes("giftcard")) {
     return {
@@ -168,11 +193,19 @@ function detectChannel(o: Record<string, unknown>): {
       cryptoDetailVariant: variant,
     };
   }
-  if (combined.includes("utility") || combined.includes("electric") || combined.includes("betting")) {
+  if (
+    combined.includes("utility") ||
+    combined.includes("electric") ||
+    combined.includes("betting") ||
+    combined.includes("airtime") ||
+    combined.includes("data") ||
+    combined.includes("tv") ||
+    combined.includes("cable")
+  ) {
     return {
       channel: "Deposit",
       depositDetailVariant: "utility",
-      utilityDetailVariant: detectUtilityVariant(o, combined),
+      utilityDetailVariant: detectUtilityVariant(o),
       cryptoDetailVariant: "buy",
     };
   }
@@ -191,7 +224,7 @@ function detectChannel(o: Record<string, unknown>): {
   return {
     channel: "Deposit",
     depositDetailVariant: "utility",
-    utilityDetailVariant: detectUtilityVariant(o, combined),
+    utilityDetailVariant: detectUtilityVariant(o),
     cryptoDetailVariant: "buy",
   };
 }
@@ -534,7 +567,8 @@ export function mapApiDetailToTransactionModel(
     charge,
   };
 
-  if (routing.depositDetailVariant === "utility_betting" || channelKey(readChannelRaw(o)).includes("bet")) {
+  const utilityKey = buildUtilityVariantKey(o);
+  if (routing.depositDetailVariant === "utility_betting" || utilityKey.includes("betting")) {
     model.depositDetailVariant = "utility_betting";
   }
 

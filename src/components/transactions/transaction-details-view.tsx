@@ -725,12 +725,60 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
     const timestamp = tx.datedInitiated;
     const typeLabel = utilityTypeLabel(u);
     const bettingLike =
-      /bet/i.test(tx.displayCategory || "") ||
-      /bet/i.test(tx.productSlug || "") ||
+      /betting/i.test(tx.displayCategory || "") ||
+      /betting/i.test(tx.productSlug || "") ||
       /bet/i.test(tx.product || "") ||
-      /bet/i.test(tx.categorySlug || "") ||
+      /betting/i.test(tx.categorySlug || "") ||
       tx.depositDetailVariant === "utility_betting" ||
       tx.bettingId.trim() !== "";
+    const dataLike =
+      /data|airtime/i.test(
+        [tx.displayCategory, tx.productSlug, tx.product, tx.categorySlug, tx.plan].join(" "),
+      ) || Boolean(tx.phoneNumber.trim());
+
+    if (u === "electricity" && dataLike && !bettingLike) {
+      return (
+        <>
+          <section className="mt-6">
+            <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+              Transaction Details
+            </h2>
+            <TxDataBlockTable
+              headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Amount"]}
+              row={[
+                <TransactionIdLink key="txid" id={tx.transactionId} />,
+                tx.customerName,
+                tx.categorySlug || "Utility",
+                tx.displayCategory || "Data",
+                tx.productSlug || tx.product,
+                tx.amount,
+              ]}
+            />
+            <TxDataBlockTable
+              className="mt-6"
+              headers={["Plan", "Timestamp", "Fee", "Cashback", "Provider", "Balance After"]}
+              row={[
+                tx.plan,
+                <TimeStampCell key="ts" value={timestamp} />,
+                tx.charge || tx.ourFee,
+                tx.cashback,
+                tx.provider,
+                tx.balanceAfter,
+              ]}
+            />
+          </section>
+
+          <section className="mt-8">
+            <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+              Recipient Details
+            </h2>
+            <TxDataBlockTable headers={["Phone Number"]} row={[tx.phoneNumber]} />
+          </section>
+
+          <DepositDeviceSection tx={tx} />
+        </>
+      );
+    }
 
     if (u === "electricity") {
       return (
