@@ -8,6 +8,7 @@ import type {
   AdminCustomersSummary,
   AdminCustomerTransactionListResult,
   AdminCustomerTransactionRow,
+  AdminCustomerTransactionSummary,
   AdminCustomerWalletItem,
   AdminCustomerWalletsResponse,
 } from "@/lib/admin-api/types";
@@ -332,6 +333,29 @@ export type AdminCustomerTransactionsQuery = {
   customerDisplayName?: string;
 };
 
+function normalizeCustomerTransactionSummary(data: unknown): AdminCustomerTransactionSummary {
+  const r = asRecord(data);
+  if (!r) return {};
+  const summary = asRecord(r.summary) ?? r;
+  return {
+    totalAvailableBalance: pickNum(summary, [
+      "totalAvailableBalance",
+      "total_available_balance",
+      "availableBalance",
+      "available_balance",
+    ]),
+    totalInflowAllTime: pickNum(summary, ["totalInflowAllTime", "total_inflow_all_time"]),
+    totalOutflowAllTime: pickNum(summary, ["totalOutflowAllTime", "total_outflow_all_time"]),
+    totalTransactionsAllTime: pickNum(summary, [
+      "totalTransactionsAllTime",
+      "total_transactions_all_time",
+    ]),
+    totalInflow: pickNum(summary, ["totalInflow", "total_inflow", "inflow"]),
+    totalOutflow: pickNum(summary, ["totalOutflow", "total_outflow", "outflow"]),
+    totalTransactions: pickNum(summary, ["totalTransactions", "total_transactions"]),
+  };
+}
+
 function mapTransactionRowToCustomerRow(
   row: ReturnType<typeof normalizeTransactionListResponse>["items"][number],
   customerDisplayName?: string,
@@ -373,6 +397,7 @@ export async function getAdminCustomerTransactions(
     total: normalized.total,
     page: normalized.page,
     pageSize: normalized.pageSize,
+    summary: normalizeCustomerTransactionSummary(body),
   };
 }
 

@@ -1,6 +1,15 @@
 import { adminRequest } from "@/lib/admin-api/client";
 import {
+  giftcardMocksEnabled,
+  getGiftcardMockDetail,
+  getGiftcardMockLogs,
+  isGiftcardMockReference,
+  mergeGiftcardMockTransactions,
+} from "@/lib/admin-api/giftcard-mock-transactions";
+import {
+  formatDataBundleDisplay,
   normalizeTransactionLogList,
+  readDataBundleRaw,
   type TransactionLogEntry,
 } from "@/lib/admin-api/transaction-detail-mapper";
 import type {
@@ -453,25 +462,38 @@ function pickTransactionChannel(o: Record<string, unknown>): string {
   return raw ? humanizeLabel(raw) : "—";
 }
 
-function pickTransactionProduct(o: Record<string, unknown>): string {
+function pickTransactionProduct(o: Record<string, unknown>, channelLabel: string): string {
+  const dataBundle = readDataBundleRaw(o);
+  if (dataBundle) {
+    return formatDataBundleDisplay(dataBundle);
+  }
+
+  const productSlug = pickString(o, ["productSlug", "product_slug"]);
+  const slugKey = productSlug.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (
+    slugKey === "withdrawal" ||
+    slugKey === "withdraw" ||
+    slugKey === "deposit" ||
+    slugKey === "wallet"
+  ) {
+    return "—";
+  }
+
   const raw =
-    pickString(o, [
-      "product",
-      "productName",
-      "product_name",
-      "productSlug",
-      "product_slug",
-      "categorySlug",
-      "category_slug",
-      "category",
-      "service",
-      "transactionType",
-      "transaction_type",
-      "productType",
-      "product_type",
-      "type",
-    ]) || pickNestedString(o, [["product", "name"], ["product", "slug"], ["product", "type"]]);
-  return raw ? humanizeLabel(raw) : "—";
+    pickString(o, ["product", "productName", "product_name", "productSlug", "product_slug"]) ||
+    pickNestedString(o, [["product", "name"], ["product", "slug"]]);
+  if (!raw) return "—";
+
+  if (/\d+(\.\d+)?gb/i.test(raw) && /\d+d/i.test(raw)) {
+    return formatDataBundleDisplay(raw);
+  }
+
+  const label = humanizeLabel(raw);
+  const channelKeyNorm = channelLabel.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const labelKey = label.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (channelKeyNorm && labelKey === channelKeyNorm) return "—";
+
+  return label;
 }
 
 function formatPersonName(rec: Record<string, unknown>): string {
@@ -1058,7 +1080,7 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
         "—";
 
   const channel = pickTransactionChannel(o);
-  const product = pickTransactionProduct(o);
+  const product = pickTransactionProduct(o, channel);
 
   let provider = pickProviderLabel(o);
   if (provider === "—") {
@@ -1141,11 +1163,17 @@ export async function getAdminTransactionsList(
   const pageSize = Math.min(100, Math.max(1, query?.pageSize ?? 25));
   const qs = buildQuery(transactionListQueryToParams({ ...query, page, pageSize }));
   const body = await adminRequest<unknown>(`/admin/transactions${qs}`, { method: "GET" });
-  return normalizeTransactionListResponse(body, page, pageSize);
+  const result = normalizeTransactionListResponse(body, page, pageSize);
+  if (!giftcardMocksEnabled()) return result;
+  return mergeGiftcardMockTransactions(result, query);
 }
 
 export async function getAdminTransactionDetail(reference: string): Promise<Record<string, unknown>> {
-  const data = await adminRequest<unknown>(`/admin/transactions/${encodeURIComponent(reference)}`, {
+  const ref = reference.trim();
+  if (giftcardMocksEnabled() && isGiftcardMockReference(ref)) {
+    return getGiftcardMockDetail(ref);
+  }
+  const data = await adminRequest<unknown>(`/admin/transactions/${encodeURIComponent(ref)}`, {
     method: "GET",
   });
   const r = asRecord(data);
@@ -1155,8 +1183,12 @@ export async function getAdminTransactionDetail(reference: string): Promise<Reco
 }
 
 export async function getAdminTransactionLogs(reference: string): Promise<TransactionLogEntry[]> {
+  const ref = reference.trim();
+  if (giftcardMocksEnabled() && isGiftcardMockReference(ref)) {
+    return getGiftcardMockLogs(ref);
+  }
   const data = await adminRequest<unknown>(
-    `/admin/transactions/${encodeURIComponent(reference)}/logs`,
+    `/admin/transactions/${encodeURIComponent(ref)}/logs`,
     { method: "GET" },
   );
   return normalizeTransactionLogList(data);

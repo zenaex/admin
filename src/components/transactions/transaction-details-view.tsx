@@ -10,6 +10,7 @@ import type { TxApprovalStatus } from "@/components/transactions/transaction-det
 import { TxDataBlockTable, TEXT, LINK } from "@/components/transactions/transaction-details/tx-data-block-table";
 import {
   extractTransactionLogEntries,
+  formatDataBundleDisplay,
   mapApiDetailToTransactionModel,
   type TransactionLogEntry,
 } from "@/lib/admin-api/transaction-detail-mapper";
@@ -734,6 +735,13 @@ function EtradeTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
   );
 }
 
+function dataPlanLabel(tx: TransactionDetailModel): string {
+  if (tx.plan.trim()) return tx.plan;
+  const raw = tx.productSlug || tx.product || "";
+  if (!raw.trim()) return "—";
+  return formatDataBundleDisplay(raw) || raw;
+}
+
 function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
   const v = tx.depositDetailVariant;
 
@@ -771,7 +779,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
                 tx.customerName,
                 tx.categorySlug || "Utility",
                 tx.displayCategory || "Data",
-                tx.productSlug || tx.product,
+                dataPlanLabel(tx),
                 tx.amount,
               ]}
             />
@@ -779,7 +787,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               className="mt-6"
               headers={["Plan", "Timestamp", "Fee", "Cashback", "Provider", "Balance After"]}
               row={[
-                tx.plan,
+                dataPlanLabel(tx),
                 <TimeStampCell key="ts" value={timestamp} />,
                 tx.charge || tx.ourFee,
                 tx.cashback,
@@ -874,7 +882,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
                 tx.customerName,
                 tx.categorySlug || "Utility",
                 tx.displayCategory || typeLabel,
-                tx.productSlug || tx.product,
+                dataPlanLabel(tx),
                 tx.amount,
               ]}
             />
@@ -882,7 +890,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               className="mt-6"
               headers={["Plan", "Timestamp", "Fee", "Cashback", "Provider", "Balance After"]}
               row={[
-                tx.plan,
+                dataPlanLabel(tx),
                 <TimeStampCell key="ts" value={timestamp} />,
                 tx.charge || tx.ourFee,
                 tx.cashback,

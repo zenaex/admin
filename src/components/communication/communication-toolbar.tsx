@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ListFilter } from "lucide-react";
 
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
@@ -9,6 +10,7 @@ type CommunicationToolbarProps = {
   tableSearch: string;
   onTableSearchChange: (value: string) => void;
   onFilterClick?: () => void;
+  createHref?: string;
   exportDisabled?: boolean;
   exportLoading?: boolean;
   onExportCsv?: () => void | Promise<void>;
@@ -20,6 +22,7 @@ export function CommunicationToolbar({
   tableSearch,
   onTableSearchChange,
   onFilterClick,
+  createHref,
   exportDisabled,
   exportLoading,
   onExportCsv,
@@ -38,6 +41,14 @@ export function CommunicationToolbar({
         />
       </div>
       <div className="ml-auto flex items-center gap-2">
+        {createHref ? (
+          <Link
+            href={createHref}
+            className="inline-flex h-9 items-center rounded-full bg-primary-green px-4 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+          >
+            Create campaign
+          </Link>
+        ) : null}
         <button
           type="button"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"

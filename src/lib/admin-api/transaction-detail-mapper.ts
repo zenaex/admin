@@ -49,14 +49,17 @@ function parseJsonRecord(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
-function readProviderLogRequestPayload(o: Record<string, unknown>): Record<string, unknown> | null {
-  const sources: unknown[] = [o.providerLog, o.provider_log];
+function providerLogSources(o: Record<string, unknown>): unknown[] {
   const meta = asRecord(o.metadata) ?? asRecord(o.meta);
+  const sources: unknown[] = [o.providerLog, o.provider_log];
   if (meta) {
     sources.push(meta.providerLog, meta.provider_log);
   }
+  return sources;
+}
 
-  for (const value of sources) {
+function readProviderLogRequestPayload(o: Record<string, unknown>): Record<string, unknown> | null {
+  for (const value of providerLogSources(o)) {
     const logRec = parseJsonRecord(value);
     if (!logRec) continue;
     const request =
@@ -66,6 +69,98 @@ function readProviderLogRequestPayload(o: Record<string, unknown>): Record<strin
     if (request) return request;
   }
   return null;
+}
+
+function readProviderLogResponsePayload(o: Record<string, unknown>): Record<string, unknown> | null {
+  for (const value of providerLogSources(o)) {
+    const logRec = parseJsonRecord(value);
+    if (!logRec) continue;
+    const response =
+      asRecord(logRec.response_payload) ??
+      asRecord(logRec.responsePayload) ??
+      asRecord(logRec.response);
+    if (response) return response;
+  }
+  return null;
+}
+
+const DATA_BUNDLE_FIELD_KEYS = [
+  "dataBundle",
+  "data_bundle",
+  "bundle",
+  "planCode",
+  "plan_code",
+  "packageCode",
+  "package_code",
+  "dataPlan",
+  "data_plan",
+];
+
+function pickDataBundleFromRecord(rec: Record<string, unknown>): string {
+  const direct = pickString(rec, DATA_BUNDLE_FIELD_KEYS);
+  if (direct) return direct;
+  return (
+    pickNestedString(rec, [
+      ["dataBundle", "code"],
+      ["dataBundle", "name"],
+      ["dataBundle", "value"],
+      ["data_bundle", "code"],
+      ["bundle", "code"],
+      ["bundle", "name"],
+      ["product", "dataBundle"],
+      ["metadata", "dataBundle"],
+      ["meta", "dataBundle"],
+      ["request", "dataBundle"],
+      ["request_payload", "dataBundle"],
+    ]) || ""
+  );
+}
+
+/** Resolve raw data bundle / plan code from transaction payload (incl. provider log). */
+export function readDataBundleRaw(o: Record<string, unknown>): string {
+  let found = pickDataBundleFromRecord(o);
+  if (found) return found;
+
+  const request = readProviderLogRequestPayload(o);
+  if (request) {
+    found = pickDataBundleFromRecord(request);
+    if (found) return found;
+  }
+
+  const response = readProviderLogResponsePayload(o);
+  if (response) {
+    found = pickDataBundleFromRecord(response);
+    if (found) return found;
+  }
+
+  for (const value of providerLogSources(o)) {
+    const logRec = parseJsonRecord(value);
+    if (!logRec) continue;
+    found = pickDataBundleFromRecord(logRec);
+    if (found) return found;
+  }
+
+  const productSlug = pickString(o, ["productSlug", "product_slug"]);
+  if (productSlug && /\d+(\.\d+)?gb/i.test(productSlug) && /\d+d/i.test(productSlug)) {
+    return productSlug;
+  }
+
+  const productName = pickString(o, ["product", "productName", "product_name"]);
+  if (productName && /\d+(\.\d+)?gb/i.test(productName) && /\d+d/i.test(productName)) {
+    return productName;
+  }
+
+  return (
+    pickString(o, ["plan", "planName", "plan_name"]) ||
+    pickNestedString(o, [
+      ["metadata", "dataBundle"],
+      ["meta", "dataBundle"],
+      ["product", "dataBundle"],
+      ["product", "plan"],
+      ["plan", "name"],
+    ]) ||
+    ""
+  );
 }
 
 function formatPayoutCurrencyLabel(code: string): string {
@@ -518,16 +613,7 @@ export function mapApiDetailToTransactionModel(
     pickNestedString(o, [["product", "name"], ["product", "title"], ["service", "name"]]) ||
     "";
   const planRaw =
-    pickFromBlocks(o, detailBlocks, ["dataBundle", "data_bundle"]) ||
-    pickString(o, ["dataBundle", "data_bundle", "plan", "planName", "plan_name", "bundle"]) ||
-    pickNestedString(o, [
-      ["metadata", "dataBundle"],
-      ["meta", "dataBundle"],
-      ["product", "dataBundle"],
-      ["product", "plan"],
-      ["plan", "name"],
-    ]) ||
-    "";
+    readDataBundleRaw(o) || pickFromBlocks(o, detailBlocks, ["dataBundle", "data_bundle"]) || "";
   const plan = planRaw ? formatDataBundleDisplay(planRaw) : "";
   const cashback = pickString(o, ["cashback", "cashBack", "cash_back", "reward"]) || "";
 
@@ -637,11 +723,33 @@ export function mapApiDetailToTransactionModel(
     networkFee: pickFromBlocks(o, detailBlocks, ["networkFee", "network_fee", "gasFee", "gas_fee"]),
     meterNumber: pickFromBlocks(o, detailBlocks, ["meterNumber", "meter_number", "meterNo", "meter_no"]),
     address: pickFromBlocks(o, detailBlocks, ["address", "streetAddress", "street_address", "location"]),
-    accountName: pickFromBlocks(o, detailBlocks, ["accountName", "account_name", "name", "recipientName"]),
+    accountName:
+      (providerLogRequest
+        ? pickString(providerLogRequest, [
+            "customerName",
+            "customer_name",
+            "accountName",
+            "account_name",
+            "recipientName",
+            "recipient_name",
+          ])
+        : "") ||
+      pickFromBlocks(o, detailBlocks, ["accountName", "account_name", "recipientName", "recipient_name"]),
     accountNumber: pickFromBlocks(o, detailBlocks, ["accountNumber", "account_number", "number", "recipientNumber"]),
     phoneNumber: pickFromBlocks(o, detailBlocks, ["phoneNumber", "phone_number", "phone", "msisdn"]),
     smartcardNo: pickFromBlocks(o, detailBlocks, ["smartcardNo", "smartcard_no", "smartCard", "cardNumber"]),
-    bettingId: pickFromBlocks(o, detailBlocks, ["bettingId", "betting_id", "betId", "customerId"]),
+    bettingId:
+      (providerLogRequest
+        ? pickString(providerLogRequest, [
+            "bettingAccountId",
+            "betting_account_id",
+            "bettingId",
+            "betting_id",
+            "betId",
+            "bet_id",
+          ])
+        : "") ||
+      pickFromBlocks(o, detailBlocks, ["bettingId", "betting_id", "betId", "bet_id"]),
     device: (deviceBlock ? pickString(deviceBlock, ["device", "name", "model"]) : "") || pickString(o, ["device"]),
     deviceId:
       (deviceBlock ? pickString(deviceBlock, ["deviceId", "device_id", "id"]) : "") ||

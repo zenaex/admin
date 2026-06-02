@@ -51,8 +51,8 @@ export function FiatRateUpdateFlow({ row, onClose, onApplied }: FiatRateUpdateFl
   const handleConfirm = async () => {
     if (!form) return;
     try {
-      const base = row.currencyCode;
-      const quote = "NGN";
+      const base = row.fiatBase ?? "NGN";
+      const quote = row.fiatQuote ?? row.currencyCode;
       await postConfigureFiatRate(base, quote, {
         markupType: form.markupType,
         markupRate: parseFloat(form.markupRate) || 0,

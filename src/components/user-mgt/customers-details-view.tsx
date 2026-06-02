@@ -28,7 +28,11 @@ import {
   postCustomerReactivate,
   postCustomerSuspend,
 } from "@/lib/admin-api/users-api";
-import type { AdminCustomerTransactionRow, AdminCustomerWalletItem } from "@/lib/admin-api/types";
+import type {
+  AdminCustomerTransactionRow,
+  AdminCustomerTransactionSummary,
+  AdminCustomerWalletItem,
+} from "@/lib/admin-api/types";
 import {
   canDeactivateCustomer,
   canSuspendOrReactivateCustomer,
@@ -331,7 +335,7 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
         <CustomerDetailsTab accountId={accountId} profile={profile} loading={profileLoading} />
       ) : null}
       {activeTab === "Transaction History" ? (
-        <TransactionHistoryTab accountId={accountId} customerDisplayName={customerDisplayName} profile={profile} />
+        <TransactionHistoryTab accountId={accountId} customerDisplayName={customerDisplayName} />
       ) : null}
       {activeTab === "KYC Details" ? <KycDetailsTab accountId={accountId} /> : null}
       {activeTab === "Wallet" ? <WalletTab accountId={accountId} /> : null}
@@ -591,29 +595,47 @@ function TxStatusBadge({ status }: { status: string }) {
   );
 }
 
+function formatCustomerSummaryAmount(value: number | undefined, loading: boolean): string {
+  if (loading && value === undefined) return "—";
+  const n = value ?? 0;
+  if (!Number.isFinite(n)) return "—";
+  return `₦${n.toLocaleString()}`;
+}
+
+function pickCustomerSummaryMetric(
+  summary: AdminCustomerTransactionSummary | null,
+  allTimeKey: keyof AdminCustomerTransactionSummary,
+  periodKey: keyof AdminCustomerTransactionSummary,
+): number | undefined {
+  if (!summary) return undefined;
+  const allTime = summary[allTimeKey];
+  if (typeof allTime === "number" && Number.isFinite(allTime)) return allTime;
+  const period = summary[periodKey];
+  if (typeof period === "number" && Number.isFinite(period)) return period;
+  return undefined;
+}
+
 function TransactionHistoryTab({
   accountId,
   customerDisplayName,
-  profile,
 }: {
   accountId: string;
   customerDisplayName?: string;
-  profile: Record<string, unknown> | null;
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [rows, setRows] = useState<AdminCustomerTransactionRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<AdminCustomerTransactionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const p = profile ?? {};
-  const inflow = pickNum(p, ["totalInflow", "total_inflow", "inflow", "inflows", "totalInflowAmount"]) ?? 100000;
-  const outflow = pickNum(p, ["totalOutflow", "total_outflow", "outflow", "outflows", "totalOutflowAmount"]) ?? 50000;
-  const balance = pickNum(p, ["balance", "availableBalance", "available_balance", "walletBalance", "totalBalance"]) ?? 150000;
+  const balance = summary?.totalAvailableBalance;
+  const inflow = pickCustomerSummaryMetric(summary, "totalInflowAllTime", "totalInflow");
+  const outflow = pickCustomerSummaryMetric(summary, "totalOutflowAllTime", "totalOutflow");
 
   const load = useCallback(async () => {
     setError(null);
@@ -626,9 +648,11 @@ function TransactionHistoryTab({
       });
       setRows(res.items);
       setTotal(res.total);
+      setSummary(res.summary ?? null);
     } catch (e) {
       setRows([]);
       setTotal(0);
+      setSummary(null);
       setError(e instanceof AdminApiError ? e.message : "Could not load transactions.");
     } finally {
       setLoading(false);
@@ -692,19 +716,19 @@ function TransactionHistoryTab({
       <div className="mt-6 flex min-w-0 gap-3">
         <StatCard
           label="Total Available Balance"
-          value={`₦${balance.toLocaleString()}`}
+          value={formatCustomerSummaryAmount(balance, loading)}
           accentColor="#8BE300"
           icon={<Wallet size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Amount Inflow"
-          value={`₦${inflow.toLocaleString()}`}
+          value={formatCustomerSummaryAmount(inflow, loading)}
           accentColor="#3B82F6"
           icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Amount Outflow"
-          value={`₦${outflow.toLocaleString()}`}
+          value={formatCustomerSummaryAmount(outflow, loading)}
           accentColor="#EF4444"
           icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
@@ -846,9 +870,27 @@ const WALLET_ASSET_META: Record<string, { name: string; code: string; bgClass: s
   TRX: { name: "Tron", code: "TRX", bgClass: "bg-[#EF4444]", textClass: "text-white" },
   SOL: { name: "Solana", code: "SOL", bgClass: "bg-[#EDE9FE]", textClass: "text-[#7C3AED]" },
   USDT: { name: "Tether", code: "USDT", bgClass: "bg-[#10B981]", textClass: "text-white" },
+  REFERRAL: {
+    name: "Referral Wallet",
+    code: "REF",
+    bgClass: "bg-[#DBEAFE]",
+    textClass: "text-[#1D4ED8]",
+  },
 };
 
+function isReferralWallet(wallet: AdminCustomerWalletItem): boolean {
+  const type = String(wallet.walletType ?? "").toLowerCase();
+  const currency = String(wallet.currency ?? "").toLowerCase();
+  return type.includes("referral") || currency.includes("referral");
+}
+
+function referralDetailsHref(accountId: string): string {
+  return `/dashboard/user-mgt/referral/${encodeURIComponent(accountId)}`;
+}
+
 function pickWalletDisplayMeta(wallet: AdminCustomerWalletItem) {
+  if (isReferralWallet(wallet)) return WALLET_ASSET_META.REFERRAL;
+
   const rawType = String(wallet.walletType ?? "").trim();
   const rawCurrency = String(wallet.currency ?? "").trim().toUpperCase();
   const code = rawCurrency || (rawType ? rawType.slice(0, 6).toUpperCase() : "WALLET");
@@ -927,39 +969,68 @@ function WalletTab({ accountId }: { accountId: string }) {
         </div>
         {wallets.map((w, idx) => {
           const display = pickWalletDisplayMeta(w);
+          const referral = isReferralWallet(w);
           const addr =
             pickStr(w as unknown as Record<string, unknown>, ["address", "walletAddress", "publicKey"]) ||
             w.walletId ||
             "—";
+          const rowClass = `grid grid-cols-[220px_1fr] items-center gap-3 px-5 py-3 ${idx < wallets.length - 1 ? "border-b border-zinc-100" : ""}`;
+
+          const labelCell = (
+            <div className="flex items-center gap-2.5">
+              <span
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${display.bgClass} ${display.textClass}`}
+              >
+                {display.code.slice(0, 1)}
+              </span>
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm font-semibold text-primary-text">{display.name}</span>
+                <span className="text-[11px] font-medium text-zinc-400">{display.code}</span>
+              </div>
+            </div>
+          );
+
+          const addressCell = (
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-semibold text-zinc-700" title={addr}>
+                {addr}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCopy(addr, idx);
+                }}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
+                aria-label="Copy address"
+              >
+                {copiedIdx === idx ? (
+                  <span className="text-xs font-medium text-green-600">✓</span>
+                ) : (
+                  <Copy size={16} variant="Outline" color="currentColor" />
+                )}
+              </button>
+            </div>
+          );
+
+          if (referral) {
+            return (
+              <Link
+                key={`${w.walletId ?? idx}`}
+                href={referralDetailsHref(accountId)}
+                className={`${rowClass} transition-colors hover:bg-zinc-50`}
+              >
+                {labelCell}
+                {addressCell}
+              </Link>
+            );
+          }
+
           return (
-            <div
-              key={`${w.walletId ?? idx}`}
-              className={`grid grid-cols-[220px_1fr] items-center gap-3 px-5 py-3 ${idx < wallets.length - 1 ? "border-b border-zinc-100" : ""}`}
-            >
-              <div className="flex items-center gap-2.5">
-                <span
-                  className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${display.bgClass} ${display.textClass}`}
-                >
-                  {display.code.slice(0, 1)}
-                </span>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-sm font-semibold text-primary-text">{display.name}</span>
-                  <span className="text-[11px] font-medium text-zinc-400">{display.code}</span>
-                </div>
-              </div>
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-sm font-semibold text-zinc-700" title={addr}>
-                  {addr}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(addr, idx)}
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
-                  aria-label="Copy address"
-                >
-                  {copiedIdx === idx ? <span className="text-xs font-medium text-green-600">✓</span> : <Copy size={16} variant="Outline" color="currentColor" />}
-                </button>
-              </div>
+            <div key={`${w.walletId ?? idx}`} className={rowClass}>
+              {labelCell}
+              {addressCell}
             </div>
           );
         })}
@@ -1206,13 +1277,13 @@ function AuditLogTab({ accountId }: { accountId: string }) {
         }
       />
 
-      <div className="mt-5 space-y-7">
+      <div className="mt-5 space-y-10">
         {Object.entries(groups).map(([dayLabel, rows]) => (
           <div key={dayLabel}>
-            <h3 className="mb-3 text-[18px] leading-none font-medium text-zinc-900">
+            <h3 className="mb-5 text-[18px] leading-none font-medium text-zinc-900">
               {dayLabel}
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-5">
               {rows.map((row) => (
                 <div
                   key={row.id}

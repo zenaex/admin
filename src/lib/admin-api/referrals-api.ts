@@ -96,12 +96,26 @@ function humanizeStatus(s: string): string {
 }
 
 function formatReward(amount: unknown, currency?: string): string {
-  if (typeof amount === "string" && amount.trim()) return amount.trim();
-  if (typeof amount === "number" && Number.isFinite(amount)) {
-    const cur = currency || "₦";
-    return `${cur}${amount.toLocaleString()}`;
+  if (amount === undefined || amount === null) return "0.00";
+  if (typeof amount === "string") {
+    const t = amount.trim();
+    if (!t || t === "—") return "0.00";
+    if (t) return t;
   }
-  return "—";
+  if (typeof amount === "number" && Number.isFinite(amount)) {
+    return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return "0.00";
+}
+
+function formatStatCount(v: unknown): string {
+  if (v === undefined || v === null) return "0";
+  if (typeof v === "number" && Number.isFinite(v)) return v.toLocaleString();
+  const s = String(v).trim();
+  if (!s || s === "—") return "0";
+  const n = Number(s.replace(/[^\d.-]/g, ""));
+  if (Number.isFinite(n) && s.replace(/[^\d.-]/g, "") !== "") return n.toLocaleString();
+  return s;
 }
 
 export function normalizeReferralRow(raw: unknown): AdminReferralListRow | null {
@@ -270,12 +284,6 @@ export function normalizeReferralDetailResponse(
 
   const { page, pageSize } = extractPageInfo(root, requestedPage, requestedPageSize);
 
-  const fmtStat = (v: unknown) => {
-    if (v === undefined || v === null) return "—";
-    if (typeof v === "number") return v.toLocaleString();
-    return String(v);
-  };
-
   return {
     referrer: {
       accountId: pickString(referrerBlock, ["accountId", "id"]) || accountId,
@@ -285,15 +293,15 @@ export function normalizeReferralDetailResponse(
       phone: pickString(referrerBlock, ["phone", "phoneNumber"]) || "—",
     },
     stats: {
-      totalReferralsMade: fmtStat(
+      totalReferralsMade: formatStatCount(
         statsBlock.totalReferralsMade ?? statsBlock.referralsMade ?? root.totalReferralsMade,
       ),
-      onboardedReferredUsers: fmtStat(
+      onboardedReferredUsers: formatStatCount(
         statsBlock.onboardedReferredUsers ??
           statsBlock.onboardedCount ??
           root.onboardedReferredUsers,
       ),
-      pendingReferredUsers: fmtStat(
+      pendingReferredUsers: formatStatCount(
         statsBlock.pendingReferredUsers ?? statsBlock.pendingCount ?? root.pendingReferredUsers,
       ),
       totalRewardsEarned: formatReward(

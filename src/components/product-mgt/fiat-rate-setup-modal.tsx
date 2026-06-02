@@ -28,14 +28,16 @@ export function FiatRateSetupModal({ row, onClose, onSubmit }: FiatRateSetupModa
     setSwapped(false);
 
     // Fetch live base rate from FX provider
-    getAdminLiveBaseRate(row.currencyCode, "NGN")
+    const fiatBase = row.fiatBase ?? "NGN";
+    const fiatQuote = row.fiatQuote ?? row.currencyCode;
+    getAdminLiveBaseRate(fiatBase, fiatQuote)
       .then((liveRate) => {
         if (liveRate > 0) {
           setForm((f) => ({ ...f, baseRate: String(liveRate) }));
         }
       })
       .catch((err) => console.error("Error loading live base rate:", err));
-  }, [row.id, row.currencyCode]);
+  }, [row.id, row.currencyCode, row.fiatBase, row.fiatQuote]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

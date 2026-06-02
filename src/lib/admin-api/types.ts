@@ -178,11 +178,23 @@ export type AdminCustomerTransactionRow = {
   date: string;
 };
 
+/** `summary` on `GET /admin/customers/{accountId}/transactions`. */
+export type AdminCustomerTransactionSummary = {
+  totalAvailableBalance?: number;
+  totalInflowAllTime?: number;
+  totalOutflowAllTime?: number;
+  totalTransactionsAllTime?: number;
+  totalInflow?: number;
+  totalOutflow?: number;
+  totalTransactions?: number;
+};
+
 export type AdminCustomerTransactionListResult = {
   items: AdminCustomerTransactionRow[];
   total: number;
   page: number;
   pageSize: number;
+  summary?: AdminCustomerTransactionSummary;
 };
 
 /** `GET /admin/customers/{accountId}/wallets` */
@@ -525,16 +537,31 @@ export type AdminCampaignListResult = {
   total: number;
 };
 
+/** `POST /admin/communications` request body (OpenAPI). */
+export type AdminCreateCampaignApiBody = {
+  title: string;
+  subject: string;
+  body: string;
+  channel: string;
+  audience: string;
+  imageUrl?: string;
+};
+
+/** UI form values mapped to {@link AdminCreateCampaignApiBody} on create. */
 export type AdminCreateCampaignBody = {
   title: string;
+  /** Maps to API `subject`. */
   description: string;
-  campaignCategory: string;
-  campaignSubCategory: string;
-  targetAudience: string;
-  targetSubCategory: string;
-  communicationCategory: string;
+  /** Maps to API `body` (HTML). */
   content: string;
+  /** Maps to API `channel`. */
+  communicationCategory: string;
+  /** Maps to API `audience`. */
+  targetAudience: string;
   imageUrl?: string;
-  scheduleMode: "Immediate" | "Scheduled" | "Recurring";
+  campaignCategory?: string;
+  campaignSubCategory?: string;
+  targetSubCategory?: string;
+  scheduleMode?: "Immediate" | "Scheduled" | "Recurring";
   period?: string;
 };

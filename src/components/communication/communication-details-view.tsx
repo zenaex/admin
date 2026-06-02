@@ -12,11 +12,13 @@ import {
   publishAdminCampaign,
   cancelAdminCampaign,
   deleteAdminCampaign,
+  campaignApiErrorMessage,
 } from "@/lib/admin-api/communications-api";
-import type { AdminCampaignStatus } from "@/lib/admin-api/types";
+import type { AdminCampaign, AdminCampaignStatus } from "@/lib/admin-api/types";
 
 const periodOptions = ["Daily", "Weekly", "Bi-weekly", "Monthly", "Quarterly", "Yearly"];
 const targetAudienceOptions = [
+  "All users",
   "Transaction level",
   "Last transaction type",
   "Activity status",
@@ -25,7 +27,7 @@ const targetAudienceOptions = [
   "Onboarding date",
 ];
 const campaignCategoryOptions = ["Transactional", "Educational", "Announcement", "Promo"];
-const communicationCategoryOptions = ["In-app", "Pop up"];
+const communicationCategoryOptions = ["Email", "In-app", "Pop up"];
 
 type ScheduleMode = "Immediate" | "Scheduled" | "Recurring";
 
@@ -70,6 +72,34 @@ type CommunicationDetailsViewProps = {
   id?: string;
 };
 
+function applyCampaignToForm(campaign: AdminCampaign, setters: {
+  setTitle: (v: string) => void;
+  setDescription: (v: string) => void;
+  setCampaignCategory: (v: string) => void;
+  setCampaignSubCategory: (v: string) => void;
+  setTargetAudience: (v: string) => void;
+  setTargetSubCategory: (v: string) => void;
+  setCommunicationCategory: (v: string) => void;
+  setEditorHtml: (v: string) => void;
+  setUploadedImage: (v: string | null) => void;
+  setScheduleMode: (v: ScheduleMode) => void;
+  setPeriod: (v: string) => void;
+  setCampaignStatus: (v: AdminCampaignStatus) => void;
+}) {
+  setters.setTitle(campaign.title);
+  setters.setDescription(campaign.description);
+  setters.setCampaignCategory(campaign.campaignCategory);
+  setters.setCampaignSubCategory(campaign.campaignSubCategory);
+  setters.setTargetAudience(campaign.targetAudience);
+  setters.setTargetSubCategory(campaign.targetSubCategory);
+  setters.setCommunicationCategory(campaign.communicationCategory);
+  setters.setEditorHtml(campaign.content);
+  setters.setUploadedImage(campaign.imageUrl ?? null);
+  setters.setScheduleMode(campaign.scheduleMode);
+  setters.setPeriod(campaign.period);
+  setters.setCampaignStatus(campaign.status);
+}
+
 export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -81,15 +111,15 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
   const [campaignStatus, setCampaignStatus] = useState<AdminCampaignStatus | null>(null);
   const [actionOpen, setActionOpen] = useState(false);
 
-  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("Recurring");
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("Immediate");
   const [title, setTitle] = useState("🎁 Your Summer Savings Bonus Awaits!");
   const [description, setDescription] = useState("Get 10% extra when you save with Bobble this summer");
   const [period, setPeriod] = useState("Daily");
-  const [targetAudience, setTargetAudience] = useState("Transaction level");
+  const [targetAudience, setTargetAudience] = useState("All users");
   const [targetSubCategory, setTargetSubCategory] = useState("Tech support");
   const [campaignCategory, setCampaignCategory] = useState("Transactional");
   const [campaignSubCategory, setCampaignSubCategory] = useState("Vouchers offers");
-  const [communicationCategory, setCommunicationCategory] = useState("In-app");
+  const [communicationCategory, setCommunicationCategory] = useState("Email");
   const [editorHtml, setEditorHtml] = useState("<p>Write campaign content...</p>");
   const [isNotificationOpen, setIsNotificationOpen] = useState(true);
   const [isCategoryOpen, setIsCategoryOpen] = useState(true);
@@ -97,6 +127,32 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("Communication has been successfully created.");
+  const [saving, setSaving] = useState(false);
+
+  const applyCampaign = (campaign: AdminCampaign) => {
+    applyCampaignToForm(campaign, {
+      setTitle,
+      setDescription,
+      setCampaignCategory,
+      setCampaignSubCategory,
+      setTargetAudience,
+      setTargetSubCategory,
+      setCommunicationCategory,
+      setEditorHtml,
+      setUploadedImage,
+      setScheduleMode,
+      setPeriod,
+      setCampaignStatus,
+    });
+  };
+
+  const reloadCampaign = async (campaignId: string) => {
+    const campaign = await getAdminCampaign(campaignId);
+    if (!campaign) throw new Error("Campaign not found.");
+    applyCampaign(campaign);
+    return campaign;
+  };
 
   useEffect(() => {
     if (!isExisting || !id) return;
@@ -107,23 +163,12 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
       try {
         const campaign = await getAdminCampaign(id);
         if (campaign) {
-          setTitle(campaign.title);
-          setDescription(campaign.description);
-          setCampaignCategory(campaign.campaignCategory);
-          setCampaignSubCategory(campaign.campaignSubCategory);
-          setTargetAudience(campaign.targetAudience);
-          setTargetSubCategory(campaign.targetSubCategory);
-          setCommunicationCategory(campaign.communicationCategory);
-          setEditorHtml(campaign.content);
-          setUploadedImage(campaign.imageUrl ?? null);
-          setScheduleMode(campaign.scheduleMode);
-          setPeriod(campaign.period);
-          setCampaignStatus(campaign.status);
+          applyCampaign(campaign);
         } else {
           setLoadError("Campaign not found.");
         }
       } catch (e) {
-        setLoadError(e instanceof Error ? e.message : "Failed to load campaign details.");
+        setLoadError(campaignApiErrorMessage(e, "Failed to load campaign details."));
       } finally {
         setLoadingDetail(false);
       }
@@ -177,32 +222,44 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
     [scheduleMode],
   );
 
+  const buildCampaignBody = () => ({
+    title,
+    description,
+    campaignCategory,
+    campaignSubCategory,
+    targetAudience,
+    targetSubCategory,
+    communicationCategory,
+    content: editorHtml,
+    imageUrl: uploadedImage?.startsWith("blob:") ? undefined : uploadedImage ?? undefined,
+    scheduleMode,
+    period: scheduleMode !== "Immediate" ? period : undefined,
+  });
+
+  const publishOptions = () => ({
+    scheduleMode,
+    period: scheduleMode !== "Immediate" ? period : undefined,
+  });
+
   const handleSave = async (publish: boolean) => {
     setLoadError(null);
+    setSaving(true);
     try {
-      const body = {
-        title,
-        description,
-        campaignCategory,
-        campaignSubCategory,
-        targetAudience,
-        targetSubCategory,
-        communicationCategory,
-        content: editorHtml,
-        imageUrl: uploadedImage ?? undefined,
-        scheduleMode,
-        period: scheduleMode !== "Immediate" ? period : undefined,
-      };
-
-      const newCampaign = await createAdminCampaign(body);
+      const newCampaign = await createAdminCampaign(buildCampaignBody());
 
       if (publish) {
-        await publishAdminCampaign(newCampaign.id);
+        await publishAdminCampaign(newCampaign.id, publishOptions());
+        setSuccessMessage("Campaign is now live.");
+      } else {
+        setSuccessMessage("Campaign saved as draft.");
       }
 
       setShowSuccessModal(true);
+      router.replace(`/dashboard/communication/${newCampaign.id}`);
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to save campaign.");
+      setLoadError(campaignApiErrorMessage(e, publish ? "Failed to publish campaign." : "Failed to save campaign."));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -210,11 +267,14 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
     if (!id) return;
     setActionOpen(false);
     setLoadingDetail(true);
+    setLoadError(null);
     try {
-      await publishAdminCampaign(id);
-      setCampaignStatus("Publish");
+      await publishAdminCampaign(id, publishOptions());
+      await reloadCampaign(id);
+      setSuccessMessage("Campaign is now live.");
+      setShowSuccessModal(true);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to publish campaign.");
+      setLoadError(campaignApiErrorMessage(e, "Failed to publish campaign."));
     } finally {
       setLoadingDetail(false);
     }
@@ -224,11 +284,14 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
     if (!id) return;
     setActionOpen(false);
     setLoadingDetail(true);
+    setLoadError(null);
     try {
       await cancelAdminCampaign(id);
-      setCampaignStatus("Unpublished");
+      await reloadCampaign(id);
+      setSuccessMessage("Campaign schedule has been cancelled.");
+      setShowSuccessModal(true);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to cancel campaign.");
+      setLoadError(campaignApiErrorMessage(e, "Failed to cancel campaign."));
     } finally {
       setLoadingDetail(false);
     }
@@ -237,14 +300,15 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
   const handleDeleteAction = async () => {
     if (!id) return;
     setActionOpen(false);
-    const confirmed = window.confirm("Are you sure you want to delete this campaign?");
+    const confirmed = window.confirm("Are you sure you want to delete this draft campaign?");
     if (!confirmed) return;
     setLoadingDetail(true);
+    setLoadError(null);
     try {
       await deleteAdminCampaign(id);
       router.push("/dashboard/communication");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete campaign.");
+      setLoadError(campaignApiErrorMessage(e, "Failed to delete campaign."));
       setLoadingDetail(false);
     }
   };
@@ -289,7 +353,18 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
         </div>
 
         {isExisting && (
-          <div className="relative">
+          <div className="flex items-center gap-2">
+            {campaignStatus === "Unpublished" ? (
+              <button
+                type="button"
+                disabled={loadingDetail || saving}
+                onClick={() => void handlePublishAction()}
+                className="inline-flex h-8 items-center rounded-full bg-primary-green px-4 text-xs font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                Go live
+              </button>
+            ) : null}
+            <div className="relative">
             <button
               type="button"
               onClick={() => setActionOpen(!actionOpen)}
@@ -306,41 +381,33 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
                     <>
                       <button
                         type="button"
-                        onClick={handlePublishAction}
+                        onClick={() => void handlePublishAction()}
                         className="flex w-full items-center px-3 py-2 text-left text-xs font-medium text-zinc-700 rounded-md hover:bg-zinc-50"
                       >
                         Publish
                       </button>
                       <button
                         type="button"
-                        onClick={handleDeleteAction}
+                        onClick={() => void handleDeleteAction()}
                         className="flex w-full items-center px-3 py-2 text-left text-xs font-medium text-red-600 rounded-md hover:bg-red-50"
                       >
-                        Delete
+                        Delete draft
                       </button>
                     </>
                   )}
                   {campaignStatus === "Pending" && (
                     <button
                       type="button"
-                      onClick={handleCancelAction}
+                      onClick={() => void handleCancelAction()}
                       className="flex w-full items-center px-3 py-2 text-left text-xs font-medium text-zinc-700 rounded-md hover:bg-zinc-50"
                     >
-                      Cancel Scheduled
-                    </button>
-                  )}
-                  {campaignStatus === "Publish" && (
-                    <button
-                      type="button"
-                      onClick={handleCancelAction}
-                      className="flex w-full items-center px-3 py-2 text-left text-xs font-medium text-zinc-700 rounded-md hover:bg-zinc-50"
-                    >
-                      Cancel Scheduled
+                      Cancel scheduled
                     </button>
                   )}
                 </div>
               </>
             )}
+            </div>
           </div>
         )}
       </div>
@@ -382,12 +449,13 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">Description</label>
+                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">Subject</label>
                   <textarea
                     value={description}
                     disabled={isExisting}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
+                    placeholder="Email or notification subject line"
                     className="w-full resize-none rounded-md border border-zinc-200 px-3 py-2 text-sm text-primary-text outline-none disabled:bg-zinc-50 disabled:text-zinc-400"
                   />
                 </div>
@@ -556,17 +624,19 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
         <div className="mt-4 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => handleSave(false)}
-            className="inline-flex h-9 items-center justify-center rounded-full border border-zinc-200 bg-white px-8 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+            disabled={saving}
+            onClick={() => void handleSave(false)}
+            className="inline-flex h-9 items-center justify-center rounded-full border border-zinc-200 bg-white px-8 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            Save as draft
+            {saving ? "Saving…" : "Save as draft"}
           </button>
           <button
             type="button"
-            onClick={() => handleSave(true)}
-            className="inline-flex h-9 items-center justify-center rounded-full bg-primary-green px-8 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+            disabled={saving}
+            onClick={() => void handleSave(true)}
+            className="inline-flex h-9 items-center justify-center rounded-full bg-primary-green px-8 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            Publish Campaign
+            {saving ? "Publishing…" : "Go live"}
           </button>
         </div>
       )}
@@ -581,9 +651,7 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
                 <TickCircle size={58} variant="Linear" color="var(--color-success)" />
               </div>
               <h3 className="mt-6 text-[32px] leading-none font-semibold text-primary-text">Successful</h3>
-              <p className="mt-4 text-[24px] leading-tight text-zinc-500">
-                Communication has been usefully created
-              </p>
+              <p className="mt-4 text-[24px] leading-tight text-zinc-500">{successMessage}</p>
             </div>
 
             <button

@@ -1,4 +1,11 @@
 import { adminRequest } from "@/lib/admin-api/client";
+import {
+  giftcardMocksEnabled,
+  isGiftcardMockSubmissionId,
+  mockGiftcardApprove,
+  mockGiftcardDecline,
+  mockGiftcardECode,
+} from "@/lib/admin-api/giftcard-mock-transactions";
 import type { AdminGiftcardDeclineBody, AdminGiftcardECodeResult } from "@/lib/admin-api/types";
 import {
   asRecord,
@@ -37,6 +44,10 @@ export function resolveGiftcardSubmissionId(raw: Record<string, unknown>): strin
 }
 
 export async function postGiftcardSubmissionApprove(submissionId: string): Promise<void> {
+  if (giftcardMocksEnabled() && isGiftcardMockSubmissionId(submissionId)) {
+    mockGiftcardApprove(submissionId);
+    return;
+  }
   await adminRequest<unknown>(submissionPath(submissionId, "approve"), {
     method: "POST",
     auth: true,
@@ -50,6 +61,10 @@ export async function postGiftcardSubmissionDecline(
   const reason = body.reason.trim();
   if (!reason) {
     throw new Error("Reason is required");
+  }
+  if (giftcardMocksEnabled() && isGiftcardMockSubmissionId(submissionId)) {
+    mockGiftcardDecline(submissionId, reason);
+    return;
   }
   await adminRequest<unknown>(submissionPath(submissionId, "decline"), {
     method: "POST",
@@ -74,6 +89,11 @@ function normalizeECodePayload(data: unknown): string {
 export async function postGiftcardSubmissionECode(
   submissionId: string,
 ): Promise<AdminGiftcardECodeResult> {
+  if (giftcardMocksEnabled() && isGiftcardMockSubmissionId(submissionId)) {
+    const code = mockGiftcardECode(submissionId);
+    if (!code) throw new Error("No e-code returned");
+    return { code };
+  }
   const data = await adminRequest<unknown>(submissionPath(submissionId, "e-code"), {
     method: "POST",
     auth: true,
