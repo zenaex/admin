@@ -87,13 +87,13 @@ function formatAmountFromRecord(o: Record<string, unknown>): string {
 
 function detectUtilityVariant(o: Record<string, unknown>, combined: string): UtilityDetailVariant {
   if (combined.includes("electric")) return "electricity";
-  if (combined.includes("data")) return "data";
+  if (combined.includes("data") || combined.includes("airtime")) return "data";
   if (combined.includes("tv") || combined.includes("cable")) return "tv";
   if (combined.includes("bet")) return "electricity";
   const product = pickNestedString(o, [["product", "name"], ["product", "type"], ["product", "category"]]);
   const pk = channelKey(product);
   if (pk.includes("electric")) return "electricity";
-  if (pk.includes("data")) return "data";
+  if (pk.includes("data") || pk.includes("airtime")) return "data";
   if (pk.includes("tv")) return "tv";
   if (pk.includes("bet")) return "electricity";
   return "electricity";
@@ -514,6 +514,7 @@ export function mapApiDetailToTransactionModel(
     meterNumber: pickFromBlocks(o, detailBlocks, ["meterNumber", "meter_number", "meterNo", "meter_no"]),
     address: pickFromBlocks(o, detailBlocks, ["address", "streetAddress", "street_address", "location"]),
     accountName: pickFromBlocks(o, detailBlocks, ["accountName", "account_name", "name", "recipientName"]),
+    accountNumber: pickFromBlocks(o, detailBlocks, ["accountNumber", "account_number", "number", "recipientNumber"]),
     phoneNumber: pickFromBlocks(o, detailBlocks, ["phoneNumber", "phone_number", "phone", "msisdn"]),
     smartcardNo: pickFromBlocks(o, detailBlocks, ["smartcardNo", "smartcard_no", "smartCard", "cardNumber"]),
     bettingId: pickFromBlocks(o, detailBlocks, ["bettingId", "betting_id", "betId", "customerId"]),

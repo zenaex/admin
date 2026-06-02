@@ -724,6 +724,13 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
     const u = tx.utilityDetailVariant;
     const timestamp = tx.datedInitiated;
     const typeLabel = utilityTypeLabel(u);
+    const bettingLike =
+      /bet/i.test(tx.displayCategory || "") ||
+      /bet/i.test(tx.productSlug || "") ||
+      /bet/i.test(tx.product || "") ||
+      /bet/i.test(tx.categorySlug || "") ||
+      tx.depositDetailVariant === "utility_betting" ||
+      tx.bettingId.trim() !== "";
 
     if (u === "electricity") {
       return (
@@ -766,10 +773,17 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
               Recipient Details
             </h2>
-            <TxDataBlockTable
-              headers={["Address", "Meter Number", "Account Name"]}
-              row={[tx.address, tx.meterNumber, tx.accountName]}
-            />
+            {bettingLike ? (
+              <TxDataBlockTable
+                headers={["Betting ID", "Account Name"]}
+                row={[tx.bettingId, tx.accountName]}
+              />
+            ) : (
+              <TxDataBlockTable
+                headers={["Address", "Meter Number", "Account Name"]}
+                row={[tx.address, tx.meterNumber, tx.accountName]}
+              />
+            )}
           </section>
 
           <DepositDeviceSection tx={tx} />
@@ -857,8 +871,8 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             Recipient Details
           </h2>
           <TxDataBlockTable
-            headers={["Smartcard No", "Account Name"]}
-            row={[tx.smartcardNo, tx.accountName]}
+            headers={["Smartcard Number", "Account Number"]}
+            row={[tx.smartcardNo, tx.accountNumber || tx.accountName]}
           />
         </section>
 

@@ -437,7 +437,19 @@ export function readChannelRaw(o: Record<string, unknown>): string {
 }
 
 function pickTransactionChannel(o: Record<string, unknown>): string {
-  const raw = readChannelRaw(o);
+  const productLikeChannel = pickString(o, [
+    "productChannel",
+    "product_channel",
+    "category",
+    "categorySlug",
+    "category_slug",
+    "service",
+    "productType",
+    "product_type",
+    "transactionType",
+    "transaction_type",
+  ]);
+  const raw = productLikeChannel || readChannelRaw(o);
   return raw ? humanizeLabel(raw) : "—";
 }
 
