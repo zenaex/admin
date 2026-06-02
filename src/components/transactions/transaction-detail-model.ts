@@ -100,6 +100,7 @@ export type TransactionDetailModel = {
   meterNumber: string;
   address: string;
   accountName: string;
+  accountNumber: string;
   phoneNumber: string;
   smartcardNo: string;
   bettingId: string;
@@ -181,6 +182,7 @@ export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
   meterNumber: "",
   address: "",
   accountName: "",
+  accountNumber: "",
   phoneNumber: "",
   smartcardNo: "",
   bettingId: "",
