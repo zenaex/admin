@@ -9,6 +9,7 @@ import {
   pickProviderLabel,
   pickString,
   flattenTransactionRecord,
+  readChannelRaw,
   readDateRaw,
   readStatusRaw,
   unwrapTransactionRecord,
@@ -32,23 +33,6 @@ export type TransactionLogEntry = {
 
 function channelKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function readChannelRaw(o: Record<string, unknown>): string {
-  return (
-    pickString(o, [
-      "channel",
-      "productChannel",
-      "product_channel",
-      "category",
-      "transactionType",
-      "transaction_type",
-      "productType",
-      "product_type",
-      "service",
-    ]) || pickString(o, ["type"]) ||
-    ""
-  );
 }
 
 function mapOutcome(statusRaw: string): EsimTransactionOutcome | null {

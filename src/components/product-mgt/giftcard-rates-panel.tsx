@@ -161,7 +161,7 @@ export function GiftcardRatesPanel() {
                       <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                         <button
                           type="button"
-                          className="text-zinc-400 hover:text-zinc-600 transition-colors"
+                          className="text-[#001928] transition-colors hover:opacity-80"
                           onClick={() => setEditBrand(brand)}
                           aria-label={`Settings for ${brand.brandName}`}
                         >

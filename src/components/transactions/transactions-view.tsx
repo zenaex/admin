@@ -38,6 +38,7 @@ const TX_EXPORT_COLUMNS: ExportColumn<AdminTransactionListRow>[] = [
   { header: "Reference", value: (r) => r.refNo },
   { header: "Customer", value: (r) => r.customerName },
   { header: "Channel", value: (r) => r.channel },
+  { header: "Product", value: (r) => r.product },
   { header: "Amount", value: (r) => r.amount },
   { header: "Provider", value: (r) => r.provider },
   { header: "Status", value: (r) => r.status },
@@ -443,6 +444,7 @@ export function TransactionsView() {
               <th className="px-4 py-4 font-medium">Reference No</th>
               <th className="px-4 py-4 font-medium">Customer Names</th>
               <th className="px-4 py-4 font-medium">Channel</th>
+              <th className="px-4 py-4 font-medium">Product</th>
               <th className="px-4 py-4 font-medium">Amount</th>
               <th className="px-4 py-4 font-medium">Provider</th>
               <th className="px-4 py-4 font-medium">Status</th>
@@ -452,13 +454,13 @@ export function TransactionsView() {
           <tbody>
             {listLoading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
+                <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
                   Loading transactions…
                 </td>
               </tr>
             ) : paginatedRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
+                <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
                   No transactions found.
                 </td>
               </tr>
@@ -475,6 +477,7 @@ export function TransactionsView() {
                   </td>
                   <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">{row.customerName}</td>
                   <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">{row.channel}</td>
+                  <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">{row.product}</td>
                   <td className="h-16 px-4 py-0 align-middle text-[13px] font-medium text-primary-text">{row.amount}</td>
                   <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">{row.provider}</td>
                   <td className="h-16 px-4 py-0 align-middle">

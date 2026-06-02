@@ -275,6 +275,7 @@ export type AdminTransactionListRow = {
   refNo: string;
   customerName: string;
   channel: string;
+  product: string;
   amount: string;
   provider: string;
   status: string;

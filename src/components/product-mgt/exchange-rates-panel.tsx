@@ -355,7 +355,7 @@ export function ExchangeRatesPanel() {
                       <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                         <button
                           type="button"
-                          className="text-zinc-400 transition-colors hover:text-zinc-600"
+                          className="text-[#001928] transition-colors hover:opacity-80"
                           aria-label={`Settings for ${row.currencyCode}`}
                           onClick={() => setEditRow(row)}
                         >
