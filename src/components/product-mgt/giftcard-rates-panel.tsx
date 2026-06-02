@@ -2,7 +2,8 @@
 // Renders the Giftcard Rate subtab interface with expandable hierarchical brands table
 
 import { Fragment, useMemo, useState, useEffect } from "react";
-import { ArrowDown2, Setting2 } from "iconsax-react";
+import { Add, ArrowDown2, Setting2 } from "iconsax-react";
+import { GiftcardRateSheetUploadModal } from "@/components/product-mgt/giftcard-rate-sheet-upload-modal";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { GiftcardBrandCell } from "@/components/product-mgt/giftcard-brand-cell";
@@ -21,6 +22,7 @@ export function GiftcardRatesPanel() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [editBrand, setEditBrand] = useState<GiftcardBrand | null>(null);
+  const [rateSheetOpen, setRateSheetOpen] = useState(false);
 
   const loadGiftcardRates = async () => {
     setLoading(true);
@@ -85,7 +87,21 @@ export function GiftcardRatesPanel() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setRateSheetOpen(true)}
+          className="ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-3 text-xs font-semibold text-primary-text transition-opacity hover:opacity-90"
+        >
+          <Add size={16} variant="Outline" color="currentColor" />
+          Add Rate Sheet
+        </button>
       </div>
+
+      <GiftcardRateSheetUploadModal
+        open={rateSheetOpen}
+        onClose={() => setRateSheetOpen(false)}
+        onSuccess={() => void loadGiftcardRates()}
+      />
 
       {/* Expandable Table */}
       <div className="mt-4 overflow-x-auto rounded-[8px]">

@@ -1,4 +1,4 @@
-import { adminRequest } from "@/lib/admin-api/client";
+import { adminRequest, AdminApiError } from "@/lib/admin-api/client";
 import type { ExchangeRateRow, ExchangeRateSubTab, GiftcardBrand, SwapPairMeta } from "@/components/product-mgt/product-mgt-types";
 
 // Helper utilities for normalization
@@ -362,11 +362,66 @@ export async function postCreateSwapPair(body: {
 
 
 
+/** Accepted gift card rate sheet uploads. */
+export function isGiftcardRateSheetFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls");
+}
+
+function isCsvRateSheetFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith(".csv") || file.type === "text/csv" || file.type === "application/csv";
+}
+
 /** `POST /admin/rates/sheets` — Upload a gift card rate sheet from a CSV URL */
 export async function postUploadRateSheet(body: { csvUrl: string }): Promise<void> {
   await adminRequest("/admin/rates/sheets", {
     method: "POST",
     body: JSON.stringify(body),
+    auth: true,
+  });
+}
+
+/** `POST /admin/rates/sheets` — Upload gift card rates from a CSV or Excel file. */
+export async function uploadGiftcardRateSheet(file: File): Promise<void> {
+  if (!isGiftcardRateSheetFile(file)) {
+    throw new Error("Please choose a CSV or Excel file.");
+  }
+
+  const form = new FormData();
+  form.append("file", file, file.name);
+
+  try {
+    await adminRequest<unknown>("/admin/rates/sheets", {
+      method: "POST",
+      body: form,
+      auth: true,
+    });
+    return;
+  } catch (multipartError) {
+    if (!(multipartError instanceof AdminApiError)) throw multipartError;
+    if (multipartError.status !== 400 && multipartError.status !== 415) {
+      throw multipartError;
+    }
+    if (!isCsvRateSheetFile(file)) {
+      throw multipartError;
+    }
+  }
+
+  const csv = await file.text();
+  if (!csv.trim()) {
+    throw new Error("CSV file is empty.");
+  }
+
+  await adminRequest("/admin/rates/sheets", {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify({
+      csv,
+      csvContent: csv,
+      content: csv,
+      fileName: file.name,
+    }),
   });
 }
 
