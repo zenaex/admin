@@ -17,18 +17,24 @@ export function TxDataBlockTable({
   collapseTopBorder?: boolean;
 }) {
   const cellBorder = `1px solid ${BORDER}`;
-  const thBase = "px-4 py-3 text-left text-xs font-semibold align-middle";
-  const tdBase = "px-4 py-4 text-left text-sm font-normal align-top";
+  const thBase = "px-4 py-3 text-left text-xs font-semibold align-middle break-words";
+  const tdBase = "px-4 py-3 text-left text-sm font-normal align-middle break-words";
   const n = headers.length;
+  const colWidth = n > 0 ? `${100 / n}%` : "auto";
 
   return (
     <div className={["w-full overflow-hidden rounded-xl bg-white", className].filter(Boolean).join(" ")}>
-      <table className="w-full border-collapse text-left">
+      <table className="w-full table-fixed border-collapse text-left">
+        <colgroup>
+          {headers.map((h, i) => (
+            <col key={`${h}-${i}`} style={{ width: colWidth }} />
+          ))}
+        </colgroup>
         <thead>
           <tr style={{ backgroundColor: HEADER_BG }}>
             {headers.map((h, i) => (
               <th
-                key={h}
+                key={`${h}-${i}`}
                 className={[
                   thBase,
                   !collapseTopBorder && i === 0 ? "rounded-tl-xl" : "",

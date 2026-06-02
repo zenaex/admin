@@ -68,6 +68,16 @@ function readProviderLogRequestPayload(o: Record<string, unknown>): Record<strin
   return null;
 }
 
+function formatPayoutCurrencyLabel(code: string): string {
+  const c = code.trim().toUpperCase();
+  if (!c) return "";
+  if (c === "NGN" || c === "NAIRA") return "Naira (NGN)";
+  if (c === "USD") return "US Dollar (USD)";
+  if (c === "GBP") return "British Pound (GBP)";
+  if (c === "EUR") return "Euro (EUR)";
+  return code.trim();
+}
+
 /** e.g. `MTN-SME-1GB-30D` → `1GB 30days` */
 export function formatDataBundleDisplay(raw: string): string {
   const t = raw.trim().replace(/^"|"$/g, "");
@@ -568,6 +578,7 @@ export function mapApiDetailToTransactionModel(
     esimBalanceAfter: balanceAfter,
     withdrawalAmount: amountFormatted,
     withdrawalFee: pickString(o, ["withdrawalFee"]) || fee,
+    withdrawalPayoutCurrency: formatPayoutCurrencyLabel(currency),
     withdrawalBankName:
       pickString(o, ["bankName", "bank_name"]) ||
       (bankBlock ? pickString(bankBlock, ["bankName", "name", "bank"]) : "") ||
@@ -588,6 +599,12 @@ export function mapApiDetailToTransactionModel(
         : "") ||
       pickString(o, ["accountNumber", "account_number"]) ||
       (bankBlock ? pickString(bankBlock, ["accountNumber", "number"]) : "") ||
+      "",
+    withdrawalRemark:
+      (providerLogRequest
+        ? pickString(providerLogRequest, ["narration", "remark", "memo", "description"])
+        : "") ||
+      pickString(o, ["narration", "remark", "memo", "description", "note", "notes"]) ||
       "",
     withdrawalBalanceAfter: balanceAfter,
     withdrawalTimestamp: datedInitiated,

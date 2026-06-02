@@ -632,6 +632,12 @@ function EsimTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
 }
 
 function WithdrawalTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
+  const channelLabel =
+    tx.channel === "Withdrawal"
+      ? "Withdrawal"
+      : tx.categorySlug || tx.displayCategory || "Withdrawal";
+  const payoutCurrency = tx.withdrawalPayoutCurrency || "Naira (NGN)";
+
   return (
     <>
       <section className="mt-6">
@@ -643,30 +649,45 @@ function WithdrawalTransactionDetailsContent({ tx }: { tx: TransactionDetailMode
             "Transaction ID",
             "Customer Names",
             "Channel",
-            "Amount",
+            "Payout Currency",
+            "Amount (NGN)",
             "Fee",
-            "Bank",
           ]}
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
             tx.customerName,
-            tx.categorySlug || "Withdrawal",
+            channelLabel,
+            payoutCurrency,
             tx.withdrawalAmount,
             tx.charge || tx.withdrawalFee,
-            tx.withdrawalBankName,
           ]}
         />
         <TxDataBlockTable
           className="mt-6"
-          headers={["Account Name", "Account Number", "Timestamp", "Balance After"]}
+          headers={["Timestamp", "Provider", "Balance After"]}
           row={[
-            tx.withdrawalAccountName,
-            tx.withdrawalAccountNumber,
             <TimeStampCell key="ts" value={tx.withdrawalTimestamp} />,
+            tx.provider,
             tx.withdrawalBalanceAfter,
           ]}
         />
       </section>
+
+      <section className="mt-8">
+        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+          Recipient Details
+        </h2>
+        <TxDataBlockTable
+          headers={["Bank", "Recipient Name", "Account Number", "Remark"]}
+          row={[
+            tx.withdrawalBankName,
+            tx.withdrawalAccountName,
+            tx.withdrawalAccountNumber,
+            tx.withdrawalRemark,
+          ]}
+        />
+      </section>
+
       <DepositDeviceSection tx={tx} />
     </>
   );

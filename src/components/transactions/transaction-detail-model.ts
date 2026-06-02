@@ -76,9 +76,11 @@ export type TransactionDetailModel = {
   defaultOutcome: EsimTransactionOutcome;
   withdrawalAmount: string;
   withdrawalFee: string;
+  withdrawalPayoutCurrency: string;
   withdrawalBankName: string;
   withdrawalAccountName: string;
   withdrawalAccountNumber: string;
+  withdrawalRemark: string;
   withdrawalBalanceAfter: string;
   withdrawalTimestamp: string;
   etradeSymbol: string;
@@ -159,9 +161,11 @@ export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
   defaultOutcome: "Pending",
   withdrawalAmount: "",
   withdrawalFee: "",
+  withdrawalPayoutCurrency: "",
   withdrawalBankName: "",
   withdrawalAccountName: "",
   withdrawalAccountNumber: "",
+  withdrawalRemark: "",
   withdrawalBalanceAfter: "",
   withdrawalTimestamp: "",
   etradeSymbol: "",
