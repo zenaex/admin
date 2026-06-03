@@ -55,8 +55,8 @@ export function FiatRateUpdateFlow({ row, onClose, onApplied }: FiatRateUpdateFl
       const quote = row.fiatQuote ?? row.currencyCode;
       await postConfigureFiatRate(base, quote, {
         markupType: form.markupType,
-        markupRate: parseFloat(form.markupRate) || 0,
-        baseRate: parseFloat(form.baseRate) || 0,
+        markupRate: form.markupRate,
+        markupCap: form.markupType === "% capped @" ? 50 : undefined,
       });
 
       const preview = buildRatePreview(form, row.currencyCode);

@@ -76,12 +76,15 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
       await postConfigureGiftcardRate(activeBrand.id, {
         rmbRate: form.rmbRate,
         markupType: form.commissionType,
-        markupRate: parseFloat(form.commissionRate) || 0,
-        denominations: form.denominations.map((d) => ({
-          id: d.id,
-          label: d.label,
-          vendorRate: parseFloat(d.vendorRate) || 0,
-        })),
+        markupRate: form.commissionRate,
+        categories: form.denominations.map((d) => {
+          const existing = activeBrand.denominations.find((denom) => denom.id === d.id);
+          return {
+            category: d.label,
+            vendorRate: parseFloat(d.vendorRate) || 0,
+            isActive: existing?.status !== "Inactive",
+          };
+        }),
       });
 
       const commValueDisplay =

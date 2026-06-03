@@ -1,4 +1,10 @@
-import { adminRequest, AdminApiError } from "@/lib/admin-api/client";
+import { adminRequest } from "@/lib/admin-api/client";
+import {
+  buildMarkupConfigurePayload,
+  parseRmbRateNumber,
+  resolveCryptoSlug,
+  resolveSwapCryptoCode,
+} from "@/lib/admin-api/rates-payload";
 import type { ExchangeRateRow, ExchangeRateSubTab, GiftcardBrand, SwapPairMeta } from "@/components/product-mgt/product-mgt-types";
 
 // Helper utilities for normalization
@@ -202,6 +208,12 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
     }
   }
 
+  const cryptoSlug =
+    subTab === "sell-crypto"
+      ? pickString(o, ["cryptoSlug", "crypto_slug", "slug", "assetSlug"]) ||
+        resolveCryptoSlug(currencyCode, pickString(o, ["cryptoSlug", "slug"]))
+      : undefined;
+
   return {
     id,
     currencyCode,
@@ -215,6 +227,7 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
     finalRate,
     dateUpdated,
     swapPair,
+    cryptoSlug,
   };
 }
 
@@ -341,22 +354,27 @@ export async function getGiftcardRates(): Promise<GiftcardBrand[]> {
 export async function postConfigureFiatRate(
   base: string,
   quote: string,
-  body: { markupType: string; markupRate: number; baseRate?: number }
+  input: { markupType: string; markupRate: string | number; markupCap?: number },
 ): Promise<void> {
+  const payload = buildMarkupConfigurePayload(input.markupType, input.markupRate, input.markupCap);
   await adminRequest(`/admin/rates/fiat/${encodeURIComponent(base)}/${encodeURIComponent(quote)}/configure`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
+    auth: true,
   });
 }
 
 /** `POST /admin/rates/sell-crypto/{cryptoSlug}/configure` — Configure markup for selling a crypto asset */
 export async function postConfigureSellCryptoRate(
   cryptoSlug: string,
-  body: { markupType: string; markupRate: number }
+  input: { markupType: string; markupRate: string | number; markupCap?: number },
 ): Promise<void> {
-  await adminRequest(`/admin/rates/sell-crypto/${encodeURIComponent(cryptoSlug)}/configure`, {
+  const slug = resolveCryptoSlug(cryptoSlug);
+  const payload = buildMarkupConfigurePayload(input.markupType, input.markupRate, input.markupCap);
+  await adminRequest(`/admin/rates/sell-crypto/${encodeURIComponent(slug)}/configure`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
+    auth: true,
   });
 }
 
@@ -364,106 +382,79 @@ export async function postConfigureSellCryptoRate(
 export async function postConfigureSwapCryptoRate(
   base: string,
   quote: string,
-  body: { markupType: string; baseMarkupRate: number; quoteMarkupRate: number }
+  input: { baseToQuoteMarkupValue: number; quoteToBaseMarkupValue: number },
 ): Promise<void> {
-  await adminRequest(`/admin/rates/swap-crypto/${encodeURIComponent(base)}/${encodeURIComponent(quote)}/configure`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  await adminRequest(
+    `/admin/rates/swap-crypto/${encodeURIComponent(resolveSwapCryptoCode(base))}/${encodeURIComponent(resolveSwapCryptoCode(quote))}/configure`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        baseToQuoteMarkupValue: input.baseToQuoteMarkupValue,
+        quoteToBaseMarkupValue: input.quoteToBaseMarkupValue,
+      }),
+      auth: true,
+    },
+  );
 }
+
+export type GiftcardRateCategoryInput = {
+  category: string;
+  vendorRate: number;
+  isActive: boolean;
+};
 
 /** `POST /admin/rates/gift-card/{configId}/configure` — Configure a gift card rate */
 export async function postConfigureGiftcardRate(
   configId: string,
-  body: {
-    rmbRate: string;
+  input: {
+    rmbRate: string | number;
     markupType: string;
-    markupRate: number;
-    denominations: { id: string; label: string; vendorRate: number }[];
-  }
+    markupRate: string | number;
+    categories: GiftcardRateCategoryInput[];
+  },
 ): Promise<void> {
+  const { markupType, markupValue } = buildMarkupConfigurePayload(input.markupType, input.markupRate);
   await adminRequest(`/admin/rates/gift-card/${encodeURIComponent(configId)}/configure`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      rmbRate: parseRmbRateNumber(input.rmbRate),
+      markupType,
+      markupValue,
+      categories: input.categories,
+    }),
+    auth: true,
   });
 }
 
 /** `POST /admin/rates/swap-pairs` — Create a new crypto swap pair */
 export async function postCreateSwapPair(body: {
-  base: string;
-  quote: string;
-  markupType: string;
-  baseMarkupRate: number;
-  quoteMarkupRate: number;
+  baseCryptoSlug: string;
+  quoteCryptoSlug: string;
+  baseToQuoteMarkupValue: number;
+  quoteToBaseMarkupValue: number;
 }): Promise<void> {
   await adminRequest("/admin/rates/swap-pairs", {
     method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-
-
-
-/** Accepted gift card rate sheet uploads. */
-export function isGiftcardRateSheetFile(file: File): boolean {
-  const name = file.name.toLowerCase();
-  return name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls");
-}
-
-function isCsvRateSheetFile(file: File): boolean {
-  const name = file.name.toLowerCase();
-  return name.endsWith(".csv") || file.type === "text/csv" || file.type === "application/csv";
-}
-
-/** `POST /admin/rates/sheets` — Upload a gift card rate sheet from a CSV URL */
-export async function postUploadRateSheet(body: { csvUrl: string }): Promise<void> {
-  await adminRequest("/admin/rates/sheets", {
-    method: "POST",
-    body: JSON.stringify(body),
-    auth: true,
-  });
-}
-
-/** `POST /admin/rates/sheets` — Upload gift card rates from a CSV or Excel file. */
-export async function uploadGiftcardRateSheet(file: File): Promise<void> {
-  if (!isGiftcardRateSheetFile(file)) {
-    throw new Error("Please choose a CSV or Excel file.");
-  }
-
-  const form = new FormData();
-  form.append("file", file, file.name);
-
-  try {
-    await adminRequest<unknown>("/admin/rates/sheets", {
-      method: "POST",
-      body: form,
-      auth: true,
-    });
-    return;
-  } catch (multipartError) {
-    if (!(multipartError instanceof AdminApiError)) throw multipartError;
-    if (multipartError.status !== 400 && multipartError.status !== 415) {
-      throw multipartError;
-    }
-    if (!isCsvRateSheetFile(file)) {
-      throw multipartError;
-    }
-  }
-
-  const csv = await file.text();
-  if (!csv.trim()) {
-    throw new Error("CSV file is empty.");
-  }
-
-  await adminRequest("/admin/rates/sheets", {
-    method: "POST",
-    auth: true,
     body: JSON.stringify({
-      csv,
-      csvContent: csv,
-      content: csv,
-      fileName: file.name,
+      baseCryptoSlug: resolveSwapCryptoCode(body.baseCryptoSlug),
+      quoteCryptoSlug: resolveSwapCryptoCode(body.quoteCryptoSlug),
+      baseToQuoteMarkupValue: body.baseToQuoteMarkupValue,
+      quoteToBaseMarkupValue: body.quoteToBaseMarkupValue,
     }),
+    auth: true,
+  });
+}
+
+
+
+/** `POST /admin/rates/sheets` — Upload a gift card rate sheet from a publicly accessible CSV URL */
+export async function postUploadRateSheet(body: { csvUrl: string }): Promise<void> {
+  const csvUrl = body.csvUrl.trim();
+  if (!csvUrl) throw new Error("CSV URL is required.");
+  await adminRequest("/admin/rates/sheets", {
+    method: "POST",
+    body: JSON.stringify({ csvUrl }),
+    auth: true,
   });
 }
 
