@@ -1,7 +1,10 @@
 import { adminRequest } from "@/lib/admin-api/client";
 import type {
   AdminChangeAdminRoleBody,
+  AdminCustomerLienBody,
+  AdminCustomerPndBody,
   AdminCustomerReactivateBody,
+  AdminCustomerRemoveLienBody,
   AdminCustomerSuspendBody,
 } from "@/lib/admin-api/types";
 
@@ -43,7 +46,10 @@ function adminPath(adminId: string, action: "role" | "deactivate" | "suspend" | 
   return `/admin/team/${encodeURIComponent(adminId.trim())}/${action}`;
 }
 
-function customerPath(accountId: string, action: "deactivate" | "suspend" | "reactivate"): string {
+function customerPath(
+  accountId: string,
+  action: "deactivate" | "suspend" | "reactivate" | "pnd" | "remove-pnd" | "lien" | "remove-lien",
+): string {
   return `/admin/users/customer/${encodeURIComponent(accountId.trim())}/${action}`;
 }
 
@@ -126,6 +132,55 @@ export async function postCustomerReactivate(
     method: "POST",
     auth: true,
     body: JSON.stringify({ reason }),
+  });
+}
+
+export async function postCustomerAddPnd(accountId: string, body: AdminCustomerPndBody): Promise<void> {
+  const reason = body.reason.trim();
+  if (!reason) {
+    throw new Error("Reason is required");
+  }
+  await adminRequest<unknown>(customerPath(accountId, "pnd"), {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function postCustomerRemovePnd(accountId: string): Promise<void> {
+  await adminRequest<unknown>(customerPath(accountId, "remove-pnd"), {
+    method: "POST",
+    auth: true,
+  });
+}
+
+export async function postCustomerPlaceLien(accountId: string, body: AdminCustomerLienBody): Promise<void> {
+  const amount = body.amount.trim();
+  const lienType = body.lienType.trim();
+  const reason = body.reason.trim();
+  if (!amount || !lienType || !reason) {
+    throw new Error("Amount, lien type, and reason are required");
+  }
+  await adminRequest<unknown>(customerPath(accountId, "lien"), {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify({
+      amount,
+      lienType,
+      reason,
+      ...(body.walletId ? { walletId: body.walletId } : {}),
+    }),
+  });
+}
+
+export async function postCustomerRemoveLien(
+  accountId: string,
+  body?: AdminCustomerRemoveLienBody,
+): Promise<void> {
+  await adminRequest<unknown>(customerPath(accountId, "remove-lien"), {
+    method: "POST",
+    auth: true,
+    ...(body?.walletId ? { body: JSON.stringify({ walletId: body.walletId }) } : {}),
   });
 }
 

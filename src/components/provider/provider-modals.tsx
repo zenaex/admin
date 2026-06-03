@@ -75,35 +75,36 @@ export function ConfirmModal({
   );
 }
 
-type AddProductModalProps = {
-  product: { productName: string; commissionType: string; commissionRate: string; cap: string };
+type EditProductCommissionModalProps = {
+  productName: string;
+  initial: { commissionType: string; commissionRate: string; cap: string };
   onClose: () => void;
-  onSuccess: () => void;
+  onSave: (form: { commissionType: string; commissionRate: string; cap: string }) => Promise<void>;
 };
 
 const COMMISSION_TYPES = ["Flat", "Percentage", "% capped @"];
-const PRODUCT_OPTIONS = [
-  "EKEDC Postpaid",
-  "Spectranet Data",
-  "Global 139",
-  "MTN Airtime",
-  "Glo Airtime",
-  "IKEDC Postpaid",
-  "DSTV Subscription",
-  "Startimes",
-];
 
-export function AddProductModal({ product, onClose, onSuccess }: AddProductModalProps) {
-  const [form, setForm] = useState({
-    product: product.productName,
-    commissionType: product.commissionType,
-    commissionRate: product.commissionRate,
-    cap: product.cap === "-" ? "" : product.cap,
-  });
+export function EditProductCommissionModal({
+  productName,
+  initial,
+  onClose,
+  onSave,
+}: EditProductCommissionModalProps) {
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSuccess();
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(form);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save commission.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -111,7 +112,7 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative mx-4 w-full max-w-sm rounded-2xl bg-white px-6 pb-7 pt-5 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[17px] font-bold text-primary-text">Add Product</h2>
+          <h2 className="text-[17px] font-bold text-primary-text">Edit Commission</h2>
           <button
             type="button"
             onClick={onClose}
@@ -122,33 +123,18 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+          {error ? (
+            <p className="text-sm text-red-700" role="alert">
+              {error}
+            </p>
+          ) : null}
+
           <div>
             <label className="mb-1.5 block text-sm font-medium text-primary-text">Product</label>
-            <div className="relative">
-              <select
-                className="w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
-                value={form.product}
-                onChange={(e) => setForm((f) => ({ ...f, product: e.target.value }))}
-              >
-                {PRODUCT_OPTIONS.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path
-                    d="M3 5l4 4 4-4"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-            </div>
+            <p className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm text-primary-text">
+              {productName}
+            </p>
           </div>
 
           <div>
@@ -203,9 +189,84 @@ export function AddProductModal({ product, onClose, onSuccess }: AddProductModal
 
           <button
             type="submit"
-            className="mt-2 w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
+            disabled={saving}
+            className="mt-2 w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-60"
           >
-            Submit
+            {saving ? "Saving…" : "Submit"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+type EditProviderEmailModalProps = {
+  initialEmail: string;
+  onClose: () => void;
+  onSave: (email: string) => Promise<void>;
+};
+
+export function EditProviderEmailModal({ initialEmail, onClose, onSave }: EditProviderEmailModalProps) {
+  const [email, setEmail] = useState(initialEmail === "—" ? "" : initialEmail);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError("Email is required.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(trimmed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update email.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-sm rounded-2xl bg-white px-6 pb-7 pt-5 shadow-xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-[17px] font-bold text-primary-text">Update Email</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-zinc-400 transition-colors hover:text-zinc-600"
+            aria-label="Close"
+          >
+            <CloseCircle size={22} variant="Outline" color="currentColor" />
+          </button>
+        </div>
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+          {error ? (
+            <p className="text-sm text-red-700" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-primary-text">Email Address</label>
+            <input
+              type="email"
+              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@example.com"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save"}
           </button>
         </form>
       </div>

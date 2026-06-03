@@ -9,7 +9,6 @@ import type {
   AdminTeamListResult,
   AdminTeamMember,
   AdminTeamUpdateBody,
-  AdminRole,
   AdminTeamDeactivateBody,
   AdminTeamSuspendBody,
 } from "@/lib/admin-api/types";
@@ -240,28 +239,4 @@ export async function deleteAdminInvitation(id: string): Promise<void> {
   });
 }
 
-/** `GET /admin/roles` — List all admin roles. */
-export async function getAdminRoles(): Promise<AdminRole[]> {
-  const data = await adminRequest<unknown>("/admin/roles", { method: "GET" });
-  const rawList = (() => {
-    if (Array.isArray(data)) return data;
-    if (data && typeof data === "object") {
-      const r = data as Record<string, unknown>;
-      const list = r.roles ?? r.items ?? r.data;
-      if (Array.isArray(list)) return list;
-    }
-    return [];
-  })();
-
-  return rawList.map((item: unknown): AdminRole => {
-    if (item && typeof item === "object") {
-      const r = item as Record<string, unknown>;
-      const id = String(r.id ?? r.roleId ?? r.value ?? "");
-      const name = String(r.name ?? r.role ?? r.label ?? "");
-      const description = r.description ? String(r.description) : undefined;
-      return { id, name, description };
-    }
-    const val = String(item);
-    return { id: val, name: val };
-  });
-}
+export { getAdminRoles } from "@/lib/admin-api/roles-api";

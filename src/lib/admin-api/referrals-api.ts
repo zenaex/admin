@@ -1,12 +1,15 @@
-import { adminRequest } from "@/lib/admin-api/client";
+import { adminRequest, AdminApiError } from "@/lib/admin-api/client";
 import type {
   AdminReferralConfigBody,
+  AdminReferralConfigForm,
+  AdminReferralConfigUpdateBody,
   AdminReferralDetailResult,
   AdminReferralListQuery,
   AdminReferralListResult,
   AdminReferralListRow,
   AdminReferredUserRow,
   AdminReferralsSummary,
+  ReferralThresholdType,
 } from "@/lib/admin-api/types";
 
 function pickString(o: Record<string, unknown>, keys: string[]): string {
@@ -190,18 +193,157 @@ export async function getAdminReferralsList(query?: AdminReferralListQuery): Pro
   return normalizeReferralListResponse(body, page, pageSize);
 }
 
-export async function getAdminReferralConfig(): Promise<Record<string, unknown>> {
-  const data = await adminRequest<unknown>(`/admin/referrals/config`, { method: "GET" });
+const DEFAULT_REFERRAL_CONFIG_FORM: AdminReferralConfigForm = {
+  minTransactionAmount: "100",
+  currency: "NGN",
+  maxDaysFromOnboarding: 30,
+  cycleSize: 10,
+  allowedProducts: [],
+  rewardAmount: "5000",
+  rewardCurrency: "NGN",
+  thresholdType: "transaction_count",
+};
+
+function normalizeThresholdType(raw: unknown): ReferralThresholdType {
+  const s = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  if (s === "amount_spent" || s === "amountspent") return "amount_spent";
+  if (s === "signup_count" || s === "signupcount" || s === "sign_up_count") return "signup_count";
+  return "transaction_count";
+}
+
+function pickStringArray(o: Record<string, unknown>, keys: string[]): string[] {
+  for (const k of keys) {
+    const v = o[k];
+    if (Array.isArray(v)) {
+      return v.map((item) => String(item).trim()).filter(Boolean);
+    }
+    if (typeof v === "string" && v.trim()) {
+      return v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+/** Map `GET /admin/referrals/config` payload into form state. */
+export function normalizeReferralConfig(data: unknown): AdminReferralConfigForm {
   const r = asRecord(data);
-  const inner = r ? asRecord(r.data) : null;
-  return inner ?? r ?? {};
+  const root = r ? (asRecord(r.data) ?? asRecord(r.config) ?? r) : {};
+  const minTx = root.minTransactionAmount ?? root.min_transaction_amount;
+  const reward = root.rewardAmount ?? root.reward_amount;
+  return {
+    minTransactionAmount:
+      minTx !== undefined && minTx !== null ? String(minTx).replace(/[^\d.]/g, "") || "100" : "100",
+    currency: pickString(root, ["currency", "minTransactionCurrency"]) || "NGN",
+    maxDaysFromOnboarding:
+      pickNum(root, ["maxDaysFromOnboarding", "max_days_from_onboarding"]) ?? 30,
+    cycleSize: pickNum(root, ["cycleSize", "cycle_size"]) ?? 10,
+    allowedProducts: pickStringArray(root, ["allowedProducts", "allowed_products"]),
+    rewardAmount:
+      reward !== undefined && reward !== null ? String(reward).replace(/[^\d.]/g, "") || "0" : "5000",
+    rewardCurrency: pickString(root, ["rewardCurrency", "reward_currency"]) || "NGN",
+    thresholdType: normalizeThresholdType(root.thresholdType ?? root.threshold_type),
+  };
+}
+
+export type AdminReferralConfigLoadResult = {
+  exists: boolean;
+  form: AdminReferralConfigForm;
+};
+
+/** Active referral configuration; `exists` is false when API returns 404. */
+export async function getAdminReferralConfig(): Promise<AdminReferralConfigLoadResult> {
+  try {
+    const data = await adminRequest<unknown>(`/admin/referrals/config`, {
+      method: "GET",
+      auth: true,
+    });
+    return { exists: true, form: normalizeReferralConfig(data) };
+  } catch (e) {
+    if (e instanceof AdminApiError && e.status === 404) {
+      return { exists: false, form: { ...DEFAULT_REFERRAL_CONFIG_FORM } };
+    }
+    throw e;
+  }
+}
+
+export function referralConfigFormToPostBody(form: AdminReferralConfigForm): AdminReferralConfigBody {
+  return {
+    minTransactionAmount: parseAmountString(form.minTransactionAmount),
+    currency: form.currency.trim() || "NGN",
+    maxDaysFromOnboarding: form.maxDaysFromOnboarding,
+    cycleSize: form.cycleSize,
+    allowedProducts: form.allowedProducts,
+    rewardAmount: parseAmountString(form.rewardAmount),
+    rewardCurrency: form.rewardCurrency.trim() || "NGN",
+    thresholdType: form.thresholdType,
+  };
+}
+
+export function referralConfigFormToPutBody(form: AdminReferralConfigForm): AdminReferralConfigUpdateBody {
+  const minTx = Number(parseAmountString(form.minTransactionAmount));
+  const reward = Number(parseAmountString(form.rewardAmount));
+  return {
+    minTransactionAmount: Number.isFinite(minTx) ? minTx : 0,
+    currency: form.currency.trim() || "NGN",
+    maxDaysFromOnboarding: form.maxDaysFromOnboarding,
+    cycleSize: form.cycleSize,
+    allowedProducts: form.allowedProducts,
+    rewardAmount: Number.isFinite(reward) ? reward : 0,
+    rewardCurrency: form.rewardCurrency.trim() || "NGN",
+    thresholdType: form.thresholdType,
+  };
 }
 
 export async function createAdminReferralConfig(body: AdminReferralConfigBody): Promise<unknown> {
   return adminRequest<unknown>(`/admin/referrals/config`, {
     method: "POST",
+    auth: true,
     body: JSON.stringify(body),
   });
+}
+
+/** `PUT /admin/referrals/config` — update active configuration (super_admin). */
+export async function updateAdminReferralConfig(body: AdminReferralConfigUpdateBody): Promise<unknown> {
+  return adminRequest<unknown>(`/admin/referrals/config`, {
+    method: "PUT",
+    auth: true,
+    body: JSON.stringify(body),
+  });
+}
+
+/** Create on first save; update when config already exists (or after 409). */
+export async function saveAdminReferralConfig(
+  form: AdminReferralConfigForm,
+  options: { exists: boolean },
+): Promise<"created" | "updated"> {
+  if (options.exists) {
+    try {
+      await updateAdminReferralConfig(referralConfigFormToPutBody(form));
+      return "updated";
+    } catch (e) {
+      if (e instanceof AdminApiError && e.status === 404) {
+        await createAdminReferralConfig(referralConfigFormToPostBody(form));
+        return "created";
+      }
+      throw e;
+    }
+  }
+  try {
+    await createAdminReferralConfig(referralConfigFormToPostBody(form));
+    return "created";
+  } catch (e) {
+    if (e instanceof AdminApiError && e.status === 409) {
+      await updateAdminReferralConfig(referralConfigFormToPutBody(form));
+      return "updated";
+    }
+    throw e;
+  }
 }
 
 function normalizeReferredRow(raw: unknown, idx: number): AdminReferredUserRow | null {

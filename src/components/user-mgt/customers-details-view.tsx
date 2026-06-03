@@ -2,22 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, Copy, DocumentDownload, Forbidden, Refresh, Wallet, CardReceive, CardSend } from "iconsax-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, Copy, DocumentDownload, Forbidden, MoneyForbidden, Refresh, Wallet, CardReceive, CardSend } from "iconsax-react";
 import { ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
+import { CustomerKycDetailsTab } from "@/components/user-mgt/customer-kyc-details-tab";
+import { CustomerLienFlow, type CustomerLienFlowMode } from "@/components/user-mgt/customer-lien-flow";
+import { CustomerPndFlow, type CustomerPndFlowMode } from "@/components/user-mgt/customer-pnd-flow";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import {
   getAdminAuditCustomerLogs,
-  getAdminCustomerKyc,
   getAdminCustomerProfile,
   getAdminCustomerTransactions,
   getAdminCustomerWallets,
+  pickCustomerHasLien,
+  pickCustomerHasPnd,
   pickCustomerPasswordStatus,
+  pickPrimaryWalletId,
   pickCustomerPinStatus,
   pickCustomerSecurityQuestionStatus,
 } from "@/lib/admin-api/customers-api";
@@ -124,6 +129,9 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const [pendingAction, setPendingAction] = useState<CustomerAccountAction | null>(null);
+  const [pndFlowMode, setPndFlowMode] = useState<CustomerPndFlowMode | null>(null);
+  const [lienFlowMode, setLienFlowMode] = useState<CustomerLienFlowMode | null>(null);
+  const [wallets, setWallets] = useState<AdminCustomerWalletItem[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -131,6 +139,8 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
   const token = getAccessToken();
   const canDeactivate = canDeactivateCustomer(token);
   const canSuspendReactivate = canSuspendOrReactivateCustomer(token);
+  const canManagePnd = canSuspendReactivate;
+  const canManageLien = canSuspendReactivate;
 
   const accountStatusRaw = useMemo(() => {
     const p = profile ?? {};
@@ -141,6 +151,10 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
     () => classifyCustomerAccountStatus(accountStatusRaw),
     [accountStatusRaw],
   );
+
+  const customerHasPnd = useMemo(() => pickCustomerHasPnd(profile ?? {}), [profile]);
+  const customerHasLien = useMemo(() => pickCustomerHasLien(profile ?? {}, wallets), [profile, wallets]);
+  const primaryWalletId = useMemo(() => pickPrimaryWalletId(wallets), [wallets]);
 
   const customerDisplayName = useMemo(() => {
     const p = profile ?? {};
@@ -165,9 +179,26 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
     }
   }, [accountId]);
 
+  const loadWallets = useCallback(async () => {
+    try {
+      const res = await getAdminCustomerWallets(accountId);
+      setWallets(res.wallets ?? []);
+    } catch {
+      setWallets([]);
+    }
+  }, [accountId]);
+
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    void loadWallets();
+  }, [loadWallets]);
+
+  const refreshCustomerState = useCallback(async () => {
+    await Promise.all([loadProfile(), loadWallets()]);
+  }, [loadProfile, loadWallets]);
 
   const actionMenuItems = useMemo(() => {
     const items: { key: string; label: string; icon: ReactNode; disabled?: boolean; title?: string; onClick?: () => void }[] = [
@@ -222,8 +253,68 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
       });
     }
 
+    if (canManagePnd) {
+      if (!customerHasPnd) {
+        items.push({
+          key: "add-pnd",
+          label: "Add Post No Debit",
+          icon: <MoneyForbidden size={16} variant="Outline" color="currentColor" />,
+          onClick: () => {
+            setActionError(null);
+            setPndFlowMode("add");
+            setActionOpen(false);
+          },
+        });
+      } else {
+        items.push({
+          key: "remove-pnd",
+          label: "Remove PND",
+          icon: <MoneyForbidden size={16} variant="Outline" color="currentColor" />,
+          onClick: () => {
+            setActionError(null);
+            setPndFlowMode("remove");
+            setActionOpen(false);
+          },
+        });
+      }
+    }
+
+    if (canManageLien) {
+      if (!customerHasLien) {
+        items.push({
+          key: "add-lien",
+          label: "Add Lien To Wallet",
+          icon: <Wallet size={16} variant="Outline" color="currentColor" />,
+          onClick: () => {
+            setActionError(null);
+            setLienFlowMode("add");
+            setActionOpen(false);
+          },
+        });
+      } else {
+        items.push({
+          key: "remove-lien",
+          label: "Remove Lien",
+          icon: <Wallet size={16} variant="Outline" color="currentColor" />,
+          onClick: () => {
+            setActionError(null);
+            setLienFlowMode("remove");
+            setActionOpen(false);
+          },
+        });
+      }
+    }
+
     return items;
-  }, [accountStatusKind, canDeactivate, canSuspendReactivate]);
+  }, [
+    accountStatusKind,
+    canDeactivate,
+    canManageLien,
+    canManagePnd,
+    canSuspendReactivate,
+    customerHasLien,
+    customerHasPnd,
+  ]);
 
   const handleDeactivateConfirm = async () => {
     setActionError(null);
@@ -337,7 +428,9 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
       {activeTab === "Transaction History" ? (
         <TransactionHistoryTab accountId={accountId} customerDisplayName={customerDisplayName} />
       ) : null}
-      {activeTab === "KYC Details" ? <KycDetailsTab accountId={accountId} /> : null}
+      {activeTab === "KYC Details" ? (
+        <CustomerKycDetailsTab accountId={accountId} customerDisplayName={customerDisplayName} />
+      ) : null}
       {activeTab === "Wallet" ? <WalletTab accountId={accountId} /> : null}
       {activeTab === "Audit Log" ? <AuditLogTab accountId={accountId} /> : null}
 
@@ -371,6 +464,25 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
           message={successMessage}
           confirmLabel="Done"
           onContinue={() => setSuccessMessage(null)}
+        />
+      ) : null}
+
+      {pndFlowMode ? (
+        <CustomerPndFlow
+          mode={pndFlowMode}
+          accountId={accountId}
+          onClose={() => setPndFlowMode(null)}
+          onApplied={refreshCustomerState}
+        />
+      ) : null}
+
+      {lienFlowMode ? (
+        <CustomerLienFlow
+          mode={lienFlowMode}
+          accountId={accountId}
+          walletId={primaryWalletId}
+          onClose={() => setLienFlowMode(null)}
+          onApplied={refreshCustomerState}
         />
       ) : null}
     </div>
@@ -1037,104 +1149,6 @@ function WalletTab({ accountId }: { accountId: string }) {
       </div>
     </section>
   );
-}
-
-function KycDetailsTab({ accountId }: { accountId: string }) {
-  const [data, setData] = useState<unknown>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const k = await getAdminCustomerKyc(accountId);
-        if (!cancelled) setData(k);
-      } catch (e) {
-        if (!cancelled) {
-          setData(null);
-          setError(e instanceof AdminApiError ? e.message : "Could not load KYC.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [accountId]);
-
-  if (loading) return <p className="mt-6 text-sm text-zinc-500">Loading KYC…</p>;
-  if (error)
-    return (
-      <p className="mt-6 text-sm text-red-700" role="alert">
-        {error}
-      </p>
-    );
-
-  if (data == null) return <p className="mt-6 text-sm text-zinc-500">No KYC data.</p>;
-
-  if (Array.isArray(data)) {
-    if (data.length === 0) return <p className="mt-6 text-sm text-zinc-500">No KYC records.</p>;
-    const first = data[0];
-    if (first && typeof first === "object") {
-      const keys = Object.keys(first as object);
-      return (
-        <section className="mt-6 overflow-x-auto rounded-xl border border-outline bg-white">
-          <table className="w-full min-w-[600px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="text-zinc-500">
-                {keys.map((k) => (
-                  <th key={k} className="border-b border-outline px-4 py-3 font-medium">
-                    {k}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row, i) => (
-                <tr key={i}>
-                  {keys.map((k) => (
-                    <td key={k} className="border-b border-zinc-100 px-4 py-3 text-zinc-600">
-                      {formatCell((row as Record<string, unknown>)[k])}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      );
-    }
-  }
-
-  if (typeof data === "object") {
-    const o = data as Record<string, unknown>;
-    return (
-      <section className="mt-6 space-y-6">
-        {Object.entries(o).map(([section, val]) => (
-          <div key={section}>
-            <h3 className="text-[16px] font-semibold capitalize text-primary-text">{section.replace(/_/g, " ")}</h3>
-            <div className="mt-2 rounded-xl border border-outline bg-white p-4 text-sm text-zinc-600">
-              {typeof val === "object" ? <pre className="overflow-x-auto whitespace-pre-wrap text-xs">{JSON.stringify(val, null, 2)}</pre> : String(val)}
-            </div>
-          </div>
-        ))}
-      </section>
-    );
-  }
-
-  return (
-    <pre className="mt-6 overflow-x-auto rounded-xl border border-outline bg-white p-4 text-xs">{JSON.stringify(data, null, 2)}</pre>
-  );
-}
-
-function formatCell(v: unknown): string {
-  if (v == null) return "—";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
 }
 
 function AuditLogTab({ accountId }: { accountId: string }) {

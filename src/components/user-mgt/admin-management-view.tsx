@@ -1,7 +1,8 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { More, Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, Edit2, PasswordCheck, Forbidden, Trash, Refresh } from "iconsax-react";
+import { More, Add, Setting2, Edit2, PasswordCheck, Forbidden, Trash, Refresh } from "iconsax-react";
+import { AdminRolesTab } from "@/components/user-mgt/admin-roles-tab";
 import { CalendarDays, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
@@ -66,15 +67,6 @@ const TEAM_EXPORT_COLUMNS: ExportColumn<AdminTeamMember>[] = [
   { header: "Status", value: (m) => m.status },
   { header: "Date Onboarded", value: (m) => m.dateOnboarded },
 ];
-
-type RoleExportRow = { name: string; members: number; description: string };
-
-const ROLE_EXPORT_COLUMNS: ExportColumn<RoleExportRow>[] = [
-  { header: "Role", value: (r) => r.name },
-  { header: "Members", value: (r) => String(r.members) },
-  { header: "Description", value: (r) => r.description },
-];
-
 
 /* ── Avatar ── */
 function Avatar({ name }: { name: string }) {
@@ -148,21 +140,19 @@ export function AdminManagementView() {
   const [suspendUntil, setSuspendUntil] = useState("");
   const [suspendMessage, setSuspendMessage] = useState("");
 
-  useEffect(() => {
-    let active = true;
+  const reloadRoleOptions = useCallback(() => {
     getAdminRoles()
       .then((list) => {
-        if (active && list && list.length > 0) {
-          setDynamicRoles(list);
-        }
+        if (list.length > 0) setDynamicRoles(list);
       })
       .catch((err) => {
         console.error("Failed to load admin roles dynamically:", err);
       });
-    return () => {
-      active = false;
-    };
   }, []);
+
+  useEffect(() => {
+    reloadRoleOptions();
+  }, [reloadRoleOptions]);
 
   const resolvedRoles = useMemo<AdminRole[]>(() => {
     if (dynamicRoles.length > 0) return dynamicRoles;
@@ -772,7 +762,7 @@ export function AdminManagementView() {
       )}
 
       {activeTab === "Roles & Permission" && (
-        <RolesPermissionTab />
+        <AdminRolesTab canManage={isSuper} onRolesChanged={reloadRoleOptions} />
       )}
 
       {activeTab === "Pending Invites" && <PendingInvitesTab showInvite={isSuper} />}
@@ -997,203 +987,6 @@ function AdminChangeRoleModal({
     </div>
   );
 }
-
-/* ── Roles & Permission tab ── */
-const ROLES = [
-  { name: "Super Admin", icon: <People size={22} variant="Outline" color="currentColor" />, members: 10, description: "Super admin has all permissions including; Create User, and all" },
-  { name: "Admin", icon: <Setting2 size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
-  { name: "Operations", icon: <Chart size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
-  { name: "Compliance", icon: <ShieldTick size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
-  { name: "Customer Care", icon: <Headphone size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
-  { name: "Tech Support", icon: <Code1 size={22} variant="Outline" color="currentColor" />, members: 10, description: "Can create users, create providers, delete products, create products, and five more." },
-];
-
-const MEMBER_AVATARS = ["AT", "TA", "TA"];
-
-const ROLE_TEMPLATE_FILTER = ["All templates", ...ROLES.map((r) => r.name)];
-
-function RolesPermissionTab() {
-  const [roleSearch, setRoleSearch] = useState("");
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "role">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"role">(openFilter, filterMode);
-
-  const [draftRoleTemplate, setDraftRoleTemplate] = useState("All templates");
-  const [appliedRoleTemplate, setAppliedRoleTemplate] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  const filteredRoles = useMemo(() => {
-    const q = roleSearch.trim().toLowerCase();
-    return ROLES.filter((r) => {
-      if (appliedRoleTemplate && appliedRoleTemplate !== "All templates" && r.name !== appliedRoleTemplate)
-        return false;
-      if (!q) return true;
-      return r.name.toLowerCase().includes(q);
-    });
-  }, [roleSearch, appliedRoleTemplate]);
-
-  const runRoleExport = (format: "csv" | "json" | "pdf") => {
-    const rows: RoleExportRow[] = filteredRoles.map((r) => ({
-      name: r.name,
-      members: r.members,
-      description: r.description,
-    }));
-    exportClientTable("admin-roles", format, rows, ROLE_EXPORT_COLUMNS);
-  };
-
-  return (
-    <>
-      {filterMode ? (
-        <TableFilterModeBar
-          filterBarRef={filterBarRef}
-          filterScrollRef={filterScrollRef}
-          showBackdrop={Boolean(openFilter)}
-          onBackdropClick={() => setOpenFilter(null)}
-          onPillsScroll={() => {
-            if (openFilter) syncDropdownLeft(openFilter);
-          }}
-          pills={
-            <TableFilterPill
-              label="Role template"
-              summary={draftRoleTemplate}
-              pillRef={registerPillRef("role")}
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "role" ? null : "role";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            />
-          }
-          dropdownLayer={
-            openFilter === "role" ? (
-              <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[220px]">
-                <TableFilterPanelTitle />
-                <TableFilterOptionsList
-                  options={ROLE_TEMPLATE_FILTER}
-                  onSelect={(opt) => {
-                    setDraftRoleTemplate(opt);
-                    setOpenFilter(null);
-                  }}
-                />
-              </TableFilterDropdownCard>
-            ) : null
-          }
-          actions={
-            <TableFilterApplyClear
-              onApply={() => {
-                setAppliedRoleTemplate(draftRoleTemplate === "All templates" ? null : draftRoleTemplate);
-                setOpenFilter(null);
-              }}
-              onClear={() => {
-                setRoleSearch("");
-                setAppliedRoleTemplate(null);
-                setDraftRoleTemplate("All templates");
-                setOpenFilter(null);
-                setFilterMode(false);
-              }}
-            />
-          }
-        />
-      ) : (
-      <div className="mt-6 flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
-        <span className="shrink-0 text-[15px] font-semibold text-primary-text">
-          Roles &amp; Permission ({ROLES.length})
-        </span>
-        <div className="ml-4 w-[280px] shrink-0">
-          <AuditTrailIconSearch
-            variant="toolbar"
-            placeholder="Search by Name or ID"
-            value={roleSearch}
-            onChange={(e) => setRoleSearch(e.target.value)}
-          />
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
-            aria-label="Filter"
-            onClick={() => {
-              setRoleSearch("");
-              setFilterMode(true);
-            }}
-          >
-            <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
-          </button>
-          <TableExportMenu
-            disabled={filteredRoles.length === 0}
-            onExportCsv={() => runRoleExport("csv")}
-            onExportPdf={() => runRoleExport("pdf")}
-            onExportJson={() => runRoleExport("json")}
-          />
-          <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90">
-            <Add size={18} variant="Outline" color="currentColor" />
-            Role
-          </button>
-        </div>
-      </div>
-      )}
-
-      {/* Role cards grid */}
-      <div className="mt-6 grid grid-cols-2 gap-4">
-        {filteredRoles.map((role) => (
-          <RoleCard key={role.name} role={role} />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function RoleCard({ role }: { role: (typeof ROLES)[number] }) {
-  return (
-    <div className="rounded-xl border border-outline bg-white p-5">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-outline text-zinc-500">
-            {role.icon}
-          </span>
-          <span className="text-[15px] font-semibold text-primary-text">{role.name}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex -space-x-2">
-            {MEMBER_AVATARS.map((initials, idx) => (
-              <span
-                key={idx}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-profile-picture text-[10px] font-semibold text-blue-grey"
-              >
-                {initials}
-              </span>
-            ))}
-          </div>
-          <span className="text-xs text-zinc-400">{role.members} Members</span>
-        </div>
-      </div>
-
-      <p className="mt-4 text-sm leading-relaxed text-zinc-500">
-        {role.description}
-      </p>
-
-      <button type="button" className="mt-3 text-sm font-semibold text-brand-navy underline underline-offset-2 hover:opacity-80">
-        See Permissions
-      </button>
-    </div>
-  );
-}
-
 
 function InviteAdminModal({
   onClose,

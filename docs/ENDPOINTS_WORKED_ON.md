@@ -73,7 +73,7 @@ Source module: `src/lib/admin-api/customers-api.ts`
 | GET | `/admin/customers/summary` | Stat cards on Customer Mgt list | `src/components/user-mgt/customers-view.tsx` |
 | GET | `/admin/customers` | Paginated customer table, search, tab filters, advanced status filter | `src/components/user-mgt/customers-view.tsx` |
 | GET | `/admin/customers/{accountId}` | Customer + account summary on detail “Customer Details” tab | `src/components/user-mgt/customers-details-view.tsx` |
-| GET | `/admin/customers/{accountId}/kyc` | “KYC Details” tab | `src/components/user-mgt/customers-details-view.tsx` |
+| GET | `/admin/customers/{accountId}/kyc` | “KYC Details” tab — Tier 1/2 tables via `normalizeCustomerKycResponse` | `customer-kyc-details-tab.tsx`, `customers-api.ts` |
 | GET | `/admin/customers/{accountId}/transactions` | “Transaction History” tab (server pagination) | `src/components/user-mgt/customers-details-view.tsx` |
 | GET | `/admin/customers/{accountId}/wallets` | “Wallet” tab | `src/components/user-mgt/customers-details-view.tsx` |
 | GET | `/admin/audit/customers/{accountId}/logs` | “Audit Log” tab on customer detail | `src/components/user-mgt/customers-details-view.tsx` |
@@ -91,8 +91,12 @@ Source module: `src/lib/admin-api/users-api.ts`
 | POST | `/admin/users/customer/{accountId}/deactivate` | Block/deactivate customer (no body); super_admin | `customers-details-view.tsx` Action menu |
 | POST | `/admin/users/customer/{accountId}/suspend` | Suspend customer; body `{ reason, notes }` required; ops_manager or super_admin | `customers-details-view.tsx` |
 | POST | `/admin/users/customer/{accountId}/reactivate` | Reactivate customer; body `{ reason }` required; ops_manager or super_admin | `customers-details-view.tsx` |
+| POST | `/admin/users/customer/{accountId}/pnd` | Place customer on Post No Debit; body `{ reason }` required | `customer-pnd-flow.tsx` (Customer detail Action menu) |
+| POST | `/admin/users/customer/{accountId}/remove-pnd` | Remove Post No Debit (no body) | `customer-pnd-flow.tsx` |
+| POST | `/admin/users/customer/{accountId}/lien` | Place wallet lien; body `{ amount, lienType, reason, walletId? }` | `customer-lien-flow.tsx` |
+| POST | `/admin/users/customer/{accountId}/remove-lien` | Release lien; optional body `{ walletId }` | `customer-lien-flow.tsx` |
 
-Role gating uses JWT hints in `src/lib/auth/jwt.ts` (`canDeactivateCustomer`, `canSuspendOrReactivateCustomer`). Team table still uses demo `member-*` ids — Change role / Deactivate stay disabled until a real admin list API provides UUIDs.
+Role gating uses JWT hints in `src/lib/auth/jwt.ts` (`canDeactivateCustomer`, `canSuspendOrReactivateCustomer`). PND and Lien actions use the same visibility as suspend/reactivate. Team table still uses demo `member-*` ids — Change role / Deactivate stay disabled until a real admin list API provides UUIDs.
 
 ---
 
@@ -133,8 +137,10 @@ Source module: `src/lib/admin-api/providers-api.ts`
 |---|---|---|---|
 | GET | `/admin/providers` | List: `{ providers[], total, totalActive, totalInactive }`. Rows use `categorySlug`, `productCount`, `isActive`, `createdAt`. Stat cards map `total` / `totalActive` / `totalInactive`. Client-side pagination on full list. | `src/components/provider/provider-view.tsx` |
 | GET | `/admin/providers/{id}` | Detail: `{ provider, products[], totalProducts }`. Products: `slug`, `name`, `categorySlug`, `chargeType`, `chargeValue` (kobo for flat), `chargeCap`, `isActive`. | `src/components/provider/provider-details-view.tsx` |
-
-**Optional later:** `PATCH .../toggle`, `PATCH .../products/{slug}/toggle`, `PATCH .../products/{slug}/commission` for persisting status/commission edits.
+| PATCH | `/admin/providers/{providerId}` | Update provider email `{ email }` | `provider-details-view.tsx` |
+| PATCH | `/admin/providers/{providerId}/toggle` | Provider active/inactive `{ isActive }` | `provider-details-view.tsx` |
+| PATCH | `/admin/providers/{providerId}/products/{productSlug}/commission` | Product commission `{ chargeType, chargeValue, chargeCap }` | `provider-details-view.tsx`, `provider-modals.tsx` |
+| PATCH | `/admin/providers/{providerId}/products/{productSlug}/toggle` | Product active/inactive `{ isActive }` | `provider-details-view.tsx` |
 
 ---
 
@@ -146,8 +152,9 @@ Source module: `src/lib/admin-api/referrals-api.ts`
 |---|---|---|---|
 | GET | `/admin/referrals` | Paginated referrer list, search, status filter | `src/components/user-mgt/referral-view.tsx` |
 | GET | `/admin/referrals/summary` | Referral metrics (available for future stat cards) | `src/lib/admin-api/referrals-api.ts` |
-| GET | `/admin/referrals/config` | Load active earning configuration in modal | `src/components/user-mgt/referral-view.tsx` |
-| POST | `/admin/referrals/config` | Save earning configuration (super_admin) | `src/components/user-mgt/referral-view.tsx` |
+| GET | `/admin/referrals/config` | Load active earning configuration in modal (404 → create flow) | `referral-config-modal.tsx` |
+| POST | `/admin/referrals/config` | Create first referral configuration (super_admin) | `referral-config-modal.tsx` |
+| PUT | `/admin/referrals/config` | Update active referral configuration (super_admin) | `referral-config-modal.tsx` |
 | GET | `/admin/referrals/{accountId}` | Referrer profile, stats, referred users table | `src/components/user-mgt/referral-details-view.tsx` |
 
 ---
@@ -173,7 +180,24 @@ OpenAPI does not document list query params; search/role/action filters are clie
 
 ---
 
-## 8) Role-aware Application Rules Implemented
+## 8) Admin Roles & Permissions
+
+Source module: `src/lib/admin-api/roles-api.ts` (re-exported from `team-api.ts` for invite/change-role dropdowns)
+
+| Method | Endpoint | Application in product | Main usage locations |
+|---|---|---|---|
+| GET | `/admin/permissions` | Permission catalog grouped by module (create/edit role checkboxes) | `admin-role-modals.tsx` |
+| GET | `/admin/roles` | Role cards grid + team invite / change-role options | `admin-roles-tab.tsx`, `admin-management-view.tsx` |
+| POST | `/admin/roles` | Create role (super admin) | `admin-role-modals.tsx` |
+| GET | `/admin/roles/{id}` | Role detail for edit / permissions modal | `admin-role-modals.tsx` |
+| PUT | `/admin/roles/{id}` | Update role (400 duplicate/invalid keys, 403 system name) | `admin-role-modals.tsx` |
+| DELETE | `/admin/roles/{id}` | Delete role (blocked for system roles or active members) | `admin-role-modals.tsx` |
+| GET | `/admin/roles/{id}/permissions` | Assigned permission keys (fallback if detail omits keys) | `admin-role-modals.tsx` |
+| GET | `/admin/roles/{id}/members` | Member avatars + count on role cards | `admin-roles-tab.tsx` |
+
+---
+
+## 9) Role-aware Application Rules Implemented
 
 - Settings tabs hide super-admin-only areas for non-super-admins:
   - Password Policy tab hidden unless `isLikelySuperAdminFromToken(getAccessToken())` is true.
@@ -182,7 +206,7 @@ OpenAPI does not document list query params; search/role/action filters are clie
 
 ---
 
-## 9) Quick File Index
+## 10) Quick File Index
 
 - Auth endpoints: `src/lib/admin-api/auth-api.ts`
 - Settings endpoints: `src/lib/admin-api/settings-api.ts`
@@ -191,6 +215,7 @@ OpenAPI does not document list query params; search/role/action filters are clie
 - Providers: `src/lib/admin-api/providers-api.ts`
 - Referrals: `src/lib/admin-api/referrals-api.ts`
 - Audit trail: `src/lib/admin-api/audit-api.ts`
+- Roles & permissions: `src/lib/admin-api/roles-api.ts`
 - API client/refresh/error handling: `src/lib/admin-api/client.ts`
 - Endpoint types: `src/lib/admin-api/types.ts`
 - Settings policy mapping: `src/lib/admin-api/settings-policy-map.ts`
