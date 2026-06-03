@@ -7,7 +7,12 @@ import { ListFilter } from "lucide-react";
 
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
-import { AddProductModal, ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
+import {
+  ConfirmModal,
+  EditProductCommissionModal,
+  EditProviderEmailModal,
+  SuccessModal,
+} from "@/components/provider/provider-modals";
 import {
   TableFilterApplyClear,
   TableFilterDropdownCard,
@@ -21,7 +26,15 @@ import { TableExportMenu } from "@/components/ui/table-export-menu";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { AdminApiError } from "@/lib/admin-api/client";
-import { getAdminProviderDetail } from "@/lib/admin-api/providers-api";
+import {
+  commissionApiToFormValues,
+  commissionFormToApiBody,
+  getAdminProviderDetail,
+  patchAdminProviderEmail,
+  patchAdminProviderProductCommission,
+  patchAdminProviderProductToggle,
+  patchAdminProviderToggle,
+} from "@/lib/admin-api/providers-api";
 import type { AdminProviderDetail, AdminProviderProductRow } from "@/lib/admin-api/types";
 
 const PRODUCT_ROW_STATUS_FILTER = ["All statuses", "Active", "Inactive"] as const;
@@ -120,11 +133,15 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
     void loadDetail();
   }, [loadDetail]);
 
-  // Modal state
-  type PendingToggle = { type: "provider" } | { type: "product"; id: string; value: boolean };
+  type PendingToggle =
+    | { type: "provider"; nextActive: boolean }
+    | { type: "product"; slug: string; nextActive: boolean };
   const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(null);
+  const [toggleLoading, setToggleLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState<{ message: string } | null>(null);
   const [editingProduct, setEditingProduct] = useState<AdminProviderProductRow | null>(null);
+  const [editingEmail, setEditingEmail] = useState(false);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -189,29 +206,51 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
     return filteredProducts.slice(start, start + pageSize);
   }, [filteredProducts, safePage, pageSize]);
 
-  const requestProductToggle = (id: string, value: boolean) => {
-    setPendingToggle({ type: "product", id, value });
+  const requestProductToggle = (product: AdminProviderProductRow, nextActive: boolean) => {
+    if (nextActive === getProductRowActive(product)) return;
+    setActionError(null);
+    setPendingToggle({ type: "product", slug: product.slug, nextActive });
   };
 
-  const requestProviderToggle = () => {
-    setPendingToggle({ type: "provider" });
+  const requestProviderToggle = (nextActive: boolean) => {
+    if (nextActive === providerActive) return;
+    setActionError(null);
+    setPendingToggle({ type: "provider", nextActive });
   };
 
-  const handleConfirm = () => {
-    if (!pendingToggle) return;
-    if (pendingToggle.type === "provider") {
-      const next = !providerActive;
-      setProviderActive(next);
+  const handleConfirm = async () => {
+    if (!pendingToggle || !id) return;
+    setToggleLoading(true);
+    setActionError(null);
+    try {
+      if (pendingToggle.type === "provider") {
+        await patchAdminProviderToggle(id, pendingToggle.nextActive);
+        setProviderActive(pendingToggle.nextActive);
+        setShowSuccess({
+          message: `Provider has been successfully ${pendingToggle.nextActive ? "activated" : "deactivated"}.`,
+        });
+      } else {
+        await patchAdminProviderProductToggle(id, pendingToggle.slug, pendingToggle.nextActive);
+        const product = products.find((p) => p.slug === pendingToggle.slug);
+        if (product) {
+          setProductStatuses((prev) => ({ ...prev, [product.id]: pendingToggle.nextActive }));
+        }
+        setShowSuccess({
+          message: `Product has been successfully ${pendingToggle.nextActive ? "activated" : "deactivated"}.`,
+        });
+      }
       setPendingToggle(null);
-      setShowSuccess({ message: `Provider has been successfully ${next ? "activated" : "deactivated"}` });
-    } else {
-      setProductStatuses((prev) => ({ ...prev, [pendingToggle.id]: pendingToggle.value }));
-      setPendingToggle(null);
-      setShowSuccess({ message: `Product has been successfully ${pendingToggle.value ? "activated" : "deactivated"}` });
+      await loadDetail();
+    } catch (e) {
+      setActionError(e instanceof AdminApiError ? e.message : "Action failed.");
+    } finally {
+      setToggleLoading(false);
     }
   };
 
-  const handleCancel = () => setPendingToggle(null);
+  const handleCancel = () => {
+    if (!toggleLoading) setPendingToggle(null);
+  };
 
   return (
     <div>
@@ -243,6 +282,11 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
             {detailError}
           </p>
         ) : null}
+        {actionError ? (
+          <p className="mt-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600" role="alert">
+            {actionError}
+          </p>
+        ) : null}
         {detailLoading ? (
           <p className="mt-4 text-sm text-zinc-500">Loading provider details…</p>
         ) : providerDetail ? (
@@ -267,7 +311,19 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
                   <td className="px-4 py-5 border-r border-outline text-primary-text">
                     {providerDetail.providerName}
                   </td>
-                  <td className="px-4 py-5 border-r border-outline text-zinc-500">{providerDetail.email}</td>
+                  <td className="px-4 py-5 border-r border-outline text-zinc-500">
+                    <div className="flex items-center gap-2">
+                      <span>{providerDetail.email}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingEmail(true)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
+                        aria-label="Edit provider email"
+                      >
+                        <Edit size={14} variant="Outline" color="currentColor" />
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-4 py-5 border-r border-outline text-zinc-500">{providerDetail.category}</td>
                   <td className="px-4 py-5 border-r border-outline whitespace-nowrap text-zinc-500">
                     {providerDetail.dateOnboarded}
@@ -451,7 +507,7 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
                   <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                     <StatusToggle
                       checked={productStatuses[product.id] ?? product.status}
-                      onChange={(val) => requestProductToggle(product.id, val)}
+                      onChange={(val) => requestProductToggle(product, val)}
                       label={`Toggle status for ${product.productName}`}
                     />
                   </td>
@@ -484,27 +540,66 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
       </section>
 
       {/* Edit product modal */}
-      {editingProduct && (
-        <AddProductModal
-          product={editingProduct}
-          onClose={() => setEditingProduct(null)}
-          onSuccess={() => {
-            setEditingProduct(null);
-            setShowSuccess({ message: "Product has been successfully added" });
+      {editingEmail && providerDetail ? (
+        <EditProviderEmailModal
+          initialEmail={providerDetail.email}
+          onClose={() => setEditingEmail(false)}
+          onSave={async (email) => {
+            if (!id) return;
+            await patchAdminProviderEmail(id, { email });
+            setEditingEmail(false);
+            setShowSuccess({ message: "Provider email has been updated successfully." });
+            await loadDetail();
           }}
         />
-      )}
+      ) : null}
 
-      {/* Confirmation modal */}
-      {pendingToggle && (
+      {editingProduct && id ? (
+        <EditProductCommissionModal
+          productName={editingProduct.productName}
+          initial={commissionApiToFormValues(editingProduct)}
+          onClose={() => setEditingProduct(null)}
+          onSave={async (form) => {
+            await patchAdminProviderProductCommission(
+              id,
+              editingProduct.slug,
+              commissionFormToApiBody(form),
+            );
+            setEditingProduct(null);
+            setShowSuccess({ message: "Product commission has been updated successfully." });
+            await loadDetail();
+          }}
+        />
+      ) : null}
+
+      {pendingToggle ? (
         <ConfirmModal
-          title={pendingToggle.type === "provider" ? "Deactivate Provider" : (pendingToggle.value ? "Activate Product" : "Deactivate Product")}
-          message={pendingToggle.type === "provider" ? "Are you sure you want to deactivate this provider?" : (pendingToggle.value ? "Are you sure you want to activate this product?" : "Are you sure you want to deactivate this product?")}
-          confirmLabel={pendingToggle.type === "provider" ? "Yes, Deactivate" : (pendingToggle.value ? "Yes, Activate" : "Yes, Deactivate")}
-          onConfirm={handleConfirm}
+          variant={pendingToggle.nextActive ? "approve" : "danger"}
+          title={
+            pendingToggle.type === "provider"
+              ? pendingToggle.nextActive
+                ? "Activate Provider"
+                : "Deactivate Provider"
+              : pendingToggle.nextActive
+                ? "Activate Product"
+                : "Deactivate Product"
+          }
+          message={
+            pendingToggle.type === "provider"
+              ? `Are you sure you want to ${pendingToggle.nextActive ? "activate" : "deactivate"} this provider?`
+              : `Are you sure you want to ${pendingToggle.nextActive ? "activate" : "deactivate"} this product?`
+          }
+          confirmLabel={
+            toggleLoading
+              ? "Please wait…"
+              : pendingToggle.nextActive
+                ? "Yes, Activate"
+                : "Yes, Deactivate"
+          }
+          onConfirm={() => void handleConfirm()}
           onCancel={handleCancel}
         />
-      )}
+      ) : null}
 
       {/* Success modal */}
       {showSuccess && (

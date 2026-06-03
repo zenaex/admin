@@ -55,6 +55,24 @@ export type AdminCustomerReactivateBody = {
   reason: string;
 };
 
+/** Body for `POST /admin/users/customer/{accountId}/pnd`. */
+export type AdminCustomerPndBody = {
+  reason: string;
+};
+
+/** Body for `POST /admin/users/customer/{accountId}/lien`. */
+export type AdminCustomerLienBody = {
+  amount: string;
+  lienType: string;
+  reason: string;
+  walletId?: string;
+};
+
+/** Body for `POST /admin/users/customer/{accountId}/remove-lien`. */
+export type AdminCustomerRemoveLienBody = {
+  walletId?: string;
+};
+
 export type AdminPasswordResetApproveBody = { requestId: string };
 
 export type AdminPasswordResetDeclineBody = { requestId: string };
@@ -215,6 +233,28 @@ export type AdminCustomerWalletsResponse = {
   nextPageToken?: string;
 };
 
+/** Normalized Tier 1 row for customer KYC details UI. */
+export type AdminCustomerKycTier1 = {
+  name: string;
+  bvn: string;
+  dateOfBirth: string;
+  status: string;
+};
+
+/** Normalized Tier 2 row for customer KYC details UI. */
+export type AdminCustomerKycTier2 = {
+  idType: string;
+  idNumber: string;
+  dateIssued: string;
+  dateOfExpiry: string;
+  status: string;
+};
+
+export type AdminCustomerKycDetails = {
+  tier1: AdminCustomerKycTier1;
+  tier2: AdminCustomerKycTier2;
+};
+
 /** Query for `GET /admin/transactions` (OpenAPI `tab`, `limit`, `dateFrom`, `dateTo`). */
 export type AdminTransactionListQuery = {
   page?: number;
@@ -272,6 +312,32 @@ export type AdminProviderProductRow = {
   commissionRate: string;
   cap: string;
   status: boolean;
+  /** API `chargeType` slug for PATCH commission. */
+  chargeTypeApi: string;
+  chargeValue?: number;
+  chargeCap?: number;
+};
+
+/** `PATCH /admin/providers/{providerId}` */
+export type AdminProviderEmailBody = {
+  email: string;
+};
+
+/** `PATCH /admin/providers/{providerId}/toggle` */
+export type AdminProviderToggleBody = {
+  isActive: boolean;
+};
+
+/** `PATCH /admin/providers/{providerId}/products/{productSlug}/commission` */
+export type AdminProviderCommissionBody = {
+  chargeType: "flat" | "percentage" | "percentage_with_cap" | "none";
+  chargeValue: number;
+  chargeCap?: number;
+};
+
+/** `PATCH /admin/providers/{providerId}/products/{productSlug}/toggle` */
+export type AdminProviderProductToggleBody = {
+  isActive: boolean;
 };
 
 /** `GET /admin/providers/{providerId}` — provider header + product list. */
@@ -359,6 +425,9 @@ export type AdminReferralListResult = {
 };
 
 /** `POST /admin/referrals/config` */
+export type ReferralThresholdType = "transaction_count" | "amount_spent" | "signup_count";
+
+/** Body for `POST /admin/referrals/config` (amount fields are strings). */
 export type AdminReferralConfigBody = {
   minTransactionAmount: string;
   currency: string;
@@ -367,6 +436,31 @@ export type AdminReferralConfigBody = {
   allowedProducts: string[];
   rewardAmount: string;
   rewardCurrency: string;
+  thresholdType: ReferralThresholdType;
+};
+
+/** Body for `PUT /admin/referrals/config` (amount fields are numbers). */
+export type AdminReferralConfigUpdateBody = {
+  minTransactionAmount: number;
+  currency: string;
+  maxDaysFromOnboarding: number;
+  cycleSize: number;
+  allowedProducts: string[];
+  rewardAmount: number;
+  rewardCurrency: string;
+  thresholdType: ReferralThresholdType;
+};
+
+/** Normalized config for the Configure Earnings form. */
+export type AdminReferralConfigForm = {
+  minTransactionAmount: string;
+  currency: string;
+  maxDaysFromOnboarding: number;
+  cycleSize: number;
+  allowedProducts: string[];
+  rewardAmount: string;
+  rewardCurrency: string;
+  thresholdType: ReferralThresholdType;
 };
 
 export type AdminReferredUserRow = {
@@ -437,6 +531,43 @@ export type AdminRole = {
   id: string;
   name: string;
   description?: string;
+};
+
+export type AdminPermissionItem = {
+  key: string;
+  label: string;
+  description?: string;
+};
+
+export type AdminPermissionModule = {
+  module: string;
+  permissions: AdminPermissionItem[];
+};
+
+export type AdminRoleListItem = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  memberCount: number;
+  isSystem: boolean;
+};
+
+export type AdminRoleDetail = AdminRoleListItem & {
+  permissionKeys: string[];
+};
+
+export type AdminRoleMemberPreview = {
+  id: string;
+  name: string;
+  initials: string;
+};
+
+export type AdminRoleUpsertBody = {
+  name: string;
+  description: string;
+  icon: string;
+  permissionKeys: string[];
 };
 
 /** Normalized row for admin team member list. */

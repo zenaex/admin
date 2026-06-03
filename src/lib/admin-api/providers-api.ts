@@ -1,11 +1,15 @@
 import { adminRequest } from "@/lib/admin-api/client";
 import type {
+  AdminProviderCommissionBody,
   AdminProviderDetail,
   AdminProviderDetailResult,
+  AdminProviderEmailBody,
   AdminProviderListQuery,
   AdminProviderListResult,
   AdminProviderListRow,
   AdminProviderProductRow,
+  AdminProviderProductToggleBody,
+  AdminProviderToggleBody,
 } from "@/lib/admin-api/types";
 
 function pickString(o: Record<string, unknown>, keys: string[]): string {
@@ -331,6 +335,168 @@ function normalizeProviderProductRow(raw: unknown, index: number): AdminProvider
     commissionRate,
     cap,
     status: isActive,
+    chargeTypeApi: chargeTypeRaw.trim().toLowerCase() || "none",
+    chargeValue,
+    chargeCap,
+  };
+}
+
+function providerPath(providerId: string): string {
+  return `/admin/providers/${encodeURIComponent(providerId.trim())}`;
+}
+
+/** `PATCH /admin/providers/{providerId}` — update provider email. */
+export async function patchAdminProviderEmail(
+  providerId: string,
+  body: AdminProviderEmailBody,
+): Promise<void> {
+  const email = body.email.trim();
+  if (!email) throw new Error("Email is required");
+  await adminRequest<unknown>(providerPath(providerId), {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify({ email }),
+  });
+}
+
+/** `PATCH /admin/providers/{providerId}/toggle` — activate / deactivate provider. */
+export async function patchAdminProviderToggle(
+  providerId: string,
+  isActive: boolean,
+): Promise<void> {
+  await adminRequest<unknown>(`${providerPath(providerId)}/toggle`, {
+    method: "PATCH",
+    auth: true,
+    body: JSON.stringify({ isActive } satisfies AdminProviderToggleBody),
+  });
+}
+
+/** `PATCH /admin/providers/{providerId}/products/{productSlug}/toggle`. */
+export async function patchAdminProviderProductToggle(
+  providerId: string,
+  productSlug: string,
+  isActive: boolean,
+): Promise<void> {
+  await adminRequest<unknown>(
+    `${providerPath(providerId)}/products/${encodeURIComponent(productSlug.trim())}/toggle`,
+    {
+      method: "PATCH",
+      auth: true,
+      body: JSON.stringify({ isActive } satisfies AdminProviderProductToggleBody),
+    },
+  );
+}
+
+export function uiCommissionLabelToApi(
+  label: AdminProviderProductRow["commissionType"] | string,
+): AdminProviderCommissionBody["chargeType"] {
+  const t = String(label).trim();
+  if (t === "Flat") return "flat";
+  if (t === "Percentage") return "percentage";
+  if (t === "% capped @") return "percentage_with_cap";
+  return "none";
+}
+
+function parseMoneyToMinorUnits(input: string): number {
+  const n = Number(input.replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+}
+
+function parsePercentNumber(input: string): number {
+  const n = Number(input.replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Build commission PATCH body from edit form (amounts in major units / percent). */
+export function commissionFormToApiBody(form: {
+  commissionType: string;
+  commissionRate: string;
+  cap: string;
+}): AdminProviderCommissionBody {
+  const chargeType = uiCommissionLabelToApi(form.commissionType);
+  if (chargeType === "flat") {
+    return {
+      chargeType,
+      chargeValue: parseMoneyToMinorUnits(form.commissionRate),
+      chargeCap: 0,
+    };
+  }
+  if (chargeType === "percentage") {
+    return {
+      chargeType,
+      chargeValue: parsePercentNumber(form.commissionRate),
+      chargeCap: 0,
+    };
+  }
+  if (chargeType === "percentage_with_cap") {
+    return {
+      chargeType,
+      chargeValue: parsePercentNumber(form.commissionRate),
+      chargeCap: parseMoneyToMinorUnits(form.cap),
+    };
+  }
+  return { chargeType: "none", chargeValue: 0, chargeCap: 0 };
+}
+
+/** `PATCH /admin/providers/{providerId}/products/{productSlug}/commission`. */
+export async function patchAdminProviderProductCommission(
+  providerId: string,
+  productSlug: string,
+  body: AdminProviderCommissionBody,
+): Promise<void> {
+  await adminRequest<unknown>(
+    `${providerPath(providerId)}/products/${encodeURIComponent(productSlug.trim())}/commission`,
+    {
+      method: "PATCH",
+      auth: true,
+      body: JSON.stringify({
+        chargeType: body.chargeType,
+        chargeValue: body.chargeValue,
+        chargeCap: body.chargeCap ?? 0,
+      }),
+    },
+  );
+}
+
+/** Prefill commission edit inputs from API minor-unit values. */
+export function commissionApiToFormValues(product: AdminProviderProductRow): {
+  commissionType: AdminProviderProductRow["commissionType"];
+  commissionRate: string;
+  cap: string;
+} {
+  const t = product.chargeTypeApi;
+  if (t === "flat" && product.chargeValue !== undefined) {
+    return {
+      commissionType: "Flat",
+      commissionRate: String(product.chargeValue / 100),
+      cap: "",
+    };
+  }
+  if (t === "percentage" && product.chargeValue !== undefined) {
+    return {
+      commissionType: "Percentage",
+      commissionRate: String(product.chargeValue),
+      cap: "",
+    };
+  }
+  if (t === "percentage_with_cap") {
+    return {
+      commissionType: "% capped @",
+      commissionRate:
+        product.chargeValue !== undefined ? String(product.chargeValue) : product.commissionRate,
+      cap:
+        product.chargeCap !== undefined && product.chargeCap > 0
+          ? String(product.chargeCap / 100)
+          : product.cap === "—"
+            ? ""
+            : product.cap.replace(/[^\d.]/g, ""),
+    };
+  }
+  return {
+    commissionType: product.commissionType,
+    commissionRate: product.commissionRate === "—" ? "" : product.commissionRate,
+    cap: product.cap === "—" ? "" : product.cap,
   };
 }
 

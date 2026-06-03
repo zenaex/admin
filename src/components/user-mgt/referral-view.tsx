@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CloseCircle } from "iconsax-react";
 import { CalendarDays, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
@@ -18,14 +17,12 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { ConfigureEarningsModal } from "@/components/user-mgt/referral-config-modal";
 import { AdminApiError } from "@/lib/admin-api/client";
-import {
-  createAdminReferralConfig,
-  getAdminReferralConfig,
-  getAdminReferralsList,
-  parseAmountString,
-} from "@/lib/admin-api/referrals-api";
-import type { AdminReferralConfigBody, AdminReferralListRow } from "@/lib/admin-api/types";
+import { getAdminReferralsList } from "@/lib/admin-api/referrals-api";
+import type { AdminReferralListRow } from "@/lib/admin-api/types";
+import { getAccessToken } from "@/lib/auth/token-storage";
+import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
@@ -71,152 +68,8 @@ function matchesClientFilters(
   return true;
 }
 
-function ConfigureEarningsModal({
-  onClose,
-  onSave,
-}: {
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  const [thresholdType, setThresholdType] = useState("Transaction number");
-  const [transactionNumber, setTransactionNumber] = useState("20");
-  const [rewardAmount, setRewardAmount] = useState("5000");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const cfg = await getAdminReferralConfig();
-        if (cancelled) return;
-        const cycle = cfg.cycleSize ?? cfg.cycle_size;
-        const reward = cfg.rewardAmount ?? cfg.reward_amount;
-        const minTx = cfg.minTransactionAmount ?? cfg.min_transaction_amount;
-        if (cycle !== undefined) setTransactionNumber(String(cycle));
-        if (reward !== undefined) setRewardAmount(String(reward));
-        if (minTx !== undefined && !cycle) setTransactionNumber(String(minTx));
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof AdminApiError ? e.message : "Could not load configuration.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const cycle = Number.parseInt(transactionNumber, 10) || 10;
-      const body: AdminReferralConfigBody = {
-        minTransactionAmount: parseAmountString(transactionNumber),
-        currency: "NGN",
-        maxDaysFromOnboarding: 30,
-        cycleSize: cycle,
-        allowedProducts: [],
-        rewardAmount: parseAmountString(rewardAmount),
-        rewardCurrency: "NGN",
-      };
-      await createAdminReferralConfig(body);
-      onSave();
-    } catch (err) {
-      setError(err instanceof AdminApiError ? err.message : "Could not save configuration.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative mx-4 w-full max-w-sm rounded-2xl bg-white px-6 pb-7 pt-5 shadow-xl">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[17px] font-bold text-primary-text">Configure Earnings</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-zinc-400 transition-colors hover:text-zinc-600"
-            aria-label="Close"
-          >
-            <CloseCircle size={22} variant="Outline" color="currentColor" />
-          </button>
-        </div>
-
-        {loading ? (
-          <p className="text-sm text-zinc-500">Loading configuration…</p>
-        ) : (
-          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-            {error ? (
-              <p className="text-sm text-red-700" role="alert">
-                {error}
-              </p>
-            ) : null}
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-primary-text">Threshold Type</label>
-              <div className="relative">
-                <select
-                  className="w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
-                  value={thresholdType}
-                  onChange={(e) => setThresholdType(e.target.value)}
-                >
-                  {["Transaction number", "Amount spent", "Sign-up count"].map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <p className="mt-1 text-xs text-zinc-500">Saved to API as cycle size / min transaction amount.</p>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-primary-text">Cycle size</label>
-              <input
-                type="text"
-                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
-                value={transactionNumber}
-                onChange={(e) => setTransactionNumber(e.target.value)}
-                placeholder="e.g. 20"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-primary-text">Reward Amount (NGN)</label>
-              <input
-                type="text"
-                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
-                value={rewardAmount}
-                onChange={(e) => setRewardAmount(e.target.value)}
-                placeholder="e.g. 5000"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="mt-2 w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-60"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function ReferralView() {
+  const canConfigureEarnings = isLikelySuperAdminFromToken(getAccessToken());
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
@@ -517,13 +370,15 @@ export function ReferralView() {
               onExportPdf={() => runExport("pdf")}
               onExportJson={() => runExport("json")}
             />
-            <button
-              type="button"
-              onClick={() => setShowConfigModal(true)}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
-            >
-              Configure Earning
-            </button>
+            {canConfigureEarnings ? (
+              <button
+                type="button"
+                onClick={() => setShowConfigModal(true)}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary-green px-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+              >
+                Configure Earning
+              </button>
+            ) : null}
           </div>
         </div>
       )}
