@@ -1,14 +1,24 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays } from "lucide-react";
 
 import { CommunicationHeader } from "@/components/communication/communication-header";
 import { CommunicationPagination } from "@/components/communication/communication-pagination";
-import { CommunicationTable } from "@/components/communication/communication-table";
+import {
+  CommunicationTable,
+  type CommunicationListAction,
+} from "@/components/communication/communication-table";
 import { CommunicationToolbar } from "@/components/communication/communication-toolbar";
-import { getAdminCampaigns } from "@/lib/admin-api/communications-api";
+import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
+import {
+  cancelAdminCampaign,
+  campaignApiErrorMessage,
+  deleteAdminCampaign,
+  getAdminCampaigns,
+  publishAdminCampaign,
+} from "@/lib/admin-api/communications-api";
 import { ErrorAlert } from "@/components/ui/error-alert";
 import type { AdminCampaign } from "@/lib/admin-api/types";
 import type { ExportColumn } from "@/lib/export/table-export";
@@ -35,6 +45,7 @@ import {
 const STATUS_OPTIONS = ["All statuses", "Publish", "Unpublished", "Pending"] as const;
 
 export function CommunicationView() {
+  const router = useRouter();
   const [tableSearch, setTableSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
@@ -55,6 +66,12 @@ export function CommunicationView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [actionTarget, setActionTarget] = useState<AdminCampaign | null>(null);
+  const [pendingAction, setPendingAction] = useState<CommunicationListAction | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(tableSearch), 400);
     return () => clearTimeout(t);
@@ -64,7 +81,7 @@ export function CommunicationView() {
     setPage(1);
   }, [appliedStatus, debouncedSearch]);
 
-  const loadCampaigns = async () => {
+  const loadCampaigns = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -81,11 +98,11 @@ export function CommunicationView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [appliedStatus, page, pageSize, debouncedSearch]);
 
   useEffect(() => {
     void loadCampaigns();
-  }, [appliedStatus, page, pageSize, debouncedSearch]);
+  }, [loadCampaigns]);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -101,6 +118,73 @@ export function CommunicationView() {
 
   const runExport = (format: "csv" | "json" | "pdf") => {
     exportClientTable("communications", format, campaigns, COMMUNICATION_EXPORT_COLUMNS);
+  };
+
+  const handleTableAction = (action: CommunicationListAction, row: AdminCampaign) => {
+    setActionError(null);
+    if (action === "view") {
+      router.push(`/dashboard/communication/${row.id}`);
+      return;
+    }
+    setActionTarget(row);
+    setPendingAction(action);
+  };
+
+  const confirmModalCopy = useMemo(() => {
+    if (!actionTarget || !pendingAction) return null;
+    const name = actionTarget.campaign;
+    if (pendingAction === "publish") {
+      return {
+        title: "Publish campaign",
+        message: `Publish "${name}" now? It will go live immediately.`,
+        confirmLabel: actionLoading ? "Publishing…" : "Publish",
+        variant: "approve" as const,
+      };
+    }
+    if (pendingAction === "delete") {
+      return {
+        title: "Delete draft",
+        message: `Delete draft "${name}"? This cannot be undone.`,
+        confirmLabel: actionLoading ? "Deleting…" : "Delete",
+        variant: "danger" as const,
+      };
+    }
+    return {
+      title: "Cancel scheduled campaign",
+      message: `Cancel the scheduled send for "${name}"?`,
+      confirmLabel: actionLoading ? "Cancelling…" : "Cancel schedule",
+      variant: "danger" as const,
+    };
+  }, [actionTarget, pendingAction, actionLoading]);
+
+  const closeConfirm = () => {
+    if (actionLoading) return;
+    setActionTarget(null);
+    setPendingAction(null);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!actionTarget || !pendingAction) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      if (pendingAction === "publish") {
+        await publishAdminCampaign(actionTarget.id, { scheduleMode: "Immediate" });
+        setSuccessMessage(`"${actionTarget.campaign}" is now live.`);
+      } else if (pendingAction === "delete") {
+        await deleteAdminCampaign(actionTarget.id);
+        setSuccessMessage(`"${actionTarget.campaign}" was deleted.`);
+      } else {
+        await cancelAdminCampaign(actionTarget.id);
+        setSuccessMessage(`Scheduled send for "${actionTarget.campaign}" was cancelled.`);
+      }
+      closeConfirm();
+      await loadCampaigns();
+    } catch (e) {
+      setActionError(campaignApiErrorMessage(e, "Could not complete that action."));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const exportProps = {
@@ -229,6 +313,9 @@ export function CommunicationView() {
           {...exportProps}
         />
       )}
+      {actionError ? (
+        <ErrorAlert error={actionError} onRetry={() => setActionError(null)} className="mt-4" />
+      ) : null}
       {error ? (
         <ErrorAlert error={error} onRetry={() => void loadCampaigns()} className="mt-6" />
       ) : loading ? (
@@ -236,7 +323,11 @@ export function CommunicationView() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-green border-t-transparent" />
         </div>
       ) : (
-        <CommunicationTable rows={campaigns} />
+        <CommunicationTable
+          rows={campaigns}
+          actionLoading={actionLoading}
+          onAction={handleTableAction}
+        />
       )}
       <CommunicationPagination
         page={page}
@@ -248,6 +339,25 @@ export function CommunicationView() {
           setPage(1);
         }}
       />
+
+      {confirmModalCopy && actionTarget ? (
+        <ConfirmModal
+          title={confirmModalCopy.title}
+          message={confirmModalCopy.message}
+          confirmLabel={confirmModalCopy.confirmLabel}
+          variant={confirmModalCopy.variant}
+          onConfirm={() => void handleConfirmAction()}
+          onCancel={closeConfirm}
+        />
+      ) : null}
+
+      {successMessage ? (
+        <SuccessModal
+          message={successMessage}
+          confirmLabel="Done"
+          onContinue={() => setSuccessMessage(null)}
+        />
+      ) : null}
     </div>
   );
 }

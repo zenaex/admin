@@ -15,9 +15,7 @@ import { getGiftcardRates } from "@/lib/admin-api/exchange-rates-api";
 export function GiftcardRatesPanel() {
   const [brands, setBrands] = useState<GiftcardBrand[]>(() => getGiftcardBrands());
   const [loading, setLoading] = useState(true);
-  const [expandedBrands, setExpandedBrands] = useState<Set<string>>(
-    () => new Set(["gc-apple-ecode"]) // Expand Apple E-code by default for a gorgeous visual layout
-  );
+  const [expandedBrands, setExpandedBrands] = useState<Set<string>>(() => new Set());
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
@@ -131,6 +129,7 @@ export function GiftcardRatesPanel() {
             ) : (
               paginatedBrands.map((brand) => {
                 const isExpanded = expandedBrands.has(brand.id);
+                const hasSubProducts = brand.denominations.length > 0;
                 return (
                   <Fragment key={brand.id}>
                     {/* Parent row */}
@@ -152,10 +151,7 @@ export function GiftcardRatesPanel() {
                               }`}
                             />
                           </button>
-                          <div
-                            className="cursor-pointer"
-                            onClick={() => toggleExpand(brand.id)}
-                          >
+                          <div className="cursor-pointer" onClick={() => toggleExpand(brand.id)}>
                             <GiftcardBrandCell
                               brandName={brand.brandName}
                               brandType={brand.brandType}
@@ -187,22 +183,22 @@ export function GiftcardRatesPanel() {
                     </tr>
 
                     {/* Denominations (Children rows) */}
-                    {isExpanded &&
-                      brand.denominations.map((denom) => (
+                    {isExpanded && hasSubProducts
+                      ? brand.denominations.map((denom) => (
                         <tr
                           key={denom.id}
                           className="bg-zinc-50/60 transition-colors hover:bg-zinc-100/50"
                         >
                           <td className="h-14 border-b border-outline pl-14 pr-4 py-0 align-middle">
                             <span className="text-xs font-semibold text-zinc-500">
-                              {denom.label}
+                              {denom.label || "—"}
                             </span>
                           </td>
                           <td className="h-14 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                            {denom.vendorRate}
+                            {denom.vendorRate || "—"}
                           </td>
                           <td className="h-14 border-b border-outline px-4 py-0 align-middle text-zinc-500">
-                            {denom.finalRate}
+                            {denom.finalRate || "—"}
                           </td>
                           <td className="h-14 border-b border-outline px-4 py-0 align-middle text-zinc-400 text-xs">
                             {denom.dateUpdated}
@@ -219,7 +215,18 @@ export function GiftcardRatesPanel() {
                             </span>
                           </td>
                         </tr>
-                      ))}
+                      ))
+                      : null}
+                    {isExpanded && !hasSubProducts ? (
+                      <tr className="bg-zinc-50/60">
+                        <td
+                          colSpan={5}
+                          className="h-14 border-b border-outline py-0 pl-14 pr-4 align-middle text-sm text-zinc-400"
+                        >
+                          No sub-products available.
+                        </td>
+                      </tr>
+                    ) : null}
                   </Fragment>
                 );
               })

@@ -28,13 +28,13 @@ const CUSTOMER_OPTIONS: CustomerOption[] = [
   { name: "Okunola Roscoly", username: "badmanrosco1" },
 ];
 
-const TRADE_TYPE_OPTIONS = ["Exchange Rate", "Giftcard", "Crypto"];
+const TRADE_TYPE_OPTIONS = ["Exchange Rate", "Percentage"] as const;
 
 export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
   const [step, setStep] = useState<1 | 2>(1);
 
   // Form states
-  const [tradeType, setTradeType] = useState(TRADE_TYPE_OPTIONS[0]);
+  const [tradeType, setTradeType] = useState<string>(TRADE_TYPE_OPTIONS[0]);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption>(CUSTOMER_OPTIONS[6]); // Default to Okunola Roscoly as in mockup
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");

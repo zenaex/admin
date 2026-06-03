@@ -218,6 +218,18 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
   };
 }
 
+function isMeaningfulGiftcardDenomination(d: {
+  label: string;
+  vendorRate: string;
+  finalRate: string;
+}): boolean {
+  const label = d.label.trim();
+  if (label && label !== "—") return true;
+  const vendor = d.vendorRate.trim();
+  const final = d.finalRate.trim();
+  return (vendor !== "" && vendor !== "—") || (final !== "" && final !== "—");
+}
+
 function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | null {
   const o = asRecord(raw);
   if (!o) return null;
@@ -237,21 +249,51 @@ function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | nu
   const rmbRate = pickString(o, ["rmbRate", "rmb_rate", "rmb"]) || "—";
   const iconUrl = pickString(o, ["iconUrl", "icon_url", "icon"]) || undefined;
 
-  const denomsRaw = o.denominations ?? o.categories ?? [];
-  const denominations = (Array.isArray(denomsRaw) ? denomsRaw : []).map((d: unknown, dIdx: number) => {
+  const denomsRaw =
+    o.denominations ??
+    o.subCategories ??
+    o.sub_categories ??
+    o.subProducts ??
+    o.sub_products ??
+    o.categories ??
+    [];
+  const denominations = (Array.isArray(denomsRaw) ? denomsRaw : [])
+    .map((d: unknown, dIdx: number) => {
     const doRecord = asRecord(d) || {};
     const dId = pickString(doRecord, ["id", "denomId", "uuid"]) || `denom-${dIdx}`;
-    const label = pickString(doRecord, ["label", "name", "title"]) || "—";
+    const label =
+      pickString(doRecord, [
+        "label",
+        "name",
+        "title",
+        "subCategoryName",
+        "sub_category_name",
+        "amountRange",
+        "amount_range",
+        "range",
+        "denomination",
+        "value",
+        "description",
+      ]) || "";
     const vendorRateVal = pickString(doRecord, ["vendorRate", "vendor_rate", "rate"]);
-    const vendorRate = vendorRateVal ? (vendorRateVal.startsWith("$") || vendorRateVal.startsWith("¥") ? vendorRateVal : `$${vendorRateVal}`) : "—";
+    const vendorRate = vendorRateVal
+      ? vendorRateVal.startsWith("$") || vendorRateVal.startsWith("¥")
+        ? vendorRateVal
+        : `$${vendorRateVal}`
+      : "";
     const finalRateVal = pickString(doRecord, ["finalRate", "final_rate", "rate", "final"]);
-    const finalRate = finalRateVal ? (finalRateVal.includes("/") ? finalRateVal : `$1/₦${finalRateVal}`) : "—";
+    const finalRate = finalRateVal
+      ? finalRateVal.includes("/")
+        ? finalRateVal
+        : `$1/₦${finalRateVal}`
+      : "";
     const dUpdatedAtRaw = pickString(doRecord, ["dateUpdated", "date_updated", "updatedAt", "updated_at"]);
     const dateUpdated = dUpdatedAtRaw ? formatDisplayDate(dUpdatedAtRaw) : "—";
     const status = (pickString(doRecord, ["status", "denomStatus"]) || "Active") as "Active" | "Inactive";
 
     return { id: dId, label, vendorRate, finalRate, dateUpdated, status };
-  });
+  })
+    .filter(isMeaningfulGiftcardDenomination);
 
   return {
     id,
