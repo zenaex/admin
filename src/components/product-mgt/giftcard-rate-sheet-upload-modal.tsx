@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { CloseCircle, DocumentUpload } from "iconsax-react";
+import { useState } from "react";
+import { CloseCircle } from "iconsax-react";
 import { SuccessModal } from "@/components/provider/provider-modals";
 import { AdminApiError } from "@/lib/admin-api/client";
-import { uploadGiftcardRateSheet, isGiftcardRateSheetFile } from "@/lib/admin-api/exchange-rates-api";
+import { postUploadRateSheet } from "@/lib/admin-api/exchange-rates-api";
 
 type GiftcardRateSheetUploadModalProps = {
   open: boolean;
@@ -13,9 +13,7 @@ type GiftcardRateSheetUploadModalProps = {
 };
 
 export function GiftcardRateSheetUploadModal({ open, onClose, onSuccess }: GiftcardRateSheetUploadModalProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [csvUrl, setCsvUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -23,9 +21,8 @@ export function GiftcardRateSheetUploadModal({ open, onClose, onSuccess }: Giftc
   if (!open) return null;
 
   const reset = () => {
-    setFile(null);
+    setCsvUrl("");
     setError(null);
-    setIsDragOver(false);
     setLoading(false);
     setShowSuccess(false);
   };
@@ -35,40 +32,19 @@ export function GiftcardRateSheetUploadModal({ open, onClose, onSuccess }: Giftc
     onClose();
   };
 
-  const pickFile = (next: File | null) => {
-    if (!next) return;
-    if (!isGiftcardRateSheetFile(next)) {
-      setError("Please choose a CSV or Excel file.");
-      return;
-    }
-    setError(null);
-    setFile(next);
-  };
-
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    pickFile(e.target.files?.[0] ?? null);
-  };
-
-  const onDrop = (e: DragEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    pickFile(e.dataTransfer.files?.[0] ?? null);
-  };
-
   const handleUpload = async () => {
-    if (!file) {
-      setError("Select a CSV or Excel file to upload.");
+    const url = csvUrl.trim();
+    if (!url) {
+      setError("Enter a publicly accessible CSV URL.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await uploadGiftcardRateSheet(file);
+      await postUploadRateSheet({ csvUrl: url });
       setShowSuccess(true);
     } catch (e) {
-      setError(
-        e instanceof AdminApiError ? e.message : e instanceof Error ? e.message : "Upload failed.",
-      );
+      setError(e instanceof AdminApiError ? e.message : e instanceof Error ? e.message : "Upload failed.");
     } finally {
       setLoading(false);
     }
@@ -77,7 +53,7 @@ export function GiftcardRateSheetUploadModal({ open, onClose, onSuccess }: Giftc
   if (showSuccess) {
     return (
       <SuccessModal
-        message="Gift card rate sheet uploaded successfully."
+        message="Gift card rate sheet submitted successfully."
         confirmLabel="Done"
         onContinue={() => {
           onSuccess?.();
@@ -103,35 +79,21 @@ export function GiftcardRateSheetUploadModal({ open, onClose, onSuccess }: Giftc
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-zinc-500">Upload a CSV or Excel file to update gift card rates.</p>
+        <p className="mb-4 text-sm text-zinc-500">
+          Provide a public CSV URL. The wallet service downloads and processes the file from that link.
+        </p>
 
+        <label className="mb-1.5 block text-sm font-medium text-primary-text" htmlFor="rate-sheet-csv-url">
+          CSV URL
+        </label>
         <input
-          ref={inputRef}
-          type="file"
-          accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-          className="hidden"
-          onChange={onFileChange}
+          id="rate-sheet-csv-url"
+          type="url"
+          value={csvUrl}
+          onChange={(e) => setCsvUrl(e.target.value)}
+          placeholder="https://storage.example.com/rates/giftcard-2026-06.csv"
+          className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
         />
-
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragOver(true);
-          }}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={onDrop}
-          className={`flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-10 text-center transition-colors ${
-            isDragOver ? "border-primary-green bg-primary-green/5" : "border-zinc-200"
-          }`}
-        >
-          <DocumentUpload size={28} variant="Outline" color="currentColor" className="text-zinc-400" />
-          <span className="text-sm font-semibold text-primary-text">
-            {file ? file.name : "Click to upload or drag and drop"}
-          </span>
-          <span className="text-xs text-zinc-500">CSV or Excel (.xlsx, .xls)</span>
-        </button>
 
         {error ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -150,11 +112,11 @@ export function GiftcardRateSheetUploadModal({ open, onClose, onSuccess }: Giftc
           </button>
           <button
             type="button"
-            disabled={loading || !file}
+            disabled={loading || !csvUrl.trim()}
             onClick={() => void handleUpload()}
             className="flex-1 rounded-full bg-primary-green py-3 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? "Uploading…" : "Upload"}
+            {loading ? "Submitting…" : "Submit"}
           </button>
         </div>
       </div>

@@ -34,6 +34,8 @@ export type ExchangeRateRow = {
   fiatQuote?: string;
   /** Swap Crypto rows: two-asset pair metadata */
   swapPair?: SwapPairMeta;
+  /** Sell-crypto rows: API slug (e.g. `bitcoin`) */
+  cryptoSlug?: string;
   commissionType: string;
   ourCommission: string;
   baseRate: string;

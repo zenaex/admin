@@ -57,11 +57,10 @@ export function CreateSwapPairView() {
   const handleCreate = async () => {
     try {
       await postCreateSwapPair({
-        base: draft.baseCode,
-        quote: draft.quoteCode,
-        markupType: draft.markupType,
-        baseMarkupRate: parseFloat(draft.baseToQuoteRate) || 0,
-        quoteMarkupRate: parseFloat(draft.quoteToBaseRate) || 0,
+        baseCryptoSlug: draft.baseCode,
+        quoteCryptoSlug: draft.quoteCode,
+        baseToQuoteMarkupValue: parseFloat(draft.baseToQuoteRate) || 0,
+        quoteToBaseMarkupValue: parseFloat(draft.quoteToBaseRate) || 0,
       });
 
       const row = buildSwapPairRow(draft);
