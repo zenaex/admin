@@ -67,7 +67,7 @@ function messageFromBody(body: unknown): string {
   const b = body as ApiErrorBody & { statusCode?: number };
 
   if (Array.isArray(b.message)) {
-    const parts = b.message.filter((m): m is string => typeof m === "string" && m.trim());
+    const parts = b.message.filter((m): m is string => typeof m === "string" && m.trim().length > 0);
     if (parts.length) return parts.join(" ");
   }
 
