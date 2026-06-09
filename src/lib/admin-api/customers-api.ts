@@ -1,5 +1,6 @@
 import { getAdminAuditCustomerLogs as fetchAdminAuditCustomerLogs } from "@/lib/admin-api/audit-api";
 import { adminRequest } from "@/lib/admin-api/client";
+import { koboToMajor, pickKobo } from "@/lib/admin-api/money";
 import { normalizeTransactionListResponse } from "@/lib/admin-api/transactions-api";
 import type {
   AdminCustomerListQuery,
@@ -646,27 +647,45 @@ export type AdminCustomerTransactionsQuery = {
   customerDisplayName?: string;
 };
 
+function koboFieldToMajor(
+  o: Record<string, unknown>,
+  keys: string[],
+): number | undefined {
+  const kobo = pickKobo(o, keys);
+  return kobo !== undefined ? koboToMajor(kobo) : undefined;
+}
+
 function normalizeCustomerTransactionSummary(data: unknown): AdminCustomerTransactionSummary {
   const r = asRecord(data);
   if (!r) return {};
   const summary = asRecord(r.summary) ?? r;
   return {
-    totalAvailableBalance: pickNum(summary, [
+    totalAvailableBalance: koboFieldToMajor(summary, [
       "totalAvailableBalance",
       "total_available_balance",
       "availableBalance",
       "available_balance",
     ]),
-    totalInflowAllTime: pickNum(summary, ["totalInflowAllTime", "total_inflow_all_time"]),
-    totalOutflowAllTime: pickNum(summary, ["totalOutflowAllTime", "total_outflow_all_time"]),
+    totalInflowAllTime: koboFieldToMajor(summary, ["totalInflowAllTime", "total_inflow_all_time"]),
+    totalOutflowAllTime: koboFieldToMajor(summary, ["totalOutflowAllTime", "total_outflow_all_time"]),
     totalTransactionsAllTime: pickNum(summary, [
       "totalTransactionsAllTime",
       "total_transactions_all_time",
     ]),
-    totalInflow: pickNum(summary, ["totalInflow", "total_inflow", "inflow"]),
-    totalOutflow: pickNum(summary, ["totalOutflow", "total_outflow", "outflow"]),
+    totalInflow: koboFieldToMajor(summary, ["totalInflow", "total_inflow", "inflow"]),
+    totalOutflow: koboFieldToMajor(summary, ["totalOutflow", "total_outflow", "outflow"]),
     totalTransactions: pickNum(summary, ["totalTransactions", "total_transactions"]),
   };
+}
+
+function normalizeCustomerWallet(raw: unknown): AdminCustomerWalletItem {
+  const o = asRecord(raw) ?? {};
+  const wallet = { ...o } as AdminCustomerWalletItem;
+  const available = pickKobo(o, ["availableBalance", "available_balance", "balance"]);
+  if (available !== undefined) wallet.availableBalance = koboToMajor(available);
+  const held = pickKobo(o, ["heldBalance", "held_balance", "lienAmount", "lien_amount"]);
+  if (held !== undefined) wallet.heldBalance = koboToMajor(held);
+  return wallet;
 }
 
 function mapTransactionRowToCustomerRow(
@@ -720,7 +739,7 @@ export async function getAdminCustomerWallets(accountId: string): Promise<AdminC
   if (!r) return {};
   const walletsRaw = r.wallets;
   const wallets = Array.isArray(walletsRaw)
-    ? walletsRaw.map((w) => (asRecord(w) ?? {}) as AdminCustomerWalletItem)
+    ? walletsRaw.map((w) => normalizeCustomerWallet(w))
     : undefined;
   return {
     wallets,

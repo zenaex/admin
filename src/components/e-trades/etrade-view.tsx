@@ -1,22 +1,18 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ListFilter, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarDays, ListFilter } from "lucide-react";
 import { WalletMoney, CardSend, CardReceive } from "iconsax-react";
 
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
-import {
-  ALL_ETRADE_REQUESTS,
-  ETRADE_TYPE_FILTER_OPTIONS,
-} from "@/components/e-trades/etrade-mock-requests";
-import { ALL_ETRADE_TRANSACTION_ROWS } from "@/components/e-trades/etrade-mock-transactions";
+import { ErrorAlert } from "@/components/ui/error-alert";
 import { EtradeRequestList } from "@/components/e-trades/etrade-request-list";
 import { EtradeTransactionList } from "@/components/e-trades/etrade-transaction-list";
-import type { EtradeTabId, EtradeRequestRow } from "@/components/e-trades/etrade-types";
+import type { EtradeTabId } from "@/components/e-trades/etrade-types";
 import { EtradeLogFlow } from "@/components/e-trades/etrade-log-flow";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import {
@@ -29,10 +25,32 @@ import {
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { formatAdminApiError } from "@/lib/admin-api/client";
+import {
+  downloadExportPayload,
+  extractExportRecords,
+} from "@/lib/admin-api/export-api";
+import {
+  getAdminEtradesExport,
+  getAdminEtradesList,
+  getAdminEtradesSummary,
+  toEtradeRequestRow,
+  toEtradeTransactionListRow,
+  uiStatusToApiStatus,
+  uiTradeTypeToApi,
+  type AdminEtradeNormalized,
+  type AdminEtradeSummaryCards,
+} from "@/lib/admin-api/etrades-api";
 
-const TXN_TYPE_OPTIONS = ["All types", ...Array.from(new Set(ALL_ETRADE_TRANSACTION_ROWS.map((r) => r.title))).sort()];
-const REQ_STATUS_OPTIONS = ["All statuses", "Pending", "Successful", "Failed"] as const;
-const TXN_STATUS_OPTIONS = ["All statuses", "Successful", "Failed"] as const;
+const TRADE_TYPE_OPTIONS = ["All types", "Exchange Rate", "Percentage"] as const;
+const REQ_STATUS_OPTIONS = ["All statuses", "Awaiting Approval"] as const;
+const TXN_STATUS_OPTIONS = ["All statuses", "Completed", "Rejected"] as const;
+
+const EMPTY_SUMMARY: AdminEtradeSummaryCards = {
+  totalTrades: "—",
+  totalTradeVolume: "—",
+  awaitingApproval: "—",
+};
 
 export function EtradeView() {
   const router = useRouter();
@@ -40,12 +58,22 @@ export function EtradeView() {
   const tabFromUrl = searchParams?.get("tab");
 
   const [activeTab, setActiveTab] = useState<EtradeTabId>("requests");
-  const [requests, setRequests] = useState<EtradeRequestRow[]>(ALL_ETRADE_REQUESTS);
   const [isLoggingTrade, setIsLoggingTrade] = useState(false);
   const [tableSearch, setTableSearch] = useState("");
   const [page, setPage] = useState(1);
   const [txnPage, setTxnPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
+
+  const [summary, setSummary] = useState<AdminEtradeSummaryCards>(EMPTY_SUMMARY);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  const [requestRows, setRequestRows] = useState<AdminEtradeNormalized[]>([]);
+  const [completedRows, setCompletedRows] = useState<AdminEtradeNormalized[]>([]);
+  const [requestTotal, setRequestTotal] = useState(0);
+  const [completedTotal, setCompletedTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
 
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "type" | "status" | "date">(null);
@@ -89,13 +117,62 @@ export function EtradeView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const typeOptions = useMemo(
-    () =>
-      activeTab === "requests"
-        ? (["All types", ...ETRADE_TYPE_FILTER_OPTIONS] as string[])
-        : TXN_TYPE_OPTIONS,
-    [activeTab],
-  );
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const data = await getAdminEtradesSummary();
+      setSummary(data);
+    } catch (e) {
+      setSummaryError(formatAdminApiError(e, "Could not load e-trade summary."));
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
+  const loadLists = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
+    try {
+      const search = tableSearch.trim() || undefined;
+      const tradeType = appliedType ? uiTradeTypeToApi(appliedType) : undefined;
+      const apiStatus = appliedStatus
+        ? uiStatusToApiStatus(appliedStatus, activeTab)
+        : uiStatusToApiStatus("All statuses", activeTab);
+      const activePageNum = activeTab === "requests" ? page : txnPage;
+
+      const res = await getAdminEtradesList({
+        tab: activeTab,
+        page: activePageNum,
+        limit: pageSize,
+        search,
+        status: apiStatus,
+        tradeType,
+      });
+
+      if (activeTab === "requests") {
+        setRequestRows(res.items);
+        setRequestTotal(res.total);
+      } else {
+        setCompletedRows(res.items);
+        setCompletedTotal(res.total);
+      }
+    } catch (e) {
+      setListError(formatAdminApiError(e, "Could not load e-trades."));
+    } finally {
+      setListLoading(false);
+    }
+  }, [activeTab, appliedStatus, appliedType, page, pageSize, tableSearch, txnPage]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
+
+  useEffect(() => {
+    void loadLists();
+  }, [loadLists]);
+
+  const typeOptions = useMemo(() => [...TRADE_TYPE_OPTIONS], []);
 
   const statusOptions = useMemo(
     () => (activeTab === "requests" ? [...REQ_STATUS_OPTIONS] : [...TXN_STATUS_OPTIONS]),
@@ -107,58 +184,32 @@ export function EtradeView() {
     router.replace(`/dashboard/e-trades?tab=${id}`, { scroll: false });
   };
 
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase();
-    return requests.filter((r) => {
-      if (appliedType && appliedType !== "All types" && r.etradeType !== appliedType) return false;
-      if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus)
-        return false;
-      if (appliedDateLabel && !r.subtitle.includes("Jan")) return false;
-      const matchSearch =
-        !q ||
-        r.title.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q) ||
-        r.etradeType.toLowerCase().includes(q);
-      return matchSearch;
-    });
-  }, [tableSearch, appliedType, appliedStatus, appliedDateLabel, requests]);
-
-  const filteredTxnRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase();
-    return ALL_ETRADE_TRANSACTION_ROWS.filter((r) => {
-      if (appliedType && appliedType !== "All types" && r.title !== appliedType) return false;
-      if (appliedStatus && appliedStatus !== "All statuses" && r.status !== appliedStatus)
-        return false;
-      if (appliedDateLabel && !r.subtitle.includes("Jan")) return false;
-      const matchSearch =
-        !q ||
-        r.title.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q) ||
-        r.amount.toLowerCase().includes(q) ||
-        r.status.toLowerCase().includes(q);
-      return matchSearch;
-    });
-  }, [tableSearch, appliedType, appliedStatus, appliedDateLabel]);
-
-  const requestItems = filteredRows.length;
-  const txnItems = filteredTxnRows.length;
-  const activeTotal = activeTab === "requests" ? requestItems : txnItems;
+  const activeTotal = activeTab === "requests" ? requestTotal : completedTotal;
   const activePage = activeTab === "requests" ? page : txnPage;
-
   const totalPages = Math.max(1, Math.ceil(activeTotal / pageSize));
   const safePage = Math.min(activePage, totalPages);
 
-  const paginatedRequests = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, safePage, pageSize]);
-
-  const paginatedTxn = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return filteredTxnRows.slice(start, start + pageSize);
-  }, [filteredTxnRows, safePage, pageSize]);
+  const paginatedRequests = useMemo(
+    () => requestRows.map(toEtradeRequestRow),
+    [requestRows],
+  );
+  const paginatedTxn = useMemo(
+    () => completedRows.map(toEtradeTransactionListRow),
+    [completedRows],
+  );
 
   const tradeTypeLabel = activeTab === "requests" ? "Trade type" : "Trade name";
+
+  const handleExport = async (format: "csv" | "pdf") => {
+    const payload = await getAdminEtradesExport();
+    const filenameBase = `etrades-${activeTab}`;
+    if (format === "pdf") {
+      const records = extractExportRecords(payload);
+      downloadExportPayload(filenameBase, records.length ? records : payload, "pdf");
+      return;
+    }
+    downloadExportPayload(filenameBase, payload, "csv");
+  };
 
   const toolbarSearch = (
     <div className="mt-6 flex h-14.5 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
@@ -181,7 +232,6 @@ export function EtradeView() {
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
           aria-label="Filter"
           onClick={() => {
-            setTableSearch("");
             setFilterMode(true);
           }}
         >
@@ -190,9 +240,9 @@ export function EtradeView() {
         </button>
 
         <TableExportMenu
-          disabled={activeTab === "requests" ? filteredRows.length === 0 : filteredTxnRows.length === 0}
-          onExportCsv={() => {}}
-          onExportPdf={() => {}}
+          disabled={listLoading || (activeTab === "requests" ? paginatedRequests.length === 0 : paginatedTxn.length === 0)}
+          onExportCsv={() => void handleExport("csv")}
+          onExportPdf={() => void handleExport("pdf")}
         />
 
         <button
@@ -211,8 +261,9 @@ export function EtradeView() {
     return (
       <EtradeLogFlow
         onBack={() => setIsLoggingTrade(false)}
-        onSuccess={(newTrade) => {
-          setRequests((prev) => [newTrade, ...prev]);
+        onSuccess={() => {
+          void loadLists();
+          void loadSummary();
         }}
       />
     );
@@ -222,29 +273,33 @@ export function EtradeView() {
     <div>
       <ProviderHeader title="Etrades" notificationCount={2} />
 
-      {/* 3 Metric Cards */}
+      {summaryError ? (
+        <div className="mt-4">
+          <ErrorAlert error={summaryError} onRetry={() => void loadSummary()} />
+        </div>
+      ) : null}
+
       <div className="mt-6 flex min-w-0 gap-3 flex-wrap sm:flex-nowrap">
         <StatCard
           label="Total Trade"
-          value="100,000"
+          value={summaryLoading ? "…" : summary.totalTrades}
           accentColor="#C1FF00"
           icon={<WalletMoney size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Trade Volume"
-          value="₦ 150,000,000.00"
+          value={summaryLoading ? "…" : summary.totalTradeVolume}
           accentColor="#3B82F6"
           icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Awaiting Approval"
-          value="50,000"
+          value={summaryLoading ? "…" : summary.awaitingApproval}
           accentColor="#EF4444"
           icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
       </div>
 
-      {/* Underline Tabs */}
       <div className="mt-6 flex items-baseline gap-8 border-b border-zinc-200">
         <div className="relative inline-flex w-fit flex-col">
           <button
@@ -413,7 +468,15 @@ export function EtradeView() {
         toolbarSearch
       )}
 
-      {activeTab === "requests" ? (
+      {listError ? (
+        <div className="mt-4">
+          <ErrorAlert error={listError} onRetry={() => void loadLists()} />
+        </div>
+      ) : null}
+
+      {listLoading ? (
+        <p className="mt-8 text-center text-sm text-zinc-500">Loading e-trades…</p>
+      ) : activeTab === "requests" ? (
         <EtradeRequestList rows={paginatedRequests} />
       ) : (
         <EtradeTransactionList rows={paginatedTxn} />

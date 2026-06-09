@@ -8,12 +8,11 @@ import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { GiftcardBrandCell } from "@/components/product-mgt/giftcard-brand-cell";
 import { GiftcardRateUpdateFlow } from "@/components/product-mgt/giftcard-rate-update-flow";
-import { getGiftcardBrands } from "@/components/product-mgt/exchange-rate-fixtures";
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import { getGiftcardRates } from "@/lib/admin-api/exchange-rates-api";
 
 export function GiftcardRatesPanel() {
-  const [brands, setBrands] = useState<GiftcardBrand[]>(() => getGiftcardBrands());
+  const [brands, setBrands] = useState<GiftcardBrand[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedBrands, setExpandedBrands] = useState<Set<string>>(() => new Set());
   const [search, setSearch] = useState("");
@@ -26,9 +25,7 @@ export function GiftcardRatesPanel() {
     setLoading(true);
     try {
       const res = await getGiftcardRates();
-      if (res && res.length > 0) {
-        setBrands(res);
-      }
+      setBrands(res ?? []);
     } catch (e) {
       console.error("Failed to load giftcard rates:", e);
     } finally {
@@ -156,6 +153,8 @@ export function GiftcardRatesPanel() {
                               brandName={brand.brandName}
                               brandType={brand.brandType}
                               country={brand.country}
+                              currency={brand.currency}
+                              cardType={brand.cardType}
                               iconUrl={brand.iconUrl}
                             />
                           </div>

@@ -1,3 +1,9 @@
+import {
+  formatKoboAmountDisplay,
+  pickAndFormatMoneyField,
+  pickAndFormatMoneyFromBlocks,
+  pickKobo,
+} from "@/lib/admin-api/money";
 import { resolveGiftcardSubmissionId } from "@/lib/admin-api/giftcard-submissions-api";
 import {
   asRecord,
@@ -221,23 +227,15 @@ function detailProvider(o: Record<string, unknown>): string {
 
 function formatAmountFromRecord(o: Record<string, unknown>): string {
   const amountBlock = pickNestedRecord(o, ["amount", "transactionAmount", "payment"]);
-  const amountNum =
-    pickNum(o, ["amount", "value", "totalAmount", "transactionAmount", "amountPaid", "paidAmount"]) ??
-    (amountBlock ? pickNum(amountBlock, ["value", "amount", "total", "paid"]) : undefined);
   const currency =
     pickString(o, ["currency", "asset", "currencyCode"]) ||
     (amountBlock ? pickString(amountBlock, ["currency", "code"]) : "") ||
     "";
-  if (amountNum !== undefined) {
-    const prefix =
-      currency && currency !== "NGN" && currency !== "₦"
-        ? `${currency} `
-        : currency === "NGN"
-          ? "₦"
-          : currency
-            ? `${currency} `
-            : "₦";
-    return `${prefix}${amountNum.toLocaleString()}`.replace(/^₦₦/, "₦");
+  const amountKobo =
+    pickKobo(o, ["amount", "value", "totalAmount", "transactionAmount", "amountPaid", "paidAmount"]) ??
+    (amountBlock ? pickKobo(amountBlock, ["value", "amount", "total", "paid"]) : undefined);
+  if (amountKobo !== undefined) {
+    return formatKoboAmountDisplay(amountKobo, currency);
   }
   return (
     pickString(o, ["amountFormatted", "amount_display", "formattedAmount"]) ||
@@ -402,6 +400,110 @@ function pickFromBlocks(
   return pickString(o, keys);
 }
 
+function pickScalarFromBlocks(
+  o: Record<string, unknown>,
+  blocks: Record<string, unknown>[],
+  keys: string[],
+): string {
+  for (const block of blocks) {
+    for (const key of keys) {
+      const v = block[key];
+      if (typeof v === "string" && v.trim()) return v.trim();
+      if (typeof v === "number" && Number.isFinite(v)) return String(v);
+    }
+  }
+  for (const key of keys) {
+    const v = o[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  }
+  return "";
+}
+
+function formatGiftcardRateFeeDisplay(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (t.includes("/") || t.startsWith("₦") || t.startsWith("$")) return t;
+  const n = Number(t);
+  if (Number.isFinite(n)) return `₦${n.toLocaleString()}/$1`;
+  return t;
+}
+
+function humanizeGiftcardTypeSlug(raw: string): string {
+  return raw
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function enrichGiftcardDetailModel(
+  model: TransactionDetailModel,
+  o: Record<string, unknown>,
+  detailBlocks: Record<string, unknown>[],
+): void {
+  const submission = pickNestedRecord(o, ["submission", "giftCardSubmission", "gift_card_submission"]);
+  const blocks = submission ? [...detailBlocks, submission] : detailBlocks;
+
+  const productRaw = pickScalarFromBlocks(o, blocks, [
+    "brandName",
+    "brand_name",
+    "productName",
+    "product_name",
+    "product",
+    "giftcardProduct",
+    "giftcard_product",
+  ]);
+  if (productRaw) model.product = productRaw;
+
+  const typeRaw = pickScalarFromBlocks(o, blocks, [
+    "displayCategory",
+    "display_category",
+    "giftcardType",
+    "giftcard_type",
+    "cardType",
+    "card_type",
+    "type",
+    "category",
+  ]);
+  if (typeRaw) {
+    const humanized =
+      typeRaw.includes("-") || typeRaw.includes("_") ? humanizeGiftcardTypeSlug(typeRaw) : typeRaw;
+    model.giftcardType = humanized;
+    if (!model.displayCategory) model.displayCategory = humanized;
+  }
+
+  const rateFromMoney = pickAndFormatMoneyField(o, [
+    "rateFeeGiven",
+    "rate_fee_given",
+    "rateFee",
+    "rate_fee",
+  ]);
+  if (rateFromMoney) {
+    model.rateFeeGiven = rateFromMoney;
+  } else {
+    const rateRaw = pickScalarFromBlocks(o, blocks, [
+      "conversionRate",
+      "conversion_rate",
+      "exchangeRate",
+      "exchange_rate",
+    ]);
+    if (rateRaw) {
+      model.rateFeeGiven = formatGiftcardRateFeeDisplay(rateRaw);
+    }
+  }
+
+  const countryRaw = pickScalarFromBlocks(o, blocks, ["country", "countryName", "country_name"]);
+  if (countryRaw) model.country = countryRaw;
+
+  const currencyRaw = pickScalarFromBlocks(o, blocks, ["currency", "currencyCode", "currency_code"]);
+  if (currencyRaw && model.country) {
+    model.country = `${model.country} | ${currencyRaw}`;
+  } else if (currencyRaw && !model.country) {
+    model.country = currencyRaw;
+  }
+}
+
 function mapLogEntry(entry: unknown, idx: number): TransactionLogEntry {
   const rec = asRecord(entry);
   if (!rec) {
@@ -506,11 +608,6 @@ export function mapApiDetailToTransactionModel(
   const categorySlug = pickString(o, ["categorySlug", "category_slug", "category"]) || "";
   const displayCategory = pickString(o, ["displayCategory", "display_category", "type"]) || "";
   const productSlug = pickString(o, ["productSlug", "product_slug"]) || "";
-  const chargeNum = pickNum(o, ["charge", "transactionCharge", "transaction_charge"]);
-  const chargeRaw = pickString(o, ["charge", "transactionCharge", "transaction_charge"]) || (chargeNum !== undefined ? String(chargeNum) : "");
-  const charge = chargeRaw && !chargeRaw.startsWith("₦") && !chargeRaw.startsWith("$") && chargeNum !== undefined
-    ? `₦${chargeNum.toLocaleString()}`
-    : chargeRaw;
 
   const customerBlock = pickNestedRecord(o, [
     "customer",
@@ -534,6 +631,13 @@ export function mapApiDetailToTransactionModel(
   const detailBlocks = [o, recipientBlock, customerBlock, productBlock, metaBlock].filter(
     (b): b is Record<string, unknown> => Boolean(b),
   );
+
+  const charge =
+    pickAndFormatMoneyFromBlocks(o, detailBlocks, [
+      "charge",
+      "transactionCharge",
+      "transaction_charge",
+    ]) || "";
 
   const referenceNo =
     pickString(o, [
@@ -586,23 +690,27 @@ export function mapApiDetailToTransactionModel(
     ]) ||
     "";
 
-  const feeNum = pickNum(o, ["fee", "ourFee", "our_fee", "serviceFee", "transactionFee"]);
-  const feeRaw =
-    pickString(o, ["fee", "ourFee", "our_fee", "serviceFee", "transactionFee"]) ||
-    (feeNum !== undefined ? String(feeNum) : "");
   const fee =
-    feeRaw && !feeRaw.startsWith("₦") && !feeRaw.startsWith("$") && feeNum !== undefined
-      ? `₦${feeNum.toLocaleString()}`
-      : feeRaw;
+    pickAndFormatMoneyFromBlocks(o, detailBlocks, [
+      "fee",
+      "ourFee",
+      "our_fee",
+      "serviceFee",
+      "transactionFee",
+      "networkFee",
+      "network_fee",
+    ]) || "";
 
   const rate = pickString(o, ["rate", "rateGiven", "rate_given", "exchangeRate", "conversionRate"]) || "";
 
-  const balanceAfterNum = pickNum(o, ["balanceAfter", "balance_after"]);
-  const balanceAfter =
-    pickString(o, ["balanceAfter", "balance_after", "balanceAfterTransaction"]) ||
-    (balanceAfterNum !== undefined
-      ? formatAmountFromRecord({ amount: balanceAfterNum, currency: "NGN" })
-      : "");
+  const balanceAfter = pickAndFormatMoneyFromBlocks(o, detailBlocks, [
+    "balanceAfter",
+    "balance_after",
+    "balanceAfterTransaction",
+    "balance",
+    "availableBalance",
+    "available_balance",
+  ]);
 
   const bankBlock = pickNestedRecord(o, ["bank", "bankAccount", "account", "beneficiary", "destination"]);
   const providerLogRequest = readProviderLogRequestPayload(o);
@@ -615,7 +723,9 @@ export function mapApiDetailToTransactionModel(
   const planRaw =
     readDataBundleRaw(o) || pickFromBlocks(o, detailBlocks, ["dataBundle", "data_bundle"]) || "";
   const plan = planRaw ? formatDataBundleDisplay(planRaw) : "";
-  const cashback = pickString(o, ["cashback", "cashBack", "cash_back", "reward"]) || "";
+  const cashback =
+    pickAndFormatMoneyFromBlocks(o, detailBlocks, ["cashback", "cashBack", "cash_back", "reward"]) ||
+    "";
 
   const model: TransactionDetailModel = {
     ...base,
@@ -629,9 +739,21 @@ export function mapApiDetailToTransactionModel(
     esimProvider: provider,
     amount: amountFormatted,
     amountUsd: amountFormatted,
-    amountSent: pickString(o, ["amountSent", "amount_sent"]) || amountFormatted,
-    amountEquivalent: pickString(o, ["amountEquivalent", "amount_equivalent", "equivalentAmount"]) || "",
-    amountPaidOut: pickString(o, ["amountPaidOut", "amount_paid_out", "paidOut", "payoutAmount"]) || "",
+    amountSent:
+      pickAndFormatMoneyFromBlocks(o, detailBlocks, ["amountSent", "amount_sent"]) || amountFormatted,
+    amountEquivalent:
+      pickAndFormatMoneyFromBlocks(o, detailBlocks, [
+        "amountEquivalent",
+        "amount_equivalent",
+        "equivalentAmount",
+      ]) || "",
+    amountPaidOut: pickAndFormatMoneyFromBlocks(o, detailBlocks, [
+      "amountPaidOut",
+      "amount_paid_out",
+      "paidOut",
+      "payoutAmount",
+      "payout_amount",
+    ]),
     datedInitiated,
     dateCompleted,
     dateUploaded: uploadedRaw ? formatDisplayDate(uploadedRaw) : "",
@@ -649,7 +771,8 @@ export function mapApiDetailToTransactionModel(
     typeGift: pickString(o, ["typeGift", "giftType", "cardFormat"]) || "",
     typeDeposit: pickString(o, ["typeDeposit", "transactionType", "transaction_type"]) || "",
     opsInCharge: pickString(o, ["opsInCharge", "ops_in_charge", "assignedTo", "reviewer", "adminName"]) || "",
-    rateFeeGiven: pickString(o, ["rateFeeGiven", "rate_fee"]) || rate,
+    rateFeeGiven:
+      pickString(o, ["rateFeeGiven", "rate_fee_given", "rateFee", "rate_fee"]) || "",
     balanceAfterGift: pickString(o, ["balanceAfterGift", "balance_after_gift"]) || balanceAfter,
     esimChannelLabel: routing.channel === "Esim" ? readChannelRaw(o) || "" : "",
     esimCoverage: pickString(o, ["coverage", "esimCoverage", "region"]) || "",
@@ -659,11 +782,16 @@ export function mapApiDetailToTransactionModel(
       pickString(o, ["priceUsd", "price_usd", "usdAmount"]) ||
       (currency.includes("USD") || currency.startsWith("$") ? amountFormatted : ""),
     esimPriceNgn:
-      pickString(o, ["priceNgn", "price_ngn", "ngnAmount"]) ||
-      (amountFormatted.includes("₦") ? amountFormatted : ""),
+      pickAndFormatMoneyFromBlocks(o, detailBlocks, [
+        "priceNgn",
+        "price_ngn",
+        "ngnAmount",
+        "priceInNgn",
+      ]) || (amountFormatted.includes("₦") ? amountFormatted : ""),
     esimBalanceAfter: balanceAfter,
     withdrawalAmount: amountFormatted,
-    withdrawalFee: pickString(o, ["withdrawalFee"]) || fee,
+    withdrawalFee:
+      pickAndFormatMoneyFromBlocks(o, detailBlocks, ["withdrawalFee", "withdrawal_fee"]) || fee,
     withdrawalPayoutCurrency: formatPayoutCurrencyLabel(currency),
     withdrawalBankName:
       pickString(o, ["bankName", "bank_name"]) ||
@@ -698,7 +826,8 @@ export function mapApiDetailToTransactionModel(
     etradeSide: pickString(o, ["side", "etradeSide", "orderSide"]) || "",
     etradeQuantity: pickString(o, ["quantity", "etradeQuantity", "shares"]) || "",
     etradeAmountNgn: amountFormatted.includes("₦") ? amountFormatted : "",
-    etradeFee: pickString(o, ["etradeFee"]) || fee,
+    etradeFee:
+      pickAndFormatMoneyFromBlocks(o, detailBlocks, ["etradeFee", "etrade_fee", "tradeFee"]) || fee,
     etradeBalanceAfter: balanceAfter,
     etradeTimestamp: datedInitiated,
     rejectionMessage:
@@ -777,6 +906,7 @@ export function mapApiDetailToTransactionModel(
     } catch {
       model.giftcardSubmissionId = "";
     }
+    enrichGiftcardDetailModel(model, o, detailBlocks);
   }
 
   return model;

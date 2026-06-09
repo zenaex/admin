@@ -36,6 +36,8 @@ export type ExchangeRateRow = {
   swapPair?: SwapPairMeta;
   /** Sell-crypto rows: API slug (e.g. `bitcoin`) */
   cryptoSlug?: string;
+  /** Asset logo URL from API (`logo`, `iconUrl`, etc.). */
+  iconUrl?: string;
   commissionType: string;
   ourCommission: string;
   baseRate: string;
@@ -60,6 +62,10 @@ export type GiftcardBrand = {
   brandType: "E-code" | "Physical";
   country: string;
   countryCode: string;
+  /** ISO currency from API (e.g. USD, CAD). */
+  currency?: string;
+  /** Raw card type slug from API (e.g. physical-cash-receipt). */
+  cardType?: string;
   commissionType: string;
   ourCommission: string;
   rmbRate: string;

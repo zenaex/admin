@@ -26,50 +26,30 @@ type GiftcardRateSetupModalProps = {
 export function GiftcardRateSetupModal({ brand, brands, onClose, onSubmit }: GiftcardRateSetupModalProps) {
   const [selectedBrand, setSelectedBrand] = useState<GiftcardBrand>(brand);
 
-  const [form, setForm] = useState<GiftcardRateFormValues>(() => {
-    return {
-      brandId: brand.id,
-      rmbRate: brand.rmbRate || "¥203.50",
-      commissionType: (brand.commissionType as MarkupType) || "Flat",
-      commissionRate: brand.ourCommission.replace(/[^\d.]/g, "") || "100",
-      denominations: brand.denominations.map((d) => ({
-        id: d.id,
-        label: d.label,
-        vendorRate: d.vendorRate.replace(/[^\d.]/g, "") || "5.18",
-      })),
-    };
+  const brandToForm = (b: GiftcardBrand): GiftcardRateFormValues => ({
+    brandId: b.id,
+    rmbRate: b.rmbRate === "—" ? "" : b.rmbRate,
+    commissionType: (b.commissionType as MarkupType) || "Flat",
+    commissionRate: b.ourCommission.replace(/[^\d.]/g, ""),
+    denominations: b.denominations.map((d) => ({
+      id: d.id,
+      label: d.label,
+      vendorRate: d.vendorRate.replace(/[^\d.]/g, ""),
+    })),
   });
+
+  const [form, setForm] = useState<GiftcardRateFormValues>(() => brandToForm(brand));
 
   useEffect(() => {
     setSelectedBrand(brand);
-    setForm({
-      brandId: brand.id,
-      rmbRate: brand.rmbRate || "¥203.50",
-      commissionType: (brand.commissionType as MarkupType) || "Flat",
-      commissionRate: brand.ourCommission.replace(/[^\d.]/g, "") || "100",
-      denominations: brand.denominations.map((d) => ({
-        id: d.id,
-        label: d.label,
-        vendorRate: d.vendorRate.replace(/[^\d.]/g, "") || "5.18",
-      })),
-    });
+    setForm(brandToForm(brand));
   }, [brand.id]);
 
   const handleBrandChange = (brandId: string) => {
     const nextBrand = brands.find((b) => b.id === brandId);
     if (nextBrand) {
       setSelectedBrand(nextBrand);
-      setForm({
-        brandId: nextBrand.id,
-        rmbRate: nextBrand.rmbRate || "¥203.50",
-        commissionType: (nextBrand.commissionType as MarkupType) || "Flat",
-        commissionRate: nextBrand.ourCommission.replace(/[^\d.]/g, "") || "100",
-        denominations: nextBrand.denominations.map((d) => ({
-          id: d.id,
-          label: d.label,
-          vendorRate: d.vendorRate.replace(/[^\d.]/g, "") || "5.18",
-        })),
-      });
+      setForm(brandToForm(nextBrand));
     }
   };
 

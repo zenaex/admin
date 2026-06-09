@@ -24,6 +24,21 @@ export class AdminApiError extends Error {
   }
 }
 
+/** Normalize caught errors into user-facing strings for alerts and toasts. */
+export function formatAdminApiError(error: unknown, fallback = "Something went wrong."): string {
+  if (error instanceof AdminApiError) {
+    if (error.status === 0) {
+      return "API URL is not configured. Set NEXT_PUBLIC_ADMIN_API_URL in .env.local and restart the dev server.";
+    }
+    const fromBody = messageFromBody(error.body);
+    if (fromBody && fromBody !== "Request failed") return fromBody;
+    return error.message;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
+
 function getBaseUrl(): string {
   const raw = process.env.NEXT_PUBLIC_ADMIN_API_URL?.trim();
   if (!raw) {
@@ -49,8 +64,23 @@ export function adminUrl(path: string): string {
 
 function messageFromBody(body: unknown): string {
   if (!body || typeof body !== "object") return "Request failed";
-  const b = body as ApiErrorBody;
+  const b = body as ApiErrorBody & { statusCode?: number };
+
+  if (Array.isArray(b.message)) {
+    const parts = b.message.filter((m): m is string => typeof m === "string" && m.trim());
+    if (parts.length) return parts.join(" ");
+  }
+
   if (typeof b.message === "string" && b.message) return b.message;
+
+  if (b.errors && typeof b.errors === "object") {
+    const parts = Object.entries(b.errors).flatMap(([field, msgs]) => {
+      if (!Array.isArray(msgs)) return [];
+      return msgs.map((m) => `${field}: ${m}`);
+    });
+    if (parts.length) return parts.join(" ");
+  }
+
   if (typeof b.error === "string" && b.error) return b.error;
   return "Request failed";
 }

@@ -16,7 +16,7 @@ export function CryptoCurrencyCell({
   iconUrl,
   size = 28,
 }: CryptoCurrencyCellProps) {
-  const src = iconUrl ?? getCryptoIconUrl(currencyCode);
+  const src = iconUrl?.trim() || getCryptoIconUrl(currencyCode);
   const label = `${currencyCode} ${currencyName}`;
 
   return (

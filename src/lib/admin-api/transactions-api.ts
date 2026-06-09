@@ -12,6 +12,12 @@ import {
   readDataBundleRaw,
   type TransactionLogEntry,
 } from "@/lib/admin-api/transaction-detail-mapper";
+import {
+  formatKoboAmountDisplay,
+  koboSummaryToMajor,
+  koboToMajor,
+  pickKobo,
+} from "@/lib/admin-api/money";
 import type {
   AdminTransactionListQuery,
   AdminTransactionListResult,
@@ -738,13 +744,13 @@ function pickAmountValue(v: unknown): number | string | undefined {
 function pickSummaryAmount(o: Record<string, unknown>, keys: string[]): number | string | undefined {
   for (const k of keys) {
     const picked = pickAmountValue(o[k]);
-    if (picked !== undefined) return picked;
+    if (picked !== undefined) return koboSummaryToMajor(picked);
   }
   const data = asRecord(o.data);
   if (data) {
     for (const k of keys) {
       const picked = pickAmountValue(data[k]);
-      if (picked !== undefined) return picked;
+      if (picked !== undefined) return koboSummaryToMajor(picked);
     }
   }
   return undefined;
@@ -766,7 +772,7 @@ function pickSummaryAmountFromBlock(block: Record<string, unknown> | null): numb
   if (!block) return undefined;
   for (const k of SUMMARY_AMOUNT_BLOCK_KEYS) {
     const picked = pickAmountValue(block[k]);
-    if (picked !== undefined) return picked;
+    if (picked !== undefined) return koboSummaryToMajor(picked);
   }
   return undefined;
 }
@@ -855,17 +861,17 @@ function pickSummaryCount(o: Record<string, unknown>, keys: string[]): number | 
   return undefined;
 }
 
-/** OpenAPI documents deposit/withdraw totals in minor units (cents). */
+/** Legacy `*Cents` keys — values are kobo, same as other amount fields. */
 function pickSummaryCentsAsMajor(o: Record<string, unknown>, keys: string[]): number | undefined {
   for (const k of keys) {
-    const n = pickNum(o, [k]);
-    if (n !== undefined) return n / 100;
+    const n = pickKobo(o, [k]);
+    if (n !== undefined) return koboToMajor(n);
   }
   const data = asRecord(o.data);
   if (data) {
     for (const k of keys) {
-      const n = pickNum(data, [k]);
-      if (n !== undefined) return n / 100;
+      const n = pickKobo(data, [k]);
+      if (n !== undefined) return koboToMajor(n);
     }
   }
   return undefined;
@@ -1025,6 +1031,9 @@ export function flattenTransactionRecord(raw: Record<string, unknown>): Record<s
     "transaction_details",
     "additionalInfo",
     "additional_info",
+    "submission",
+    "giftCardSubmission",
+    "gift_card_submission",
   ]) {
     const nested = asRecord(o[key]);
     if (nested) Object.assign(merged, nested);
@@ -1063,18 +1072,17 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
     pickString(o, ["id", "transactionId", "txId", "uuid"]) ||
     `tx-${index}`;
 
-  const amountCents = pickNum(o, ["amountCents", "amount_cents", "amountInCents", "amount_in_cents"]);
-  const amountNum =
-    pickNum(o, ["amount", "value", "totalAmount", "transactionAmount", "amountPaid", "paidAmount"]) ??
-    (amountBlock ? pickNum(amountBlock, ["value", "amount", "total", "paid"]) : undefined) ??
-    (amountCents !== undefined ? amountCents / 100 : undefined);
+  const amountKobo =
+    pickKobo(o, ["amount", "value", "totalAmount", "transactionAmount", "amountPaid", "paidAmount"]) ??
+    (amountBlock ? pickKobo(amountBlock, ["value", "amount", "total", "paid"]) : undefined) ??
+    pickKobo(o, ["amountCents", "amount_cents", "amountInCents", "amount_in_cents", "amountKobo", "amount_kobo"]);
   const currency =
     pickString(o, ["currency", "asset", "currencyCode"]) ||
     (amountBlock ? pickString(amountBlock, ["currency", "code"]) : "") ||
     "";
   const amount =
-    amountNum !== undefined
-      ? `${currency ? `${currency} ` : "₦"}${amountNum.toLocaleString()}`.replace(/^₦₦/, "₦")
+    amountKobo !== undefined
+      ? formatKoboAmountDisplay(amountKobo, currency)
       : pickString(o, ["amountFormatted", "amount_display", "formattedAmount"]) ||
         (amountBlock ? pickString(amountBlock, ["formatted", "display"]) : "") ||
         "—";
