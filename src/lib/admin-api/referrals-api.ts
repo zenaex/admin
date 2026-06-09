@@ -1,4 +1,5 @@
 import { adminRequest, AdminApiError } from "@/lib/admin-api/client";
+import { koboToMajor, parseMajorAmountInputAsKobo } from "@/lib/admin-api/money";
 import type {
   AdminReferralConfigBody,
   AdminReferralConfigForm,
@@ -103,12 +104,34 @@ function formatReward(amount: unknown, currency?: string): string {
   if (typeof amount === "string") {
     const t = amount.trim();
     if (!t || t === "—") return "0.00";
-    if (t) return t;
+    if (/^[₦$]/.test(t)) return t;
+    const n = Number(t.replace(/[^\d.-]/g, ""));
+    if (Number.isFinite(n) && t.replace(/[^\d.-]/g, "") !== "") {
+      return koboToMajor(n).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+    return t;
   }
   if (typeof amount === "number" && Number.isFinite(amount)) {
-    return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const major = koboToMajor(amount);
+    const prefix = currency?.trim().startsWith("₦") ? "₦" : "";
+    return `${prefix}${major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   return "0.00";
+}
+
+function koboAmountToFormString(value: unknown, fallback: string): string {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(koboToMajor(value));
+  }
+  const t = String(value).replace(/[^\d.]/g, "");
+  if (!t) return fallback;
+  const n = Number(t);
+  if (!Number.isFinite(n)) return fallback;
+  return String(koboToMajor(n));
 }
 
 function formatStatCount(v: unknown): string {
@@ -199,7 +222,7 @@ const DEFAULT_REFERRAL_CONFIG_FORM: AdminReferralConfigForm = {
   maxDaysFromOnboarding: 30,
   cycleSize: 10,
   allowedProducts: [],
-  rewardAmount: "5000",
+  rewardAmount: "50",
   rewardCurrency: "NGN",
   thresholdType: "transaction_count",
 };
@@ -237,15 +260,13 @@ export function normalizeReferralConfig(data: unknown): AdminReferralConfigForm 
   const minTx = root.minTransactionAmount ?? root.min_transaction_amount;
   const reward = root.rewardAmount ?? root.reward_amount;
   return {
-    minTransactionAmount:
-      minTx !== undefined && minTx !== null ? String(minTx).replace(/[^\d.]/g, "") || "100" : "100",
+    minTransactionAmount: koboAmountToFormString(minTx, "100"),
     currency: pickString(root, ["currency", "minTransactionCurrency"]) || "NGN",
     maxDaysFromOnboarding:
       pickNum(root, ["maxDaysFromOnboarding", "max_days_from_onboarding"]) ?? 30,
     cycleSize: pickNum(root, ["cycleSize", "cycle_size"]) ?? 10,
     allowedProducts: pickStringArray(root, ["allowedProducts", "allowed_products"]),
-    rewardAmount:
-      reward !== undefined && reward !== null ? String(reward).replace(/[^\d.]/g, "") || "0" : "5000",
+    rewardAmount: koboAmountToFormString(reward, "50"),
     rewardCurrency: pickString(root, ["rewardCurrency", "reward_currency"]) || "NGN",
     thresholdType: normalizeThresholdType(root.thresholdType ?? root.threshold_type),
   };
@@ -274,27 +295,25 @@ export async function getAdminReferralConfig(): Promise<AdminReferralConfigLoadR
 
 export function referralConfigFormToPostBody(form: AdminReferralConfigForm): AdminReferralConfigBody {
   return {
-    minTransactionAmount: parseAmountString(form.minTransactionAmount),
+    minTransactionAmount: String(parseMajorAmountInputAsKobo(form.minTransactionAmount)),
     currency: form.currency.trim() || "NGN",
     maxDaysFromOnboarding: form.maxDaysFromOnboarding,
     cycleSize: form.cycleSize,
     allowedProducts: form.allowedProducts,
-    rewardAmount: parseAmountString(form.rewardAmount),
+    rewardAmount: String(parseMajorAmountInputAsKobo(form.rewardAmount)),
     rewardCurrency: form.rewardCurrency.trim() || "NGN",
     thresholdType: form.thresholdType,
   };
 }
 
 export function referralConfigFormToPutBody(form: AdminReferralConfigForm): AdminReferralConfigUpdateBody {
-  const minTx = Number(parseAmountString(form.minTransactionAmount));
-  const reward = Number(parseAmountString(form.rewardAmount));
   return {
-    minTransactionAmount: Number.isFinite(minTx) ? minTx : 0,
+    minTransactionAmount: parseMajorAmountInputAsKobo(form.minTransactionAmount),
     currency: form.currency.trim() || "NGN",
     maxDaysFromOnboarding: form.maxDaysFromOnboarding,
     cycleSize: form.cycleSize,
     allowedProducts: form.allowedProducts,
-    rewardAmount: Number.isFinite(reward) ? reward : 0,
+    rewardAmount: parseMajorAmountInputAsKobo(form.rewardAmount),
     rewardCurrency: form.rewardCurrency.trim() || "NGN",
     thresholdType: form.thresholdType,
   };

@@ -1,3 +1,4 @@
+import { majorToKobo, parseMajorAmountInput } from "@/lib/admin-api/money";
 import { parseNumericInput } from "@/lib/product-mgt/rate-preview";
 
 export type ApiMarkupType = "flat" | "percentage" | "percentage_with_cap";
@@ -33,12 +34,14 @@ export function buildMarkupConfigurePayload(
   markupCap?: number,
 ): { markupType: ApiMarkupType; markupValue: number; markupCap?: number } {
   const apiType = mapUiMarkupTypeToApi(markupType);
+  const rawRate = parseRateNumber(markupRate);
   const payload: { markupType: ApiMarkupType; markupValue: number; markupCap?: number } = {
     markupType: apiType,
-    markupValue: parseRateNumber(markupRate),
+    markupValue: apiType === "flat" ? majorToKobo(rawRate) : rawRate,
   };
   if (apiType === "percentage_with_cap") {
-    payload.markupCap = markupCap ?? 50;
+    payload.markupCap =
+      markupCap !== undefined ? majorToKobo(markupCap) : majorToKobo(parseMajorAmountInput("50"));
   }
   return payload;
 }

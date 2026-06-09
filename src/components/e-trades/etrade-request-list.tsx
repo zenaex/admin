@@ -12,7 +12,7 @@ export function EtradeRequestList({ rows }: EtradeRequestListProps) {
   const router = useRouter();
 
   const handleRowClick = (id: string) => {
-    router.push(`/dashboard/e-trades/${id}`);
+    router.push(`/dashboard/e-trades/transaction/${id}`);
   };
 
   return (

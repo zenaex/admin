@@ -1,4 +1,5 @@
 import { adminRequest } from "@/lib/admin-api/client";
+import { formatNgnMajor, koboToMajor } from "@/lib/admin-api/money";
 import type { ProductRow, ProductStatus, ProductMgtStats } from "@/components/product-mgt/product-mgt-types";
 
 // Helper utilities for normalization
@@ -97,7 +98,7 @@ function extractPageInfo(data: unknown, requestedPage: number, requestedPageSize
 }
 
 function formatMinorUnits(value: number): string {
-  return `₦${(value / 100).toLocaleString()}`;
+  return formatNgnMajor(koboToMajor(value));
 }
 
 function mapChargeType(apiType: string): string {

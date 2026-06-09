@@ -1,4 +1,5 @@
 import { adminRequest } from "@/lib/admin-api/client";
+import { formatNgnMajor, koboToMajor, majorToKobo } from "@/lib/admin-api/money";
 import type {
   AdminProviderCommissionBody,
   AdminProviderDetail,
@@ -283,7 +284,7 @@ function mapChargeType(apiType: string): UiCommissionType {
 }
 
 function formatMinorUnits(value: number): string {
-  return `₦${(value / 100).toLocaleString()}`;
+  return formatNgnMajor(koboToMajor(value));
 }
 
 function formatChargeDisplay(
@@ -400,7 +401,7 @@ export function uiCommissionLabelToApi(
 function parseMoneyToMinorUnits(input: string): number {
   const n = Number(input.replace(/[^\d.]/g, ""));
   if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
+  return majorToKobo(n);
 }
 
 function parsePercentNumber(input: string): number {

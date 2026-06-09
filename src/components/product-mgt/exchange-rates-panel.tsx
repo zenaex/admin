@@ -324,6 +324,7 @@ export function ExchangeRatesPanel() {
                           <CryptoCurrencyCell
                             currencyCode={row.currencyCode}
                             currencyName={row.currencyName}
+                            iconUrl={row.iconUrl}
                           />
                         ) : (
                           <CurrencyCell

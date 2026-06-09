@@ -5,28 +5,22 @@ import { Upload, Check, Search, ChevronDown } from "lucide-react";
 import { ArrowLeft2, ArrowRight2 } from "iconsax-react";
 import { InputField } from "@/components/input-field";
 import { SuccessModal } from "@/components/provider/provider-modals";
-import type { EtradeRequestRow } from "@/components/e-trades/etrade-types";
+import { formatAdminApiError } from "@/lib/admin-api/client";
 import { getAdminCustomersList } from "@/lib/admin-api/customers-api";
+import { buildCreateEtradeBody, createAdminEtrade } from "@/lib/admin-api/etrades-api";
 
 type EtradeLogFlowProps = {
   onBack: () => void;
-  onSuccess: (newTrade: EtradeRequestRow) => void;
+  onSuccess: () => void;
 };
 
 type CustomerOption = {
+  accountId: string;
   name: string;
   username: string;
 };
 
-const CUSTOMER_OPTIONS: CustomerOption[] = [
-  { name: "Adekunle Timothy", username: "kunletim" },
-  { name: "Timothy Nasiru", username: "Timo" },
-  { name: "Babangida Tunde", username: "Bangi" },
-  { name: "Chiamaka Ngozi", username: "maxxxxxx" },
-  { name: "Lala Jibola", username: "Oglala" },
-  { name: "Mustapha Fetuga", username: "Musty100" },
-  { name: "Okunola Roscoly", username: "badmanrosco1" },
-];
+const CUSTOMER_OPTIONS: CustomerOption[] = [];
 
 const TRADE_TYPE_OPTIONS = ["Exchange Rate", "Percentage"] as const;
 
@@ -35,7 +29,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
 
   // Form states
   const [tradeType, setTradeType] = useState<string>(TRADE_TYPE_OPTIONS[0]);
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption>(CUSTOMER_OPTIONS[6]); // Default to Okunola Roscoly as in mockup
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const customerDropdownRef = useRef<HTMLDivElement>(null);
@@ -52,9 +46,11 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
   // Upload image state
   const [imageName, setImageName] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [proofImageUrl, setProofImageUrl] = useState("");
 
   // Submit flow states
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
   const [initialCustomers, setInitialCustomers] = useState<CustomerOption[]>(CUSTOMER_OPTIONS);
@@ -86,16 +82,13 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
         const res = await getAdminCustomersList({ page: 1, pageSize: 50 });
         if (active && res.items.length > 0) {
           const mapped = res.items.map((item) => ({
+            accountId: item.accountId,
             name: item.name,
             username: item.username.startsWith("@") ? item.username.slice(1) : item.username,
           }));
           setInitialCustomers(mapped);
           setCustomers(mapped);
-
-          const foundDefault = mapped.find((c) => c.name.toLowerCase().includes("okunola"));
-          if (foundDefault) {
-            setSelectedCustomer(foundDefault);
-          } else if (mapped.length > 0) {
+          if (mapped.length > 0) {
             setSelectedCustomer(mapped[0]);
           }
         }
@@ -125,6 +118,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
         const res = await getAdminCustomersList({ search: customerSearch.trim(), page: 1, pageSize: 20 });
         if (active) {
           const mapped = res.items.map((item) => ({
+            accountId: item.accountId,
             name: item.name,
             username: item.username.startsWith("@") ? item.username.slice(1) : item.username,
           }));
@@ -179,34 +173,48 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
 
   const handleContinue = (e: FormEvent) => {
     e.preventDefault();
-    if (!requestType.trim() || !tradeAmount.trim() || !vendorRate.trim() || !markupRate.trim()) {
+    if (
+      !selectedCustomer?.accountId ||
+      !requestType.trim() ||
+      !tradeAmount.trim() ||
+      !vendorRate.trim() ||
+      !markupRate.trim() ||
+      !proofImageUrl.trim()
+    ) {
+      setSubmitError(
+        !proofImageUrl.trim()
+          ? "Proof image URL is required (paste a hosted receipt image link)."
+          : "Please complete all required fields.",
+      );
       return;
     }
+    setSubmitError(null);
     setStep(2);
   };
 
   const handleConfirmSubmit = async () => {
+    if (!selectedCustomer?.accountId) return;
     setLoading(true);
-    // Mock API call latency
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setLoading(false);
-
-    // Map form to EtradeRequestRow schema
-    const newTrade: EtradeRequestRow = {
-      id: `etrade-req-logged-${Date.now()}`,
-      title: requestType.trim(),
-      subtitle: "Etrade • 9:32AM",
-      status: "Pending", // Awaiting Approval
-      etradeType: tradeType,
-      tradeId: `Trade-WVA_S${Math.floor(100 + Math.random() * 900)}OOOPN`,
-      customer: selectedCustomer.name,
-      dateCreated: "Jan 6, 2026 | 9:32AM",
-      tradeValue: tradeAmount,
-      opsInCharge: "Tech Support",
-    };
-
-    onSuccess(newTrade);
-    setShowSuccess(true);
+    setSubmitError(null);
+    try {
+      const body = buildCreateEtradeBody({
+        customerId: selectedCustomer.accountId,
+        requestType,
+        tradeTypeLabel: tradeType,
+        tradeAmount,
+        vendorRate,
+        markupRate,
+        customerRate,
+        proofImageUrl: proofImageUrl.trim(),
+      });
+      await createAdminEtrade(body);
+      onSuccess();
+      setShowSuccess(true);
+    } catch (e) {
+      setSubmitError(formatAdminApiError(e, "Could not log trade."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -320,7 +328,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
                 onClick={() => setIsCustomerOpen(!isCustomerOpen)}
                 className="flex items-center justify-between text-primary-text h-10 w-full rounded-md border border-secondary-green/25 bg-white px-3 text-sm outline-none focus:border-secondary-green text-left shadow-sm transition-colors"
               >
-                <span>{selectedCustomer.name}</span>
+                <span>{selectedCustomer?.name ?? "Select customer"}</span>
                 <ChevronDown size={16} className="text-zinc-400 shrink-0" />
               </button>
 
@@ -499,6 +507,21 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
               </label>
             </div>
 
+            <InputField
+              id="log-proof-image-url"
+              label="Proof image URL"
+              value={proofImageUrl}
+              onChange={(e) => setProofImageUrl(e.target.value)}
+              placeholder="https://…"
+              required
+            />
+
+            {submitError ? (
+              <p className="text-center text-sm text-red-600" role="alert">
+                {submitError}
+              </p>
+            ) : null}
+
             <button
               type="submit"
               className="mt-6 w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 shadow-sm"
@@ -526,7 +549,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Customer Name</span>
-                <span className="font-semibold text-zinc-900">{selectedCustomer.name}</span>
+                <span className="font-semibold text-zinc-900">{selectedCustomer?.name ?? "—"}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Request Type</span>
@@ -563,6 +586,12 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
                 </div>
               )}
             </div>
+
+            {submitError ? (
+              <p className="text-center text-sm text-red-600" role="alert">
+                {submitError}
+              </p>
+            ) : null}
 
             <div className="mt-2 flex gap-4">
               <button

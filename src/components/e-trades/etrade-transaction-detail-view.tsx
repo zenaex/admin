@@ -1,18 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, DocumentDownload } from "iconsax-react";
 
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
+import { ErrorAlert } from "@/components/ui/error-alert";
+import type { EtradeTransactionDetail, EtradeDetailOutcome } from "@/components/e-trades/etrade-mock-transactions";
+import { formatAdminApiError } from "@/lib/admin-api/client";
 import {
-  getEtradeTransactionDetail,
-  parseEtradeDetailOutcome,
-  type EtradeTransactionDetail,
-  type EtradeDetailOutcome,
-} from "@/components/e-trades/etrade-mock-transactions";
+  approveAdminEtrade,
+  getAdminEtradeDetail,
+  rejectAdminEtrade,
+} from "@/lib/admin-api/etrades-api";
 
 const BORDER = "#EEEEEE";
 const HEADER_BG = "#F9F9F9";
@@ -30,32 +32,88 @@ type EtradeTransactionDetailViewProps = {
 
 export function EtradeTransactionDetailView({ transactionId }: EtradeTransactionDetailViewProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const outcomeOverride = parseEtradeDetailOutcome(searchParams?.get("outcome"));
-  const detail = useMemo(
-    () => getEtradeTransactionDetail(transactionId, outcomeOverride),
-    [transactionId, outcomeOverride],
-  );
-
-  const [outcome, setOutcome] = useState<EtradeDetailOutcome>(detail.outcome);
+  const [detail, setDetail] = useState<EtradeTransactionDetail | null>(null);
+  const [outcome, setOutcome] = useState<EtradeDetailOutcome>("pending");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [actionOpen, setActionOpen] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successDeclined, setSuccessDeclined] = useState(false);
+
+  const loadDetail = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getAdminEtradeDetail(transactionId);
+      setDetail(data);
+      setOutcome(data.outcome);
+    } catch (e) {
+      setError(formatAdminApiError(e, "Could not load transaction."));
+      setDetail(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [transactionId]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
 
   const banner = bannerForOutcome(outcome);
 
-  const handleApproveSubmit = () => {
-    setShowApproveConfirm(false);
-    setOutcome("approved");
-    setShowSuccessModal(true);
+  const handleApproveSubmit = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await approveAdminEtrade(transactionId);
+      setShowApproveConfirm(false);
+      setOutcome("approved");
+      setSuccessDeclined(false);
+      setShowSuccessModal(true);
+      await loadDetail();
+    } catch (e) {
+      setActionError(formatAdminApiError(e, "Could not approve trade."));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleDeclineSubmit = () => {
-    setShowDeclineConfirm(false);
-    setOutcome("failed");
-    setShowSuccessModal(true);
+  const handleDeclineSubmit = async () => {
+    const reason = rejectReason.trim();
+    if (!reason) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await rejectAdminEtrade(transactionId, reason);
+      setShowDeclineConfirm(false);
+      setOutcome("failed");
+      setSuccessDeclined(true);
+      setShowSuccessModal(true);
+      setRejectReason("");
+      await loadDetail();
+    } catch (e) {
+      setActionError(formatAdminApiError(e, "Could not decline trade."));
+    } finally {
+      setActionLoading(false);
+    }
   };
+
+  if (loading) {
+    return <p className="mt-8 text-center text-sm text-zinc-500">Loading transaction…</p>;
+  }
+
+  if (error || !detail) {
+    return (
+      <div className="mt-6">
+        <ErrorAlert error={error ?? "Transaction not found."} onRetry={() => void loadDetail()} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden relative">
@@ -163,26 +221,49 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
       )}
 
       {/* Modals */}
+      {actionError ? (
+        <div className="mt-4 px-2">
+          <ErrorAlert error={actionError} onRetry={() => setActionError(null)} />
+        </div>
+      ) : null}
+
       {showDeclineConfirm && (
         <ConfirmModal
           title="Decline Etrade"
-          message="Are you sure you want to decline this etrade request?"
-          confirmLabel="Decline"
+          confirmLabel={actionLoading ? "Declining…" : "Decline"}
           cancelLabel="Cancel"
           variant="danger"
-          onConfirm={handleDeclineSubmit}
-          onCancel={() => setShowDeclineConfirm(false)}
-        />
+          onConfirm={() => void handleDeclineSubmit()}
+          onCancel={() => {
+            setShowDeclineConfirm(false);
+            setRejectReason("");
+          }}
+        >
+          <p className="mb-3 text-center text-sm text-zinc-400">
+            Are you sure you want to decline this etrade request?
+          </p>
+          <label className="block text-xs font-medium text-zinc-500" htmlFor="etrade-reject-reason">
+            Reason (required)
+          </label>
+          <textarea
+            id="etrade-reject-reason"
+            className="mt-1.5 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm text-primary-text outline-none focus:border-zinc-400"
+            rows={3}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Enter decline reason"
+          />
+        </ConfirmModal>
       )}
 
       {showApproveConfirm && (
         <ConfirmModal
           title="Approve Etrade"
           message="Are you sure you want to approve this etrade request?"
-          confirmLabel="Approve"
+          confirmLabel={actionLoading ? "Approving…" : "Approve"}
           cancelLabel="Cancel"
           variant="approve"
-          onConfirm={handleApproveSubmit}
+          onConfirm={() => void handleApproveSubmit()}
           onCancel={() => setShowApproveConfirm(false)}
         />
       )}
@@ -190,7 +271,7 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
       {showSuccessModal && (
         <SuccessModal
           message={
-            outcome === "failed"
+            successDeclined
               ? "Etrade transaction has been declined"
               : "Etrade transaction has been successfully approved"
           }
@@ -279,14 +360,14 @@ function TransactionDetailsGrid({
     detail.rateFee,
     detail.ngnEquivalent,
     <PipeHighlightedCell key="di" value={detail.dateInitiated} />,
-    <PipeHighlightedCell key="dc" value={isPending ? "—" : detail.dateInitiated} />,
+    <PipeHighlightedCell key="dc" value={isPending ? "—" : detail.dateCompleted} />,
   ];
 
   const row3Headers = ["Ops in Charge", "Approved By", "Date Approved", "\u00a0", "\u00a0"];
   const row3Cells: ReactNode[] = [
     detail.opsInCharge,
-    isApproved ? "Ezekiel Olajolo" : "—",
-    <PipeHighlightedCell key="da" value={isApproved ? detail.dateInitiated : "—"} />,
+    isApproved ? detail.approvedBy : "—",
+    <PipeHighlightedCell key="da" value={isApproved ? detail.dateApproved : "—"} />,
     "\u00a0",
     "\u00a0",
   ];

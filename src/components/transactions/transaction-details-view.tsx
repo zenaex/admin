@@ -1039,7 +1039,7 @@ function TransactionDetailsTab({
             sessionId: tx.sessionId,
             customerName: tx.customerName,
             channel: tx.categorySlug || "Giftcard",
-            typeLabel: tx.displayCategory || tx.giftcardType,
+            typeLabel: tx.displayCategory || tx.giftcardType || tx.product,
             code: tx.code,
             country: tx.country,
             amount: tx.amount,

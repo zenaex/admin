@@ -1,4 +1,5 @@
 import { adminRequest } from "@/lib/admin-api/client";
+import { formatNgnMajor, koboToMajor } from "@/lib/admin-api/money";
 import {
   buildMarkupConfigurePayload,
   parseRmbRateNumber,
@@ -16,6 +17,15 @@ function pickString(o: Record<string, unknown>, keys: string[]): string {
   for (const k of keys) {
     const v = o[k];
     if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function pickScalar(o: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
   }
   return "";
 }
@@ -107,7 +117,8 @@ function formatCommissionValue(type: string, rate: number | string): string {
     return `${cleaned}%`;
   }
   if (t === "flat") {
-    return `₦${parseFloat(cleaned).toLocaleString()} FLAT`;
+    const major = koboToMajor(parseFloat(cleaned));
+    return `${formatNgnMajor(major)} FLAT`;
   }
   return cleaned;
 }
@@ -214,6 +225,9 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
         resolveCryptoSlug(currencyCode, pickString(o, ["cryptoSlug", "slug"]))
       : undefined;
 
+  const iconUrl =
+    pickString(o, ["logo", "iconUrl", "icon_url", "icon", "imageUrl", "image_url"]) || undefined;
+
   return {
     id,
     currencyCode,
@@ -228,6 +242,7 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
     dateUpdated,
     swapPair,
     cryptoSlug,
+    iconUrl,
   };
 }
 
@@ -243,15 +258,61 @@ function isMeaningfulGiftcardDenomination(d: {
   return (vendor !== "" && vendor !== "—") || (final !== "" && final !== "—");
 }
 
+function humanizeGiftcardBrandType(raw: string): "E-code" | "Physical" {
+  const t = raw.trim().toLowerCase();
+  if (!t) return "E-code";
+  if (t.includes("physical")) return "Physical";
+  if (t.includes("ecode") || t.includes("e-code") || t === "e_code") return "E-code";
+  return "E-code";
+}
+
+function formatGiftcardRmbRate(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "—";
+  if (t.startsWith("¥") || t.startsWith("$") || t.startsWith("₦")) return t;
+  const n = Number(t);
+  if (Number.isFinite(n)) return `¥${n}`;
+  return t;
+}
+
+function formatGiftcardVendorRate(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (t.startsWith("$") || t.startsWith("¥") || t.startsWith("₦")) return t;
+  const n = Number(t);
+  if (Number.isFinite(n)) return `$${n}`;
+  return t;
+}
+
+function formatGiftcardFinalRate(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (t.includes("/")) return t;
+  const n = Number(t);
+  if (Number.isFinite(n)) return `$1/₦${n.toLocaleString()}`;
+  return t;
+}
+
+function pickGiftcardDenomStatus(rec: Record<string, unknown>): "Active" | "Inactive" {
+  const active = rec.isActive ?? rec.is_active;
+  if (typeof active === "boolean") return active ? "Active" : "Inactive";
+  const status = pickString(rec, ["status", "denomStatus"]).toLowerCase();
+  if (status === "inactive" || status === "disabled") return "Inactive";
+  return "Active";
+}
+
 function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | null {
   const o = asRecord(raw);
   if (!o) return null;
 
   const id = pickString(o, ["id", "configId", "config_id", "uuid"]) || `gc-brand-${index}`;
   const brandName = pickString(o, ["brandName", "brand_name", "name", "title"]) || "—";
-  const brandType = (pickString(o, ["brandType", "brand_type", "type"]) || "E-code") as "E-code" | "Physical";
-  const country = pickString(o, ["country", "brandCountry"]) || "USA";
-  const countryCode = pickString(o, ["countryCode", "country_code"]) || "US";
+  const rawType = pickString(o, ["type", "brandType", "brand_type", "cardType", "card_type"]);
+  const brandType = humanizeGiftcardBrandType(rawType);
+  const currency = pickString(o, ["currency", "currencyCode", "currency_code"]).toUpperCase();
+  const country = pickString(o, ["country", "brandCountry"]) || "—";
+  const countryCode =
+    pickString(o, ["countryCode", "country_code"]) || currency || "—";
 
   const commissionType = humanizeCommissionType(
     pickString(o, ["commissionType", "commission_type", "markupType", "markup_type"]),
@@ -259,53 +320,60 @@ function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | nu
   const commissionRateVal = pickMarkupValue(o);
   const ourCommission = commissionRateVal ? formatCommissionValue(commissionType, commissionRateVal) : "—";
 
-  const rmbRate = pickString(o, ["rmbRate", "rmb_rate", "rmb"]) || "—";
-  const iconUrl = pickString(o, ["iconUrl", "icon_url", "icon"]) || undefined;
+  const rmbRateRaw = pickScalar(o, ["rmbRate", "rmb_rate", "rmb"]);
+  const rmbRate = formatGiftcardRmbRate(rmbRateRaw);
+  const iconUrl =
+    pickString(o, ["logo", "iconUrl", "icon_url", "icon", "imageUrl", "image_url"]) || undefined;
 
   const denomsRaw =
+    o.categories ??
     o.denominations ??
     o.subCategories ??
     o.sub_categories ??
     o.subProducts ??
     o.sub_products ??
-    o.categories ??
     [];
   const denominations = (Array.isArray(denomsRaw) ? denomsRaw : [])
     .map((d: unknown, dIdx: number) => {
-    const doRecord = asRecord(d) || {};
-    const dId = pickString(doRecord, ["id", "denomId", "uuid"]) || `denom-${dIdx}`;
-    const label =
-      pickString(doRecord, [
-        "label",
-        "name",
-        "title",
-        "subCategoryName",
-        "sub_category_name",
-        "amountRange",
-        "amount_range",
-        "range",
-        "denomination",
-        "value",
-        "description",
-      ]) || "";
-    const vendorRateVal = pickString(doRecord, ["vendorRate", "vendor_rate", "rate"]);
-    const vendorRate = vendorRateVal
-      ? vendorRateVal.startsWith("$") || vendorRateVal.startsWith("¥")
-        ? vendorRateVal
-        : `$${vendorRateVal}`
-      : "";
-    const finalRateVal = pickString(doRecord, ["finalRate", "final_rate", "rate", "final"]);
-    const finalRate = finalRateVal
-      ? finalRateVal.includes("/")
-        ? finalRateVal
-        : `$1/₦${finalRateVal}`
-      : "";
-    const dUpdatedAtRaw = pickString(doRecord, ["dateUpdated", "date_updated", "updatedAt", "updated_at"]);
-    const dateUpdated = dUpdatedAtRaw ? formatDisplayDate(dUpdatedAtRaw) : "—";
-    const status = (pickString(doRecord, ["status", "denomStatus"]) || "Active") as "Active" | "Inactive";
+      const doRecord = asRecord(d) || {};
+      const categoryKey = pickScalar(doRecord, ["category", "categoryName", "category_name"]);
+      const dId =
+        pickString(doRecord, ["id", "denomId", "uuid"]) ||
+        (categoryKey ? `${id}-${categoryKey}` : `denom-${dIdx}`);
+      const label =
+        pickScalar(doRecord, [
+          "category",
+          "categoryName",
+          "category_name",
+          "label",
+          "name",
+          "title",
+          "subCategoryName",
+          "sub_category_name",
+          "amountRange",
+          "amount_range",
+          "range",
+          "denomination",
+          "value",
+          "description",
+        ]) || "";
+      const vendorRate = formatGiftcardVendorRate(
+        pickScalar(doRecord, ["vendorRate", "vendor_rate", "rate"]),
+      );
+      const finalRate = formatGiftcardFinalRate(
+        pickScalar(doRecord, ["finalRate", "final_rate", "final"]),
+      );
+      const dUpdatedAtRaw = pickScalar(doRecord, [
+        "updatedAt",
+        "updated_at",
+        "dateUpdated",
+        "date_updated",
+      ]);
+      const dateUpdated = dUpdatedAtRaw ? formatDisplayDate(dUpdatedAtRaw) : "—";
+      const status = pickGiftcardDenomStatus(doRecord);
 
-    return { id: dId, label, vendorRate, finalRate, dateUpdated, status };
-  })
+      return { id: dId, label, vendorRate, finalRate, dateUpdated, status };
+    })
     .filter(isMeaningfulGiftcardDenomination);
 
   return {
@@ -314,6 +382,8 @@ function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | nu
     brandType,
     country,
     countryCode,
+    currency: currency || undefined,
+    cardType: rawType || undefined,
     commissionType,
     ourCommission,
     rmbRate,

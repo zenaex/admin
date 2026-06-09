@@ -1,4 +1,5 @@
 import { adminRequest } from "@/lib/admin-api/client";
+import { parseMajorAmountInputAsKobo } from "@/lib/admin-api/money";
 import type {
   AdminChangeAdminRoleBody,
   AdminCustomerLienBody,
@@ -165,7 +166,7 @@ export async function postCustomerPlaceLien(accountId: string, body: AdminCustom
     method: "POST",
     auth: true,
     body: JSON.stringify({
-      amount,
+      amount: String(parseMajorAmountInputAsKobo(amount)),
       lienType,
       reason,
       ...(body.walletId ? { walletId: body.walletId } : {}),
