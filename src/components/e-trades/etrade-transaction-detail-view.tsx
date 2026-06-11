@@ -64,8 +64,6 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
     void loadDetail();
   }, [loadDetail]);
 
-  const banner = bannerForOutcome(outcome);
-
   const handleApproveSubmit = async () => {
     setActionLoading(true);
     setActionError(null);
@@ -114,6 +112,10 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
       </div>
     );
   }
+
+  const displayOutcome = detail.outcome;
+  const isPending = displayOutcome === "pending";
+  const banner = bannerForOutcome(displayOutcome);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden relative">
@@ -181,12 +183,17 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
         </div>
       </header>
 
-      <div className="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 pb-24 [-webkit-overflow-scrolling:touch]">
+      <div
+        className={[
+          "mt-6 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1 [-webkit-overflow-scrolling:touch]",
+          isPending ? "pb-24" : "pb-8",
+        ].join(" ")}
+      >
         <section>
           <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
             Transaction Details
           </h2>
-          <TransactionDetailsGrid detail={detail} outcome={outcome} />
+          <TransactionDetailsGrid detail={detail} />
         </section>
 
         <section className="mt-8">
@@ -201,7 +208,7 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
       </div>
 
       {/* Sticky Bottom Actions Bar for Pending requests */}
-      {outcome === "pending" && (
+      {isPending && (
         <div className="sticky bottom-0 z-40 -mx-8 mt-auto flex items-center justify-center gap-4 border-t border-zinc-100 bg-white px-6 py-5">
           <button
             type="button"
@@ -323,19 +330,13 @@ function PipeHighlightedCell({ value }: { value: string }) {
   );
 }
 
-function TransactionDetailsGrid({
-  detail,
-  outcome,
-}: {
-  detail: EtradeTransactionDetail;
-  outcome: EtradeDetailOutcome;
-}) {
+function TransactionDetailsGrid({ detail }: { detail: EtradeTransactionDetail }) {
   const cellBorder = `1px solid ${BORDER}`;
   const thBase = "px-4 py-3 text-left text-xs font-semibold align-middle";
   const tdBase = "px-4 py-4 text-left text-sm font-normal align-top";
 
-  const isApproved = outcome === "approved";
-  const isPending = outcome === "pending";
+  const isApproved = detail.outcome === "approved";
+  const isPending = detail.outcome === "pending";
 
   const row1Headers = ["Session ID", "Customer Names", "Channel", "Request Details", "Country"];
   const row1Cells: ReactNode[] = [
@@ -363,20 +364,28 @@ function TransactionDetailsGrid({
     <PipeHighlightedCell key="dc" value={isPending ? "—" : detail.dateCompleted} />,
   ];
 
-  const row3Headers = ["Ops in Charge", "Approved By", "Date Approved", "\u00a0", "\u00a0"];
-  const row3Cells: ReactNode[] = [
-    detail.opsInCharge,
-    isApproved ? detail.approvedBy : "—",
-    <PipeHighlightedCell key="da" value={isApproved ? detail.dateApproved : "—"} />,
-    "\u00a0",
-    "\u00a0",
-  ];
-
   const rows: { headers: string[]; cells: ReactNode[] }[] = [
     { headers: row1Headers, cells: row1Cells },
     { headers: row2Headers, cells: row2Cells },
-    { headers: row3Headers, cells: row3Cells },
   ];
+
+  if (!isPending) {
+    rows.push({
+      headers: ["Ops in Charge", "Approved By", "Date Approved", "\u00a0", "\u00a0"],
+      cells: [
+        <PipeHighlightedCell key="ops" value={detail.opsInCharge} />,
+        isApproved ? <PipeHighlightedCell key="ab" value={detail.approvedBy} /> : "—",
+        <PipeHighlightedCell key="da" value={isApproved ? detail.dateApproved : "—"} />,
+        "\u00a0",
+        "\u00a0",
+      ],
+    });
+  } else {
+    rows.push({
+      headers: ["Ops in Charge", "\u00a0", "\u00a0", "\u00a0", "\u00a0"],
+      cells: [<PipeHighlightedCell key="ops" value={detail.opsInCharge} />, "\u00a0", "\u00a0", "\u00a0", "\u00a0"],
+    });
+  }
 
   return (
     <div className="w-full overflow-hidden rounded-xl bg-white">

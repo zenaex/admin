@@ -113,16 +113,6 @@ export const ALL_PRODUCTS: ProductRow[] = Array.from({ length: 180 }, (_, i) => 
       : `${BASE_PRODUCTS[i % BASE_PRODUCTS.length].productName} (${i + 1})`,
 }));
 
-export const PRODUCT_TABS = ["All", "Utility", "Crypto", "Giftcard", "E-sim"] as const;
-
-export const TAB_CATEGORY_MAP: Record<(typeof PRODUCT_TABS)[number], string | null> = {
-  All: null,
-  Utility: "Electricity",
-  Crypto: "Crypto",
-  Giftcard: "Giftcard",
-  "E-sim": "E-sim",
-};
-
 export const COMMISSION_TYPE_FILTER = [
   "All types",
   ...Array.from(new Set(BASE_PRODUCTS.map((p) => p.commissionType))),

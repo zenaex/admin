@@ -19,6 +19,9 @@ export type DepositDetailVariant = "crypto" | "utility" | "utility_betting";
 
 export type UtilityDetailVariant = "electricity" | "data" | "tv";
 
+/** Gift card delivery format from API `metadata.cardType`. */
+export type GiftcardCardFormat = "e-code" | "physical";
+
 export type CryptoDetailVariant = "buy" | "swap" | "sell_deposit";
 
 export type TransactionDetailChannel =
@@ -61,6 +64,14 @@ export type TransactionDetailModel = {
   sessionId: string;
   typeGift: string;
   giftcardType: string;
+  /** Raw `metadata.cardType` slug (e.g. `e-code`, `physical-cash-receipt`). */
+  giftcardCardType: string;
+  giftcardCardFormat: GiftcardCardFormat;
+  /** Denomination label from `metadata.category` (e.g. `10-500`). */
+  giftcardCategory: string;
+  giftcardFaceCurrency: string;
+  /** Physical card image URL when `giftcardCardFormat` is `physical`. */
+  giftcardImageUrl: string;
   giftcardProvider: string;
   code: string;
   country: string;
@@ -147,6 +158,11 @@ export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
   sessionId: "",
   typeGift: "",
   giftcardType: "",
+  giftcardCardType: "",
+  giftcardCardFormat: "e-code",
+  giftcardCategory: "",
+  giftcardFaceCurrency: "",
+  giftcardImageUrl: "",
   giftcardProvider: "",
   code: "",
   country: "",

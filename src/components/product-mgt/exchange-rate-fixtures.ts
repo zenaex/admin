@@ -2,6 +2,7 @@ import type {
   ExchangeRateRow,
   ExchangeRateSubTab,
   GiftcardBrand,
+  GiftcardDenomination,
   SwapPairMeta,
 } from "@/components/product-mgt/product-mgt-types";
 
@@ -272,8 +273,12 @@ export function getGiftcardBrandIcon(brandName: string): string | undefined {
   return key ? GIFTCARD_BRAND_ICONS[key] : undefined;
 }
 
+type GiftcardBrandFixture = Omit<GiftcardBrand, "denominations"> & {
+  denominations: Omit<GiftcardDenomination, "category">[];
+};
+
 /* ── Giftcard brands (hierarchical fixture data) ── */
-const GIFTCARD_BRANDS: GiftcardBrand[] = [
+const GIFTCARD_BRANDS: GiftcardBrandFixture[] = [
   {
     id: "gc-apple-ecode",
     brandName: "Apple",
@@ -446,6 +451,12 @@ const GIFTCARD_BRANDS: GiftcardBrand[] = [
 ];
 
 export function getGiftcardBrands(): GiftcardBrand[] {
-  return GIFTCARD_BRANDS;
+  return GIFTCARD_BRANDS.map((brand) => ({
+    ...brand,
+    denominations: brand.denominations.map((d) => ({
+      ...d,
+      category: d.label,
+    })),
+  }));
 }
 

@@ -162,6 +162,333 @@ function humanizeTradeType(raw: string): string {
     .join(" ");
 }
 
+function humanizeChannel(raw: string): string {
+  const t = raw.trim().toLowerCase();
+  if (!t) return "Etrade";
+  if (t === "etrade" || t === "e-trade" || t === "e_trade") return "Etrade";
+  return humanizeTradeType(raw);
+}
+
+const TRADE_CURRENCY_COUNTRY: Record<string, string> = {
+  USD: "United States",
+  GBP: "United Kingdom",
+  EUR: "Europe",
+  CAD: "Canada",
+  NGN: "Nigeria",
+};
+
+/** Detail responses use `{ etrade: { ... } }`; list rows are usually flat. */
+function unwrapEtradeRecord(data: unknown): Record<string, unknown> {
+  const r = asRecord(data);
+  if (!r) return {};
+  const direct = asRecord(r.etrade) ?? asRecord(r.eTrade) ?? asRecord(r.trade);
+  if (direct) return direct;
+  const inner = asRecord(r.data);
+  if (inner) {
+    return asRecord(inner.etrade) ?? asRecord(inner.eTrade) ?? asRecord(inner.trade) ?? inner;
+  }
+  return r;
+}
+
+/** Merge wrapper + inner so fields like ops on the list envelope are not dropped. */
+function mergeEtradePayload(raw: unknown): Record<string, unknown> {
+  const wrapper = asRecord(raw);
+  if (!wrapper) return {};
+  const core = unwrapEtradeRecord(raw);
+  if (!core || core === wrapper) return wrapper;
+  return { ...wrapper, ...core };
+}
+
+function isLikelyUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
+function pickNestedPersonName(block: Record<string, unknown> | null): string {
+  if (!block) return "";
+  const first = pickString(block, ["firstName", "first_name", "givenName", "given_name"]);
+  const last = pickString(block, ["lastName", "last_name", "familyName", "family_name"]);
+  const full = [first, last].filter(Boolean).join(" ").trim();
+  if (full) return full;
+
+  const direct = pickString(block, [
+    "name",
+    "fullName",
+    "full_name",
+    "displayName",
+    "display_name",
+    "adminName",
+    "admin_name",
+    "username",
+    "handle",
+    "email",
+  ]);
+  if (direct && !isLikelyUuid(direct)) return direct;
+
+  const inner =
+    asRecord(block.user) ??
+    asRecord(block.admin) ??
+    asRecord(block.profile) ??
+    asRecord(block.staff) ??
+    asRecord(block.operator);
+  if (inner && inner !== block) {
+    const innerName = pickNestedPersonName(inner);
+    if (innerName) return innerName;
+  }
+
+  return "";
+}
+
+function pickPersonNameFromBlocks(blocks: Array<Record<string, unknown> | null>): string {
+  for (const block of blocks) {
+    const name = pickNestedPersonName(block);
+    if (name) return name;
+  }
+  return "";
+}
+
+function scanRecordForOpsName(o: Record<string, unknown>): string {
+  for (const [key, value] of Object.entries(o)) {
+    const k = key.toLowerCase();
+    if (
+      !k.includes("ops") &&
+      !k.includes("charge") &&
+      !k.includes("logged") &&
+      !k.includes("initiator") &&
+      !k.includes("assigned") &&
+      !k.includes("handler") &&
+      !k.includes("processor") &&
+      !k.includes("operator") &&
+      !k.includes("reviewer") &&
+      !k.includes("approver") &&
+      !k.includes("createdby") &&
+      !k.includes("created_by") &&
+      !k.includes("adminuser") &&
+      !k.includes("admin_user")
+    ) {
+      continue;
+    }
+    if (typeof value === "string" && value.trim() && !isLikelyUuid(value)) return value.trim();
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const name = pickNestedPersonName(asRecord(item));
+        if (name) return name;
+      }
+      continue;
+    }
+    const name = pickNestedPersonName(asRecord(value));
+    if (name) return name;
+  }
+  return "";
+}
+
+function pickOpsInCharge(o: Record<string, unknown>, rawStatus?: string): string {
+  const adminFirst = pickString(o, [
+    "opsFirstName",
+    "ops_first_name",
+    "adminFirstName",
+    "admin_first_name",
+    "loggedByFirstName",
+    "logged_by_first_name",
+  ]);
+  const adminLast = pickString(o, [
+    "opsLastName",
+    "ops_last_name",
+    "adminLastName",
+    "admin_last_name",
+    "loggedByLastName",
+    "logged_by_last_name",
+  ]);
+  const adminFull = [adminFirst, adminLast].filter(Boolean).join(" ").trim();
+  if (adminFull) return adminFull;
+
+  const direct = pickString(o, [
+    "opsInCharge",
+    "ops_in_charge",
+    "opsInChargeName",
+    "ops_in_charge_name",
+    "ops",
+    "opsName",
+    "ops_name",
+    "inCharge",
+    "in_charge",
+    "personInCharge",
+    "person_in_charge",
+    "assignedTo",
+    "assigned_to",
+    "assignedToName",
+    "assigned_to_name",
+    "operatorName",
+    "operator_name",
+    "handledBy",
+    "handled_by",
+    "handledByName",
+    "handled_by_name",
+    "processedBy",
+    "processed_by",
+    "processorName",
+    "processor",
+    "performedBy",
+    "performed_by",
+    "performedByName",
+    "performed_by_name",
+    "recordedBy",
+    "recorded_by",
+    "recordedByName",
+    "recorded_by_name",
+    "submittedBy",
+    "submitted_by",
+    "submittedByName",
+    "submitted_by_name",
+    "staffName",
+    "staff_name",
+    "adminName",
+    "admin_name",
+    "createdByName",
+    "created_by_name",
+    "loggedByName",
+    "logged_by_name",
+    "loggedByAdminName",
+    "logged_by_admin_name",
+    "createdByAdminName",
+    "created_by_admin_name",
+    "initiatorName",
+    "initiator_name",
+    "initiatedByName",
+    "initiated_by_name",
+    "initiatedByAdminName",
+    "initiated_by_admin_name",
+    "reviewedByName",
+    "reviewed_by_name",
+    "reviewer",
+    "reviewerName",
+    "reviewer_name",
+    "approvedBy",
+    "approved_by",
+    "approverName",
+    "approver_name",
+  ]);
+  if (direct && !isLikelyUuid(direct)) return direct;
+
+  const nested = pickPersonNameFromBlocks([
+    asRecord(o.opsInCharge) ??
+      asRecord(o.ops_in_charge) ??
+      asRecord(o.opsInChargeUser) ??
+      asRecord(o.ops_in_charge_user) ??
+      asRecord(o.opsUser) ??
+      asRecord(o.ops_user) ??
+      asRecord(o.opsAdmin) ??
+      asRecord(o.ops_admin) ??
+      asRecord(o.ops) ??
+      asRecord(o.assignedUser) ??
+      asRecord(o.assigned_user) ??
+      asRecord(o.assignedAdmin) ??
+      asRecord(o.assigned_admin) ??
+      asRecord(o.operator) ??
+      asRecord(o.admin) ??
+      asRecord(o.adminUser) ??
+      asRecord(o.admin_user) ??
+      asRecord(o.staff) ??
+      asRecord(o.staffUser) ??
+      asRecord(o.staff_user) ??
+      asRecord(o.createdBy) ??
+      asRecord(o.created_by) ??
+      asRecord(o.createdByAdmin) ??
+      asRecord(o.created_by_admin) ??
+      asRecord(o.createdByUser) ??
+      asRecord(o.created_by_user) ??
+      asRecord(o.loggedBy) ??
+      asRecord(o.logged_by) ??
+      asRecord(o.loggedByAdmin) ??
+      asRecord(o.logged_by_admin) ??
+      asRecord(o.loggedByUser) ??
+      asRecord(o.logged_by_user) ??
+      asRecord(o.initiatedBy) ??
+      asRecord(o.initiated_by) ??
+      asRecord(o.initiatedByAdmin) ??
+      asRecord(o.initiated_by_admin) ??
+      asRecord(o.initiator) ??
+      asRecord(o.approver) ??
+      asRecord(o.approvedByUser) ??
+      asRecord(o.approved_by_user) ??
+      asRecord(o.reviewedBy) ??
+      asRecord(o.reviewer) ??
+      asRecord(o.processorUser) ??
+      asRecord(o.processor_user),
+    asRecord(o.metadata),
+    asRecord(o.meta),
+  ]);
+  if (nested) return nested;
+
+  const scanned = scanRecordForOpsName(o);
+  if (scanned) return scanned;
+
+  for (const key of [
+    "createdBy",
+    "created_by",
+    "loggedBy",
+    "logged_by",
+    "initiatedBy",
+    "initiated_by",
+    "submittedBy",
+    "submitted_by",
+    "recordedBy",
+    "recorded_by",
+  ]) {
+    const value = o[key];
+    if (typeof value === "string" && value.trim() && !isLikelyUuid(value)) return value.trim();
+  }
+
+  const status = (rawStatus || pickString(o, ["status", "tradeStatus", "state"])).toLowerCase();
+  const isTerminal =
+    status === "completed" ||
+    status.includes("complete") ||
+    status.includes("success") ||
+    status === "confirmed" ||
+    status.includes("confirm") ||
+    status === "rejected" ||
+    status.includes("reject") ||
+    status.includes("declin") ||
+    status.includes("fail");
+
+  if (isTerminal) {
+    const approverBlock =
+      asRecord(o.approver) ??
+      asRecord(o.approvedByUser) ??
+      asRecord(o.approved_by_user) ??
+      asRecord(o.reviewedBy) ??
+      asRecord(o.reviewer);
+    const approverName = pickNestedPersonName(approverBlock);
+    if (approverName) return approverName;
+  }
+
+  return "—";
+}
+
+function formatCustomerDisplay(o: Record<string, unknown>): string {
+  const first = pickString(o, ["customerFirstName", "customer_first_name"]);
+  const last = pickString(o, ["customerLastName", "customer_last_name"]);
+  const name =
+    [first, last].filter(Boolean).join(" ").trim() ||
+    pickString(o, ["customerName", "customer_name", "customer", "userName", "user_name"]) ||
+    "—";
+  const handle = pickString(o, ["customerHandle", "customer_handle", "username", "userName", "handle"]);
+  if (!handle || handle === "—") return name;
+  const normalizedHandle = handle.startsWith("@") ? handle : `@${handle}`;
+  if (name === "—") return normalizedHandle;
+  if (name.toLowerCase().includes(handle.replace(/^@/, "").toLowerCase())) return name;
+  return `${name} (${normalizedHandle})`;
+}
+
+function resolveCountryDisplay(o: Record<string, unknown>, tradeCurrency: string): string {
+  const countryName = pickString(o, ["country", "countryName", "country_name"]);
+  const cur = (tradeCurrency || pickString(o, ["tradeCurrency", "trade_currency", "currency"]) || "USD").toUpperCase();
+  const resolvedCountry = countryName || TRADE_CURRENCY_COUNTRY[cur] || "";
+  if (resolvedCountry && cur) return `${resolvedCountry} | ${cur}`;
+  if (resolvedCountry) return resolvedCountry;
+  if (cur) return cur;
+  return "—";
+}
+
 /** API status enum: `awaiting_approval` | `completed` | `rejected` */
 export type AdminEtradeApiStatus = "awaiting_approval" | "completed" | "rejected";
 
@@ -173,7 +500,8 @@ export function mapApiEtradeStatusToUi(raw: string): EtradeRequestStatus {
   if (s === "awaiting approval" || s.includes("await")) return "Pending";
   if (s === "rejected" || s.includes("reject") || s.includes("declin") || s.includes("fail"))
     return "Failed";
-  if (s === "completed" || s.includes("complete") || s.includes("success")) return "Successful";
+  if (s === "completed" || s.includes("complete") || s.includes("success") || s === "confirmed" || s.includes("confirm"))
+    return "Successful";
   if (s.includes("pending") || s.includes("review")) return "Pending";
   return "Successful";
 }
@@ -331,8 +659,8 @@ function formatRateFee(o: Record<string, unknown>): string {
 }
 
 function normalizeEtradeRow(raw: unknown, idx: number): AdminEtradeNormalized | null {
-  const o = asRecord(raw);
-  if (!o) return null;
+  const o = mergeEtradePayload(raw);
+  if (!Object.keys(o).length) return null;
 
   const id =
     pickString(o, ["id", "etradeId", "etrade_id", "tradeId", "trade_id", "uuid"]) ||
@@ -348,12 +676,7 @@ function normalizeEtradeRow(raw: unknown, idx: number): AdminEtradeNormalized | 
   const uiStatus = mapApiEtradeStatusToUi(rawStatus);
   const completedStatus = mapApiEtradeStatusToCompleted(rawStatus);
 
-  const first = pickString(o, ["customerFirstName", "customer_first_name"]);
-  const last = pickString(o, ["customerLastName", "customer_last_name"]);
-  const customer =
-    [first, last].filter(Boolean).join(" ").trim() ||
-    pickString(o, ["customerName", "customer_name", "customer", "userName", "user_name"]) ||
-    "—";
+  const customer = formatCustomerDisplay(o);
   const customerAccountId = pickString(o, ["customerId", "customer_id", "accountId", "account_id", "userId"]);
 
   const dateRaw =
@@ -368,9 +691,7 @@ function normalizeEtradeRow(raw: unknown, idx: number): AdminEtradeNormalized | 
 
   const tradeCurrency = pickString(o, ["tradeCurrency", "trade_currency", "currency"]);
   const tradeValue = formatTradeAmountDisplay(o, tradeCurrency || undefined);
-  const opsInCharge =
-    pickString(o, ["opsInCharge", "ops_in_charge", "assignedTo", "assigned_to", "operatorName"]) ||
-    "—";
+  const opsInCharge = pickOpsInCharge(o, rawStatus);
 
   return {
     id,
@@ -494,6 +815,8 @@ export async function getAdminEtradesSummary(): Promise<AdminEtradeSummaryCards>
 
   const totalVolumeKobo =
     pickKobo(inner, [
+      "totalTradeVolumeNaira",
+      "total_trade_volume_naira",
       "totalTradeVolume",
       "total_trade_volume",
       "totalVolume",
@@ -503,6 +826,8 @@ export async function getAdminEtradesSummary(): Promise<AdminEtradeSummaryCards>
       "total_amount",
     ]) ??
     pickKobo(r, [
+      "totalTradeVolumeNaira",
+      "total_trade_volume_naira",
       "totalTradeVolume",
       "total_trade_volume",
       "totalVolume",
@@ -531,7 +856,16 @@ export async function getAdminEtradesSummary(): Promise<AdminEtradeSummaryCards>
   return {
     totalTrades: formatSummaryCount(totalTrades),
     totalTradeVolume:
-      totalVolumeKobo !== undefined ? formatKoboAsNgn(totalVolumeKobo) : formatSummaryVolume(pickString(inner, ["totalTradeVolume", "total_trade_volume"])),
+      totalVolumeKobo !== undefined
+        ? formatKoboAsNgn(totalVolumeKobo)
+        : formatSummaryVolume(
+            pickString(inner, [
+              "totalTradeVolumeNaira",
+              "total_trade_volume_naira",
+              "totalTradeVolume",
+              "total_trade_volume",
+            ]),
+          ),
     awaitingApproval: formatSummaryCount(awaiting),
   };
 }
@@ -542,70 +876,123 @@ export async function getAdminEtradesExport(): Promise<unknown> {
 }
 
 function normalizeEtradeDetail(raw: unknown, id: string): EtradeTransactionDetail {
-  const o = asRecord(raw) ?? {};
-  const inner = asRecord(o.data) ?? o;
+  const inner = mergeEtradePayload(raw);
 
-  const rawStatus = pickString(inner, ["status", "tradeStatus", "state"]) || "awaiting_approval";
+  const rawStatus = pickString(inner, ["status", "tradeStatus", "trade_status", "state"]) || "awaiting_approval";
   const outcome = mapApiEtradeStatusToOutcome(rawStatus);
 
-  const first = pickString(inner, ["customerFirstName", "customer_first_name"]);
-  const last = pickString(inner, ["customerLastName", "customer_last_name"]);
-  const customerName =
-    [first, last].filter(Boolean).join(" ").trim() ||
-    pickString(inner, ["customerName", "customer_name", "customer"]) ||
-    "—";
-
-  const countryName = pickString(inner, ["country", "countryName", "country_name"]);
-  const countryCurrency = pickString(inner, ["currency", "tradeCurrency", "trade_currency"]);
-  const country =
-    countryName && countryCurrency
-      ? `${countryName} | ${countryCurrency}`
-      : countryName || countryCurrency || "—";
-
-  const tradeCurrency = countryCurrency || pickString(inner, ["tradeCurrency", "currency"]) || "USD";
+  const customerName = formatCustomerDisplay(inner);
+  const tradeCurrency =
+    pickString(inner, ["tradeCurrency", "trade_currency", "currency"]) || "USD";
+  const country = resolveCountryDisplay(inner, tradeCurrency);
   const tradeAmount = formatTradeAmountDisplay(inner, tradeCurrency);
   const rateFee = formatRateFee(inner);
 
-  const ngnKobo =
-    pickKobo(inner, ["ngnEquivalent", "ngn_equivalent", "amountEquivalent", "amount_equivalent", "ngnAmount"]) ??
-    pickKobo(o, ["ngnEquivalent", "ngn_equivalent"]);
-  const ngnEquivalent = ngnKobo !== undefined ? formatKoboAsNgn(ngnKobo) : pickString(inner, ["ngnEquivalent", "ngn_equivalent"]) || "—";
+  const ngnKobo = pickKobo(inner, [
+    "ngnEquivalent",
+    "ngn_equivalent",
+    "amountEquivalent",
+    "amount_equivalent",
+    "ngnAmount",
+    "ngn_amount",
+  ]);
+  const ngnEquivalent =
+    ngnKobo !== undefined
+      ? formatKoboAsNgn(ngnKobo)
+      : pickString(inner, ["ngnEquivalent", "ngn_equivalent", "ngnAmountDisplay"]) || "—";
 
-  const createdRaw = pickString(inner, ["createdAt", "created_at", "dateInitiated", "date_initiated"]);
+  const createdRaw =
+    pickString(inner, ["createdAt", "created_at", "dateInitiated", "date_initiated", "initiatedAt"]) ||
+    "";
   const completedRaw =
-    pickString(inner, ["completedAt", "completed_at", "dateCompleted", "date_completed", "approvedAt", "approved_at"]) ||
-    createdRaw;
+    pickString(inner, [
+      "completedAt",
+      "completed_at",
+      "dateCompleted",
+      "date_completed",
+      "approvedAt",
+      "approved_at",
+      "rejectedAt",
+      "rejected_at",
+    ]) || "";
 
-  const approvedBy = pickString(inner, ["approvedBy", "approved_by", "approverName"]) || "—";
-  const dateApprovedRaw = pickString(inner, ["approvedAt", "approved_at", "dateApproved", "date_approved"]);
+  const approvedBy =
+    pickString(inner, ["approvedBy", "approved_by", "approverName", "approver_name", "reviewedBy"]) ||
+    pickNestedPersonName(asRecord(inner.approver) ?? asRecord(inner.reviewedBy)) ||
+    "—";
+  const dateApprovedRaw = pickString(inner, [
+    "approvedAt",
+    "approved_at",
+    "dateApproved",
+    "date_approved",
+    "reviewedAt",
+    "reviewed_at",
+  ]);
+
+  const deviceBlock = asRecord(inner.device) ?? asRecord(inner.deviceInfo) ?? asRecord(inner.device_info);
+  const device =
+    pickString(inner, ["device", "deviceName", "device_name"]) ||
+    pickString(deviceBlock ?? {}, ["name", "deviceName", "model", "device_model"]) ||
+    "—";
+  const deviceId =
+    pickString(inner, ["deviceId", "device_id"]) ||
+    pickString(deviceBlock ?? {}, ["id", "deviceId", "device_id"]) ||
+    "—";
+  const location =
+    pickString(inner, ["location", "locationName", "location_name", "city"]) ||
+    pickString(deviceBlock ?? {}, ["location", "city", "address"]) ||
+    "—";
+  const locationCoordinate =
+    pickString(inner, [
+      "locationCoordinate",
+      "location_coordinate",
+      "coordinates",
+      "latLng",
+      "lat_lng",
+      "geo",
+    ]) ||
+    pickString(deviceBlock ?? {}, ["coordinates", "latLng", "latitude"]) ||
+    "—";
+
+  const opsInCharge = pickOpsInCharge(inner, rawStatus);
+  const isApproved = outcome === "approved";
 
   return {
-    id: pickString(inner, ["id", "etradeId"]) || id,
+    id: pickString(inner, ["id", "etradeId", "etrade_id"]) || id,
     outcome,
     sessionId:
-      pickString(inner, ["sessionId", "session_id", "tradeId", "trade_id", "reference"]) || id,
+      pickString(inner, ["reference", "sessionId", "session_id", "tradeId", "trade_id"]) || id,
     customerName,
-    channel: pickString(inner, ["channel"]) || "Etrade",
+    channel: humanizeChannel(pickString(inner, ["channel"]) || "etrade"),
     requestDetails:
-      pickString(inner, ["requestType", "request_type", "requestDetails", "request_details", "title"]) ||
-      "—",
+      pickString(inner, [
+        "requestType",
+        "request_type",
+        "requestDetails",
+        "request_details",
+        "title",
+        "tradeName",
+      ]) || "—",
     country,
     tradeAmount,
     rateFee,
     ngnEquivalent,
     dateInitiated: createdRaw ? formatDisplayDate(createdRaw) : "—",
     dateCompleted:
-      outcome === "pending" ? "—" : completedRaw ? formatDisplayDate(completedRaw) : "—",
-    opsInCharge: pickString(inner, ["opsInCharge", "ops_in_charge", "assignedTo"]) || "—",
-    approvedBy: outcome === "approved" ? approvedBy : "—",
-    dateApproved:
-      outcome === "approved" && dateApprovedRaw ? formatDisplayDate(dateApprovedRaw) : "—",
-    device: pickString(inner, ["device", "deviceName", "device_name"]) || "—",
-    deviceId: pickString(inner, ["deviceId", "device_id"]) || "—",
-    location: pickString(inner, ["location", "locationName"]) || "—",
-    locationCoordinate:
-      pickString(inner, ["locationCoordinate", "location_coordinate", "coordinates", "latLng"]) ||
-      "—",
+      outcome === "pending"
+        ? "—"
+        : completedRaw
+          ? formatDisplayDate(completedRaw)
+          : createdRaw
+            ? formatDisplayDate(createdRaw)
+            : "—",
+    opsInCharge,
+    approvedBy: isApproved ? approvedBy : "—",
+    dateApproved: isApproved && dateApprovedRaw ? formatDisplayDate(dateApprovedRaw) : "—",
+    device,
+    deviceId,
+    location,
+    locationCoordinate,
   };
 }
 
@@ -723,7 +1110,7 @@ export async function createAdminEtrade(body: CreateAdminEtradeBody): Promise<Ad
     auth: true,
     body: JSON.stringify(serializeCreateEtradeBody(body)),
   });
-  const row = normalizeEtradeRow(asRecord(data)?.data ?? data, 0);
+  const row = normalizeEtradeRow(unwrapEtradeRecord(data), 0);
   if (!row) {
     throw new Error("Invalid e-trade create response");
   }

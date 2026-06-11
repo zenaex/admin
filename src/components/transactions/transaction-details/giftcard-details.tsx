@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { TxDataBlockTable, LINK, TEXT } from "@/components/transactions/transaction-details/tx-data-block-table";
@@ -12,10 +13,28 @@ function GiftcardImagePlaceholder() {
     <div
       className="flex min-h-[220px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-10 text-center"
       role="img"
-      aria-label="Image placeholder"
+      aria-label="No card image available"
     >
       <div className="h-12 w-16 rounded-md border border-zinc-300 bg-zinc-200/80" aria-hidden />
-      <span className="text-xs font-medium text-zinc-500">Image preview placeholder</span>
+      <span className="text-xs font-medium text-zinc-500">No card image uploaded</span>
+    </div>
+  );
+}
+
+function GiftcardPhysicalImage({ imageUrl }: { imageUrl?: string }) {
+  const src = imageUrl?.trim();
+  if (!src) return <GiftcardImagePlaceholder />;
+
+  return (
+    <div className="relative min-h-[220px] w-full overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+      <Image
+        src={src}
+        alt="Physical gift card"
+        fill
+        className="object-contain p-2"
+        sizes="(max-width: 768px) 100vw, 640px"
+        unoptimized
+      />
     </div>
   );
 }
@@ -134,6 +153,9 @@ export function GiftcardTransactionDetails({
 }: GiftcardTransactionDetailsProps) {
   const showRejectionAttachment = approvalStatus === "Rejected";
   const attachmentCode = codeDisplay || model.code;
+  const isPhysical = model.cardFormat === "physical";
+  const isECode = model.cardFormat === "e-code";
+  const showRevealECode = isECode && canRevealECode;
 
   return (
     <>
@@ -147,11 +169,11 @@ export function GiftcardTransactionDetails({
             <SessionIdLink key="tid" id={model.sessionId} />,
             model.customerName,
             model.channel || "Giftcard",
-            model.typeLabel,
+            model.typeLabel || model.cardTypeLabel,
             <CodeCell
               key="code"
-              codeDisplay={codeDisplay}
-              canRevealECode={canRevealECode}
+              codeDisplay={isPhysical && !codeDisplay ? "—" : codeDisplay}
+              canRevealECode={showRevealECode}
               onRevealECode={onRevealECode}
               eCodeLoading={eCodeLoading}
               eCodeError={eCodeError}
@@ -199,12 +221,14 @@ export function GiftcardTransactionDetails({
         </section>
       ) : null}
 
-      <section className="mt-8">
-        <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
-          Physical Card Image
-        </h2>
-        <GiftcardImagePlaceholder />
-      </section>
+      {isPhysical ? (
+        <section className="mt-8">
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Physical Card Image
+          </h2>
+          <GiftcardPhysicalImage imageUrl={model.physicalImageUrl} />
+        </section>
+      ) : null}
     </>
   );
 }
