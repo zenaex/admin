@@ -1,5 +1,10 @@
 import { adminRequest, AdminApiError } from "@/lib/admin-api/client";
-import { koboToMajor, parseMajorAmountInputAsKobo } from "@/lib/admin-api/money";
+import {
+  formatKoboAmountDisplay,
+  koboToMajor,
+  parseMajorAmountInputAsKobo,
+  pickKobo,
+} from "@/lib/admin-api/money";
 import type {
   AdminReferralConfigBody,
   AdminReferralConfigForm,
@@ -95,31 +100,147 @@ function formatDisplayDate(isoOrAny: string): string {
 
 function humanizeStatus(s: string): string {
   if (!s) return "—";
-  const t = s.replace(/_/g, " ").trim();
-  return t.charAt(0).toUpperCase() + t.slice(1);
+  const t = s.replace(/_/g, " ").trim().toLowerCase();
+  return t.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const REWARD_AMOUNT_KEYS = [
+  "totalRewardEarned",
+  "total_reward_earned",
+  "totalRewardsEarned",
+  "total_rewards_earned",
+  "rewardsEarned",
+  "rewards_earned",
+  "rewardTotal",
+  "reward_total",
+  "totalRewards",
+  "total_rewards",
+  "earnedRewards",
+  "earned_rewards",
+  "totalEarned",
+  "total_earned",
+  "rewardsEarnedKobo",
+  "totalRewardsEarnedKobo",
+];
+
+const REFERRAL_COUNT_KEYS = [
+  "totalReferrals",
+  "total_referrals",
+  "referralMade",
+  "referralsMade",
+  "referralCount",
+  "referral_count",
+  "totalReferralsMade",
+  "total_referrals_made",
+  "referralsCount",
+  "count",
+];
+
+const ONBOARDED_COUNT_KEYS = [
+  "onboardedUsers",
+  "onboarded_users",
+  "onboardedReferredUsers",
+  "onboarded_referred_users",
+  "onboardedCount",
+  "onboarded_count",
+];
+
+const PENDING_COUNT_KEYS = [
+  "pendingUsers",
+  "pending_users",
+  "pendingReferredUsers",
+  "pending_referred_users",
+  "pendingCount",
+  "pending_count",
+  "pendingReferrals",
+  "pending_referrals",
+];
+
+const REWARD_CURRENCY_KEYS = ["rewardCurrency", "reward_currency", "currency", "currencyCode"];
+
+function referralRowBlocks(o: Record<string, unknown>): Record<string, unknown>[] {
+  const nested =
+    asRecord(o.referrer) ??
+    asRecord(o.customer) ??
+    asRecord(o.user) ??
+    asRecord(o.account);
+  const stats = asRecord(o.stats);
+  const summary = asRecord(o.summary);
+  const rewards = asRecord(o.rewards);
+  const metrics = asRecord(o.metrics);
+  return [o, nested, stats, summary, rewards, metrics].filter((b): b is Record<string, unknown> =>
+    Boolean(b),
+  );
+}
+
+function pickFromBlocks(
+  blocks: Record<string, unknown>[],
+  keys: string[],
+): string {
+  for (const block of blocks) {
+    const s = pickString(block, keys);
+    if (s) return s;
+  }
+  return "";
+}
+
+function pickNumFromBlocks(
+  blocks: Record<string, unknown>[],
+  keys: string[],
+): number | undefined {
+  for (const block of blocks) {
+    const n = pickNum(block, keys);
+    if (n !== undefined) return n;
+    const kobo = pickKobo(block, keys);
+    if (kobo !== undefined) return kobo;
+  }
+  return undefined;
+}
+
+function pickKoboFromBlocks(
+  blocks: Record<string, unknown>[],
+  keys: string[],
+): number | undefined {
+  for (const block of blocks) {
+    const kobo = pickKobo(block, keys);
+    if (kobo !== undefined) return kobo;
+    const n = pickNum(block, keys);
+    if (n !== undefined) return n;
+  }
+  return undefined;
 }
 
 function formatReward(amount: unknown, currency?: string): string {
-  if (amount === undefined || amount === null) return "0.00";
+  const cur = (currency || "NGN").trim() || "NGN";
+  if (amount === undefined || amount === null) {
+    return formatKoboAmountDisplay(0, cur);
+  }
   if (typeof amount === "string") {
     const t = amount.trim();
-    if (!t || t === "—") return "0.00";
+    if (!t || t === "—") return formatKoboAmountDisplay(0, cur);
     if (/^[₦$]/.test(t)) return t;
+    const curMatch = t.match(/\b([A-Z]{3})\b/);
+    const resolvedCur = curMatch?.[1] ?? cur;
     const n = Number(t.replace(/[^\d.-]/g, ""));
     if (Number.isFinite(n) && t.replace(/[^\d.-]/g, "") !== "") {
-      return koboToMajor(n).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      return formatKoboAmountDisplay(n, resolvedCur);
     }
     return t;
   }
   if (typeof amount === "number" && Number.isFinite(amount)) {
-    const major = koboToMajor(amount);
-    const prefix = currency?.trim().startsWith("₦") ? "₦" : "";
-    return `${prefix}${major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatKoboAmountDisplay(amount, cur);
   }
-  return "0.00";
+  return formatKoboAmountDisplay(0, cur);
+}
+
+function formatRewardsFromBlocks(blocks: Record<string, unknown>[]): string {
+  const kobo = pickKoboFromBlocks(blocks, REWARD_AMOUNT_KEYS);
+  const currency = pickFromBlocks(blocks, REWARD_CURRENCY_KEYS) || "NGN";
+  if (kobo !== undefined) return formatKoboAmountDisplay(kobo, currency);
+  const rewardsFallback =
+    pickNumFromBlocks(blocks, REWARD_AMOUNT_KEYS) ??
+    pickFromBlocks(blocks, REWARD_AMOUNT_KEYS);
+  return formatReward(rewardsFallback || undefined, currency);
 }
 
 function koboAmountToFormString(value: unknown, fallback: string): string {
@@ -148,33 +269,32 @@ export function normalizeReferralRow(raw: unknown): AdminReferralListRow | null 
   const o = asRecord(raw);
   if (!o) return null;
 
+  const blocks = referralRowBlocks(o);
+
   const accountId =
-    pickString(o, ["accountId", "id", "uuid", "customerId", "userId"]) ||
+    pickFromBlocks(blocks, ["accountId", "id", "uuid", "customerId", "userId"]) ||
     (typeof o.account_id === "string" ? o.account_id : "");
   if (!accountId) return null;
 
-  const first = pickString(o, ["firstName", "first_name"]);
-  const last = pickString(o, ["lastName", "last_name"]);
+  const first = pickFromBlocks(blocks, ["firstName", "first_name"]);
+  const last = pickFromBlocks(blocks, ["lastName", "last_name"]);
   const full = [first, last].filter(Boolean).join(" ").trim();
   const name =
     full ||
-    pickString(o, ["name", "fullName", "full_name", "customerName", "displayName"]) ||
-    pickString(o, ["email"]) ||
+    pickFromBlocks(blocks, ["name", "fullName", "full_name", "customerName", "displayName"]) ||
+    pickFromBlocks(blocks, ["email"]) ||
     accountId;
 
-  const referralMade =
-    pickNum(o, ["referralMade", "referralsMade", "referralCount", "totalReferrals", "count"]) ?? 0;
+  const referralMade = pickNumFromBlocks(blocks, REFERRAL_COUNT_KEYS) ?? 0;
 
-  const rewardsRaw = o.totalRewardsEarned ?? o.total_rewards_earned ?? o.rewardsEarned ?? o.rewardTotal;
-  const rewardCurrency = pickString(o, ["rewardCurrency", "currency"]);
-  const totalRewardsEarned = formatReward(rewardsRaw, rewardCurrency || "₦");
+  const totalRewardsEarned = formatRewardsFromBlocks(blocks);
 
   return {
     accountId,
     name,
-    email: pickString(o, ["email", "emailAddress"]) || "—",
-    phone: pickString(o, ["phone", "phoneNumber", "mobile"]) || "—",
-    referralCode: pickString(o, ["referralCode", "referral_code", "code"]) || "—",
+    email: pickFromBlocks(blocks, ["email", "emailAddress"]) || "—",
+    phone: pickFromBlocks(blocks, ["phone", "phoneNumber", "mobile"]) || "—",
+    referralCode: pickFromBlocks(blocks, ["referralCode", "referral_code", "code"]) || "—",
     referralMade,
     totalRewardsEarned,
     raw: o,
@@ -193,12 +313,29 @@ export function normalizeReferralListResponse(
   return { items, total, page, pageSize };
 }
 
+export function normalizeReferralsSummary(data: unknown): AdminReferralsSummary {
+  const r = asRecord(data) ?? {};
+  const inner = asRecord(r.data) ?? r;
+  const blocks = [inner, r].filter((b): b is Record<string, unknown> => Boolean(b));
+
+  const totalRewardsEarned = formatRewardsFromBlocks(blocks);
+
+  return {
+    totalReferrers:
+      pickNumFromBlocks(blocks, ["totalReferrers", "total_referrers", "referrerCount", "count"]) ?? 0,
+    totalReferralsMade: pickNumFromBlocks(blocks, REFERRAL_COUNT_KEYS) ?? 0,
+    pendingReferrals: pickNumFromBlocks(blocks, PENDING_COUNT_KEYS) ?? 0,
+    totalRewardsEarned,
+  };
+}
+
 export async function getAdminReferralsSummary(query?: {
   fromDate?: string;
   toDate?: string;
 }): Promise<AdminReferralsSummary> {
   const qs = buildQuery({ fromDate: query?.fromDate, toDate: query?.toDate });
-  return adminRequest<AdminReferralsSummary>(`/admin/referrals/summary${qs}`, { method: "GET" });
+  const body = await adminRequest<unknown>(`/admin/referrals/summary${qs}`, { method: "GET" });
+  return normalizeReferralsSummary(body);
 }
 
 export async function getAdminReferralsList(query?: AdminReferralListQuery): Promise<AdminReferralListResult> {
@@ -380,7 +517,16 @@ function normalizeReferredRow(raw: unknown, idx: number): AdminReferredUserRow |
 
   const statusRaw = pickString(o, ["status", "referralStatus", "state"]) || "—";
   const dateRaw =
-    pickString(o, ["createdAt", "created_at", "date", "onboardedAt", "referredAt"]) || "";
+    pickString(o, [
+      "referredAt",
+      "referred_at",
+      "qualifiedAt",
+      "qualified_at",
+      "createdAt",
+      "created_at",
+      "date",
+      "onboardedAt",
+    ]) || "";
 
   return {
     id,
@@ -422,7 +568,7 @@ export function normalizeReferralDetailResponse(
       ? `@${pickString(referrerBlock, ["email"]).split("@")[0]}`
       : "—");
 
-  const statsBlock = asRecord(root.stats) ?? asRecord(root.summary) ?? root;
+  const detailBlocks = referralRowBlocks(root);
 
   let referredRaw: unknown[] = [];
   for (const key of ["referredUsers", "referred", "referrals", "items"]) {
@@ -454,21 +600,12 @@ export function normalizeReferralDetailResponse(
       phone: pickString(referrerBlock, ["phone", "phoneNumber"]) || "—",
     },
     stats: {
-      totalReferralsMade: formatStatCount(
-        statsBlock.totalReferralsMade ?? statsBlock.referralsMade ?? root.totalReferralsMade,
-      ),
+      totalReferralsMade: formatStatCount(pickNumFromBlocks(detailBlocks, REFERRAL_COUNT_KEYS)),
       onboardedReferredUsers: formatStatCount(
-        statsBlock.onboardedReferredUsers ??
-          statsBlock.onboardedCount ??
-          root.onboardedReferredUsers,
+        pickNumFromBlocks(detailBlocks, ONBOARDED_COUNT_KEYS),
       ),
-      pendingReferredUsers: formatStatCount(
-        statsBlock.pendingReferredUsers ?? statsBlock.pendingCount ?? root.pendingReferredUsers,
-      ),
-      totalRewardsEarned: formatReward(
-        statsBlock.totalRewardsEarned ?? root.totalRewardsEarned,
-        pickString(statsBlock, ["rewardCurrency", "currency"]),
-      ),
+      pendingReferredUsers: formatStatCount(pickNumFromBlocks(detailBlocks, PENDING_COUNT_KEYS)),
+      totalRewardsEarned: formatRewardsFromBlocks(detailBlocks),
     },
     referred,
     referredTotal,

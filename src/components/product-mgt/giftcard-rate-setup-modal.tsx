@@ -11,7 +11,7 @@ export type GiftcardRateFormValues = {
   rmbRate: string;
   commissionType: MarkupType;
   commissionRate: string;
-  denominations: { id: string; label: string; vendorRate: string }[];
+  denominations: { id: string; category: string; label: string; vendorRate: string }[];
 };
 
 const COMMISSION_TYPES = ["Flat", "Percentage", "% capped @"] as const;
@@ -33,6 +33,7 @@ export function GiftcardRateSetupModal({ brand, brands, onClose, onSubmit }: Gif
     commissionRate: b.ourCommission.replace(/[^\d.]/g, ""),
     denominations: b.denominations.map((d) => ({
       id: d.id,
+      category: d.category || d.label,
       label: d.label,
       vendorRate: d.vendorRate.replace(/[^\d.]/g, ""),
     })),

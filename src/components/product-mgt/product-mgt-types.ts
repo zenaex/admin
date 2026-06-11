@@ -1,5 +1,4 @@
 // Shared type definitions for the product management features
-export type ProductTab = "All" | "Utility" | "Crypto" | "Giftcard" | "E-sim";
 export type ProductStatus = "Active" | "Inactive";
 
 export type ProductRow = {
@@ -49,6 +48,8 @@ export type GiftcardStatus = "Active" | "Inactive";
 
 export type GiftcardDenomination = {
   id: string;
+  /** API category key for `POST .../configure`. */
+  category: string;
   label: string;
   vendorRate: string;
   finalRate: string;

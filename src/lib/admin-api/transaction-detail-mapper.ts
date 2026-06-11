@@ -437,6 +437,40 @@ function humanizeGiftcardTypeSlug(raw: string): string {
     .join(" ");
 }
 
+function resolveGiftcardCardFormat(cardTypeRaw: string): "e-code" | "physical" {
+  const t = cardTypeRaw.trim().toLowerCase();
+  if (t.includes("physical")) return "physical";
+  return "e-code";
+}
+
+function humanizeGiftcardCardTypeLabel(cardTypeRaw: string): string {
+  const t = cardTypeRaw.trim().toLowerCase();
+  if (!t) return "E-code";
+  if (t.includes("physical")) return humanizeGiftcardTypeSlug(cardTypeRaw);
+  if (t.includes("ecode") || t.includes("e-code") || t === "e_code") return "E-code";
+  return humanizeGiftcardTypeSlug(cardTypeRaw);
+}
+
+function pickNumFromBlocks(
+  o: Record<string, unknown>,
+  blocks: Record<string, unknown>[],
+  keys: string[],
+): number | undefined {
+  for (const block of blocks) {
+    for (const key of keys) {
+      const v = block[key];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "string" && v.trim() && Number.isFinite(Number(v))) return Number(v);
+    }
+  }
+  for (const key of keys) {
+    const v = o[key];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim() && Number.isFinite(Number(v))) return Number(v);
+  }
+  return undefined;
+}
+
 function enrichGiftcardDetailModel(
   model: TransactionDetailModel,
   o: Record<string, unknown>,
@@ -445,32 +479,59 @@ function enrichGiftcardDetailModel(
   const submission = pickNestedRecord(o, ["submission", "giftCardSubmission", "gift_card_submission"]);
   const blocks = submission ? [...detailBlocks, submission] : detailBlocks;
 
-  const productRaw = pickScalarFromBlocks(o, blocks, [
+  const providerName = pickScalarFromBlocks(o, blocks, [
+    "providerName",
+    "provider_name",
     "brandName",
     "brand_name",
     "productName",
     "product_name",
-    "product",
-    "giftcardProduct",
-    "giftcard_product",
   ]);
-  if (productRaw) model.product = productRaw;
+  if (providerName) {
+    model.giftcardProvider = providerName;
+    model.provider = providerName;
+    model.product = providerName;
+  } else {
+    const productRaw = pickScalarFromBlocks(o, blocks, [
+      "product",
+      "giftcardProduct",
+      "giftcard_product",
+    ]);
+    if (productRaw) model.product = productRaw;
+  }
 
-  const typeRaw = pickScalarFromBlocks(o, blocks, [
+  const cardTypeRaw = pickScalarFromBlocks(o, blocks, ["cardType", "card_type"]);
+  if (cardTypeRaw) {
+    model.giftcardCardType = cardTypeRaw;
+    model.giftcardCardFormat = resolveGiftcardCardFormat(cardTypeRaw);
+    model.giftcardType = humanizeGiftcardCardTypeLabel(cardTypeRaw);
+  }
+
+  const categoryRaw = pickScalarFromBlocks(o, blocks, [
+    "category",
     "displayCategory",
     "display_category",
-    "giftcardType",
-    "giftcard_type",
-    "cardType",
-    "card_type",
-    "type",
-    "category",
+    "denomination",
+    "denominationRange",
+    "denomination_range",
   ]);
-  if (typeRaw) {
-    const humanized =
-      typeRaw.includes("-") || typeRaw.includes("_") ? humanizeGiftcardTypeSlug(typeRaw) : typeRaw;
-    model.giftcardType = humanized;
-    if (!model.displayCategory) model.displayCategory = humanized;
+  if (categoryRaw) {
+    model.giftcardCategory = categoryRaw;
+    model.displayCategory = categoryRaw;
+  }
+
+  const faceCents = pickNumFromBlocks(o, blocks, [
+    "faceValueCents",
+    "face_value_cents",
+    "faceValueMinor",
+    "face_value_minor",
+  ]);
+  const faceCurrency =
+    pickScalarFromBlocks(o, blocks, ["faceCurrency", "face_currency"]) ||
+    pickScalarFromBlocks(o, blocks, ["currency", "currencyCode", "currency_code"]);
+  if (faceCurrency) model.giftcardFaceCurrency = faceCurrency;
+  if (faceCents !== undefined) {
+    model.amount = formatKoboAmountDisplay(faceCents, faceCurrency || "USD");
   }
 
   const rateFromMoney = pickAndFormatMoneyField(o, [
@@ -482,25 +543,71 @@ function enrichGiftcardDetailModel(
   if (rateFromMoney) {
     model.rateFeeGiven = rateFromMoney;
   } else {
-    const rateRaw = pickScalarFromBlocks(o, blocks, [
-      "conversionRate",
-      "conversion_rate",
-      "exchangeRate",
-      "exchange_rate",
-    ]);
+    const vendorRate = pickScalarFromBlocks(o, blocks, ["vendorRate", "vendor_rate"]);
+    const rateRaw =
+      vendorRate ||
+      pickScalarFromBlocks(o, blocks, [
+        "conversionRate",
+        "conversion_rate",
+        "exchangeRate",
+        "exchange_rate",
+      ]);
     if (rateRaw) {
       model.rateFeeGiven = formatGiftcardRateFeeDisplay(rateRaw);
     }
   }
 
   const countryRaw = pickScalarFromBlocks(o, blocks, ["country", "countryName", "country_name"]);
-  if (countryRaw) model.country = countryRaw;
+  const currencyForCountry =
+    pickScalarFromBlocks(o, blocks, [
+      "faceCurrency",
+      "face_currency",
+      "currency",
+      "currencyCode",
+      "currency_code",
+    ]) || model.giftcardFaceCurrency;
 
-  const currencyRaw = pickScalarFromBlocks(o, blocks, ["currency", "currencyCode", "currency_code"]);
-  if (currencyRaw && model.country) {
-    model.country = `${model.country} | ${currencyRaw}`;
-  } else if (currencyRaw && !model.country) {
-    model.country = currencyRaw;
+  if (countryRaw && currencyForCountry) {
+    model.country = `${countryRaw} | ${currencyForCountry}`;
+  } else if (countryRaw) {
+    model.country = countryRaw;
+  } else if (currencyForCountry) {
+    model.country = currencyForCountry;
+  }
+
+  const imageUrl = pickString(o, [
+    "cardImageUrl",
+    "card_image_url",
+    "imageUrl",
+    "image_url",
+    "proofImageUrl",
+    "proof_image_url",
+    "receiptImageUrl",
+    "receipt_image_url",
+    "photoUrl",
+    "photo_url",
+  ]);
+  if (!imageUrl) {
+    for (const block of blocks) {
+      const fromBlock = pickString(block, [
+        "cardImageUrl",
+        "card_image_url",
+        "imageUrl",
+        "image_url",
+        "proofImageUrl",
+        "proof_image_url",
+        "receiptImageUrl",
+        "receipt_image_url",
+        "photoUrl",
+        "photo_url",
+      ]);
+      if (fromBlock) {
+        model.giftcardImageUrl = fromBlock;
+        break;
+      }
+    }
+  } else {
+    model.giftcardImageUrl = imageUrl;
   }
 }
 

@@ -63,6 +63,20 @@ export function resolveSwapCryptoCode(code: string): string {
   return code.trim().toUpperCase();
 }
 
+/** Resolve API slug (e.g. `bitcoin`) or ticker to display ticker (e.g. `BTC`). */
+export function slugToCryptoTicker(slugOrCode: string): string {
+  const raw = slugOrCode.trim();
+  if (!raw) return "";
+  const upper = raw.toUpperCase();
+  if (CRYPTO_TICKER_TO_SLUG[upper]) return upper;
+  const lower = raw.toLowerCase();
+  for (const [ticker, slug] of Object.entries(CRYPTO_TICKER_TO_SLUG)) {
+    if (slug === lower) return ticker;
+  }
+  if (/^[A-Z0-9]{2,8}$/.test(upper)) return upper;
+  return "";
+}
+
 export function parseRmbRateNumber(value: string | number): number {
   return parseRateNumber(value);
 }

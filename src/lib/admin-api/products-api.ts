@@ -192,6 +192,69 @@ export type ProductListResult = {
   pageSize: number;
 };
 
+/** OpenAPI product category filter for utility bills (electricity, internet, etc.). */
+export const UTILITY_PRODUCT_CATEGORY = "utility";
+
+const NON_UTILITY_CATEGORY_TOKENS = [
+  "crypto",
+  "gift-card",
+  "giftcard",
+  "gift_card",
+  "esim",
+  "e-sim",
+  "e_sim",
+];
+
+function normalizeCategoryToken(value: string): string {
+  return value.trim().toLowerCase().replace(/_/g, "-");
+}
+
+function pickProductCategoryTokens(o: Record<string, unknown>): string[] {
+  const keys = [
+    "parentCategorySlug",
+    "parent_category_slug",
+    "parentCategory",
+    "parent_category",
+    "categorySlug",
+    "category_slug",
+    "category",
+    "productCategory",
+    "type",
+  ];
+  const tokens: string[] = [];
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string" && v.trim()) tokens.push(normalizeCategoryToken(v));
+  }
+  return tokens;
+}
+
+function isNonUtilityCategoryToken(token: string): boolean {
+  return NON_UTILITY_CATEGORY_TOKENS.some(
+    (excluded) => token === excluded || token.includes(excluded),
+  );
+}
+
+/** True for utility parent/subcategories; excludes crypto, gift card, and e-sim. */
+export function isUtilityProductRaw(raw: unknown): boolean {
+  const o = asRecord(raw);
+  if (!o) return false;
+
+  const parent = normalizeCategoryToken(
+    pickString(o, ["parentCategorySlug", "parent_category_slug", "parentCategory", "parent_category"]),
+  );
+  if (parent === "utility") return true;
+  if (parent && parent !== "utility") return false;
+
+  const tokens = pickProductCategoryTokens(o);
+  if (tokens.length === 0) return false;
+
+  if (tokens.some((token) => token === "utility")) return true;
+  if (tokens.some(isNonUtilityCategoryToken)) return false;
+
+  return true;
+}
+
 export type ProductListQuery = {
   page?: number;
   pageSize?: number;
@@ -202,10 +265,59 @@ export type ProductListQuery = {
   category?: string;
 };
 
+async function fetchAllProductsRaw(
+  query: Omit<ProductListQuery, "page" | "pageSize" | "category">,
+): Promise<unknown[]> {
+  const all: unknown[] = [];
+  let fetchPage = 1;
+  const fetchSize = 100;
+
+  while (fetchPage <= 50) {
+    const qs = buildQuery({
+      page: fetchPage,
+      pageSize: fetchSize,
+      search: query.search,
+      status: query.status?.toLowerCase(),
+      provider: query.provider,
+      commissionType: query.commissionType,
+    });
+    const body = await adminRequest<unknown>(`/admin/products${qs}`, { method: "GET" });
+    const batch = extractItemsArray(body);
+    all.push(...batch);
+    const total = extractTotal(body, all.length);
+    if (batch.length === 0 || all.length >= total) break;
+    fetchPage += 1;
+  }
+
+  return all;
+}
+
 /** `GET /admin/products` — List products with filters */
 export async function getAdminProductsList(query?: ProductListQuery): Promise<ProductListResult> {
   const page = query?.page ?? 1;
   const pageSize = Math.min(100, Math.max(1, query?.pageSize ?? 25));
+  const utilityOnly = query?.category === UTILITY_PRODUCT_CATEGORY;
+
+  if (utilityOnly) {
+    const allRaw = await fetchAllProductsRaw({
+      search: query?.search,
+      status: query?.status,
+      provider: query?.provider,
+      commissionType: query?.commissionType,
+    });
+    const utilityRaw = allRaw.filter(isUtilityProductRaw);
+    const items = utilityRaw
+      .map((raw, idx) => normalizeProductRow(raw, idx))
+      .filter((x): x is ProductRow => x !== null);
+    const start = (page - 1) * pageSize;
+    return {
+      items: items.slice(start, start + pageSize),
+      total: items.length,
+      page,
+      pageSize,
+    };
+  }
+
   const qs = buildQuery({
     page,
     pageSize,
@@ -225,7 +337,7 @@ export async function getAdminProductsList(query?: ProductListQuery): Promise<Pr
 
 /** Legacy signature for compatibility */
 export async function getProductMgtList(): Promise<ProductListResult> {
-  return getAdminProductsList({ page: 1, pageSize: 100 });
+  return getAdminProductsList({ page: 1, pageSize: 100, category: UTILITY_PRODUCT_CATEGORY });
 }
 
 /** `GET /admin/products/summary` — Product summary cards (counts) */
@@ -238,7 +350,9 @@ export async function getAdminProductsSummary(): Promise<ProductMgtStats> {
       totalProducts: String(pickNum(inner, ["totalProducts", "total_products", "totalCount", "total"]) ?? "0"),
       activeProducts: String(pickNum(inner, ["activeProducts", "active_products", "activeCount", "active"]) ?? "0"),
       totalCrypto: String(pickNum(inner, ["totalCrypto", "total_crypto", "cryptoCount", "crypto"]) ?? "0"),
-      totalCurrencies: String(pickNum(inner, ["totalCurrencies", "total_currencies", "currenciesCount", "currencies"]) ?? "0"),
+      totalCurrencies: String(
+        pickNum(inner, ["totalCurrencies", "total_currencies", "currenciesCount", "currencies"]) ?? "0",
+      ),
     };
   } catch (e) {
     console.error("Failed to fetch products summary, returning fallbacks:", e);

@@ -5,8 +5,15 @@ import {
   parseRmbRateNumber,
   resolveCryptoSlug,
   resolveSwapCryptoCode,
+  slugToCryptoTicker,
 } from "@/lib/admin-api/rates-payload";
-import type { ExchangeRateRow, ExchangeRateSubTab, GiftcardBrand, SwapPairMeta } from "@/components/product-mgt/product-mgt-types";
+import type {
+  ExchangeRateRow,
+  ExchangeRateSubTab,
+  GiftcardBrand,
+  GiftcardDenomination,
+  SwapPairMeta,
+} from "@/components/product-mgt/product-mgt-types";
 
 // Helper utilities for normalization
 function asRecord(v: unknown): Record<string, unknown> | null {
@@ -50,11 +57,143 @@ function buildQuery(params: Record<string, string | number | undefined>): string
 }
 
 function firstArrayFromRecord(rec: Record<string, unknown>): unknown[] | null {
-  for (const key of ["items", "rates", "results", "rows", "records", "list", "content", "data", "brands"]) {
+  for (const key of [
+    "items",
+    "rates",
+    "pairs",
+    "swapPairs",
+    "swap_pairs",
+    "results",
+    "rows",
+    "records",
+    "list",
+    "content",
+    "data",
+    "brands",
+  ]) {
     const v = rec[key];
     if (Array.isArray(v)) return v;
   }
   return null;
+}
+
+function pickNestedRecord(o: Record<string, unknown>, keys: string[]): Record<string, unknown> | null {
+  for (const k of keys) {
+    const rec = asRecord(o[k]);
+    if (rec) return rec;
+  }
+  return null;
+}
+
+function cryptoAssetDisplay(
+  asset: Record<string, unknown> | null,
+  slugHint: string,
+): { code: string; name: string } {
+  const slug =
+    slugHint.trim() ||
+    pickString(asset ?? {}, ["slug", "cryptoSlug", "crypto_slug", "id"]) ||
+    "";
+  const symbol = pickString(asset ?? {}, ["symbol", "code", "ticker", "currencyCode", "currency"]);
+  const name = pickString(asset ?? {}, ["name", "displayName", "title", "label"]);
+  const code = symbol ? symbol.toUpperCase() : slugToCryptoTicker(slug);
+  return {
+    code,
+    name: name || code,
+  };
+}
+
+function extractSwapPairMeta(o: Record<string, unknown>): SwapPairMeta | undefined {
+  const baseAsset =
+    pickNestedRecord(o, [
+      "baseCrypto",
+      "base_crypto",
+      "baseAsset",
+      "base_asset",
+      "fromCrypto",
+      "from_crypto",
+    ]) ?? (typeof o.base === "object" ? asRecord(o.base) : null);
+  const quoteAsset =
+    pickNestedRecord(o, [
+      "quoteCrypto",
+      "quote_crypto",
+      "quoteAsset",
+      "quote_asset",
+      "toCrypto",
+      "to_crypto",
+    ]) ?? (typeof o.quote === "object" ? asRecord(o.quote) : null);
+
+  const baseSlug =
+    pickString(o, ["baseCryptoSlug", "base_crypto_slug", "baseSlug", "base_slug"]) ||
+    (typeof o.base === "string" ? o.base : "");
+  const quoteSlug =
+    pickString(o, ["quoteCryptoSlug", "quote_crypto_slug", "quoteSlug", "quote_slug"]) ||
+    (typeof o.quote === "string" ? o.quote : "");
+
+  const base = cryptoAssetDisplay(baseAsset, baseSlug);
+  const quote = cryptoAssetDisplay(quoteAsset, quoteSlug);
+
+  if (!base.code || !quote.code) {
+    const flatBase = pickString(o, ["baseCode", "base_code", "baseCurrency"]);
+    const flatQuote = pickString(o, ["quoteCode", "quote_code", "quoteCurrency"]);
+    const baseCode = slugToCryptoTicker(flatBase) || flatBase.toUpperCase();
+    const quoteCode = slugToCryptoTicker(flatQuote) || flatQuote.toUpperCase();
+    if (!baseCode || !quoteCode) return undefined;
+    return {
+      baseCode,
+      baseName: pickString(o, ["baseName", "base_name", "baseCurrencyName"]) || baseCode,
+      quoteCode,
+      quoteName: pickString(o, ["quoteName", "quote_name", "quoteCurrencyName"]) || quoteCode,
+    };
+  }
+
+  return {
+    baseCode: base.code,
+    baseName: base.name,
+    quoteCode: quote.code,
+    quoteName: quote.name,
+  };
+}
+
+function formatSwapCryptoCommission(o: Record<string, unknown>): {
+  commissionType: string;
+  ourCommission: string;
+} {
+  const commissionType = humanizeCommissionType(
+    pickString(o, ["markupType", "markup_type", "commissionType", "commission_type"]) || "percentage",
+  );
+
+  const baseToQuote = pickNum(o, [
+    "baseToQuoteMarkupValue",
+    "base_to_quote_markup_value",
+    "baseToQuoteMarkup",
+    "base_to_quote_markup",
+    "baseMarkupValue",
+    "base_markup_value",
+  ]);
+  const quoteToBase = pickNum(o, [
+    "quoteToBaseMarkupValue",
+    "quote_to_base_markup_value",
+    "quoteToBaseMarkup",
+    "quote_to_base_markup",
+    "quoteMarkupValue",
+    "quote_markup_value",
+  ]);
+
+  if (baseToQuote !== undefined || quoteToBase !== undefined) {
+    const left = formatCommissionValue(commissionType, String(baseToQuote ?? 0));
+    const right = formatCommissionValue(commissionType, String(quoteToBase ?? baseToQuote ?? 0));
+    return { commissionType, ourCommission: `${left} | ${right}` };
+  }
+
+  const commissionRateVal = pickMarkupValue(o);
+  if (commissionRateVal) {
+    return {
+      commissionType,
+      ourCommission: formatCommissionValue(commissionType, commissionRateVal),
+    };
+  }
+
+  return { commissionType, ourCommission: "—" };
 }
 
 function extractItemsArray(data: unknown): unknown[] {
@@ -170,7 +309,16 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
   const o = asRecord(raw);
   if (!o) return null;
 
-  const id = pickString(o, ["id", "rateId", "rate_id", "uuid"]) || `rate-${subTab}-${index}`;
+  let swapPair: SwapPairMeta | undefined;
+  if (subTab === "swap-crypto") {
+    swapPair = extractSwapPairMeta(o);
+    if (!swapPair) return null;
+  }
+
+  let id =
+    pickString(o, ["id", "rateId", "rate_id", "pairId", "pair_id", "uuid"]) ||
+    (swapPair ? `rate-swap-${swapPair.baseCode}-${swapPair.quoteCode}`.toLowerCase() : "") ||
+    `rate-${subTab}-${index}`;
 
   const baseCurrency = pickString(o, ["baseCurrency", "base_currency", "baseCode", "base_code"]);
   const quoteCurrency = pickString(o, ["quoteCurrency", "quote_currency", "quoteCode", "quote_code"]);
@@ -186,6 +334,9 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
     currencyName = pair.currencyName;
     fiatBase = pair.fiatBase;
     fiatQuote = pair.fiatQuote;
+  } else if (swapPair) {
+    currencyCode = `${swapPair.baseCode} ⇆ ${swapPair.quoteCode}`;
+    currencyName = `${swapPair.baseName} & ${swapPair.quoteName}`;
   } else {
     currencyCode = currencyCode || pickString(o, ["base"]) || "—";
     currencyName = currencyName || currencyCode;
@@ -193,31 +344,41 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
 
   const countryCode = pickString(o, ["countryCode", "country_code", "country"]) || null;
 
-  const commissionType = humanizeCommissionType(
+  let commissionType = humanizeCommissionType(
     pickString(o, ["commissionType", "commission_type", "markupType", "markup_type"]),
   );
-  const commissionRateVal = pickMarkupValue(o);
-  const ourCommission = commissionRateVal ? formatCommissionValue(commissionType, commissionRateVal) : "—";
+  let ourCommission = "—";
+  if (subTab === "swap-crypto") {
+    const swapCommission = formatSwapCryptoCommission(o);
+    commissionType = swapCommission.commissionType;
+    ourCommission = swapCommission.ourCommission;
+  } else {
+    const commissionRateVal = pickMarkupValue(o);
+    ourCommission = commissionRateVal ? formatCommissionValue(commissionType, commissionRateVal) : "—";
+  }
 
-  const baseRateVal = pickString(o, ["baseRate", "base_rate", "base"]);
+  const baseRateVal =
+    subTab === "swap-crypto"
+      ? pickString(o, ["baseRate", "base_rate"])
+      : pickString(o, ["baseRate", "base_rate", "base"]);
   const baseRate = baseRateVal ? (baseRateVal.includes("/") ? baseRateVal : `1/${baseRateVal}`) : "—";
 
-  const finalRateVal = pickString(o, ["finalRate", "final_rate", "rate", "final"]);
+  const finalRateVal =
+    subTab === "swap-crypto"
+      ? pickString(o, ["finalRate", "final_rate", "final"])
+      : pickString(o, ["finalRate", "final_rate", "rate", "final"]);
   const finalRate = finalRateVal ? (finalRateVal.includes("/") ? finalRateVal : `1/${finalRateVal}`) : "—";
 
-  const updatedAtRaw = pickString(o, ["dateUpdated", "date_updated", "updatedAt", "updated_at", "modifiedAt"]);
+  const updatedAtRaw = pickString(o, [
+    "dateUpdated",
+    "date_updated",
+    "updatedAt",
+    "updated_at",
+    "modifiedAt",
+    "lastUpdated",
+    "last_updated",
+  ]);
   const dateUpdated = updatedAtRaw ? formatDisplayDate(updatedAtRaw) : "—";
-
-  let swapPair: SwapPairMeta | undefined;
-  if (subTab === "swap-crypto") {
-    const baseCode = pickString(o, ["baseCode", "base_code", "baseCurrency", "base"]);
-    const baseName = pickString(o, ["baseName", "base_name", "baseCurrencyName", "base_name_full"]) || baseCode;
-    const quoteCode = pickString(o, ["quoteCode", "quote_code", "quoteCurrency", "quote"]);
-    const quoteName = pickString(o, ["quoteName", "quote_name", "quoteCurrencyName", "quote_name_full"]) || quoteCode;
-    if (baseCode && quoteCode) {
-      swapPair = { baseCode, baseName, quoteCode, quoteName };
-    }
-  }
 
   const cryptoSlug =
     subTab === "sell-crypto"
@@ -336,15 +497,13 @@ function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | nu
   const denominations = (Array.isArray(denomsRaw) ? denomsRaw : [])
     .map((d: unknown, dIdx: number) => {
       const doRecord = asRecord(d) || {};
-      const categoryKey = pickScalar(doRecord, ["category", "categoryName", "category_name"]);
+      const category =
+        pickScalar(doRecord, ["category", "categoryName", "category_name"]) || "";
       const dId =
         pickString(doRecord, ["id", "denomId", "uuid"]) ||
-        (categoryKey ? `${id}-${categoryKey}` : `denom-${dIdx}`);
+        (category ? `${id}-${category}` : `denom-${dIdx}`);
       const label =
         pickScalar(doRecord, [
-          "category",
-          "categoryName",
-          "category_name",
           "label",
           "name",
           "title",
@@ -356,7 +515,9 @@ function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | nu
           "denomination",
           "value",
           "description",
-        ]) || "";
+        ]) ||
+        category ||
+        "";
       const vendorRate = formatGiftcardVendorRate(
         pickScalar(doRecord, ["vendorRate", "vendor_rate", "rate"]),
       );
@@ -372,7 +533,15 @@ function normalizeGiftcardBrand(raw: unknown, index: number): GiftcardBrand | nu
       const dateUpdated = dUpdatedAtRaw ? formatDisplayDate(dUpdatedAtRaw) : "—";
       const status = pickGiftcardDenomStatus(doRecord);
 
-      return { id: dId, label, vendorRate, finalRate, dateUpdated, status };
+      return {
+        id: dId,
+        category: category || label,
+        label: label || category,
+        vendorRate,
+        finalRate,
+        dateUpdated,
+        status,
+      };
     })
     .filter(isMeaningfulGiftcardDenomination);
 
@@ -397,6 +566,18 @@ export type ExchangeRateListResult = {
   total: number;
 };
 
+async function fetchSwapCryptoItemsRaw(): Promise<{ itemsRaw: unknown[]; body: unknown }> {
+  const paths = ["/admin/rates/swap-crypto", "/admin/rates/swap-pairs"];
+  let lastBody: unknown = null;
+  for (const path of paths) {
+    const body = await adminRequest<unknown>(path, { method: "GET" });
+    const itemsRaw = extractItemsArray(body);
+    if (itemsRaw.length > 0) return { itemsRaw, body };
+    lastBody = body;
+  }
+  return { itemsRaw: extractItemsArray(lastBody), body: lastBody ?? {} };
+}
+
 /** `GET /admin/rates/{subTab}` — List rates for fiat, sell-crypto, swap-crypto, etc. */
 export async function getExchangeRates(subTab: ExchangeRateSubTab): Promise<ExchangeRateListResult> {
   const pathMap: Record<ExchangeRateSubTab, string> = {
@@ -405,10 +586,22 @@ export async function getExchangeRates(subTab: ExchangeRateSubTab): Promise<Exch
     "swap-crypto": "/admin/rates/swap-crypto",
     giftcard: "/admin/rates/gift-card",
   };
-  const path = pathMap[subTab] ?? "/admin/rates/fiat";
-  const body = await adminRequest<unknown>(path, { method: "GET" });
-  const itemsRaw = extractItemsArray(body);
-  const items = itemsRaw.map((raw, idx) => normalizeExchangeRateRow(raw, idx, subTab)).filter((x): x is ExchangeRateRow => x !== null);
+
+  let body: unknown;
+  let itemsRaw: unknown[];
+  if (subTab === "swap-crypto") {
+    const res = await fetchSwapCryptoItemsRaw();
+    body = res.body;
+    itemsRaw = res.itemsRaw;
+  } else {
+    const path = pathMap[subTab] ?? "/admin/rates/fiat";
+    body = await adminRequest<unknown>(path, { method: "GET" });
+    itemsRaw = extractItemsArray(body);
+  }
+
+  const items = itemsRaw
+    .map((raw, idx) => normalizeExchangeRateRow(raw, idx, subTab))
+    .filter((x): x is ExchangeRateRow => x !== null);
   const total = extractTotal(body, items.length);
   return { items, total };
 }
@@ -472,6 +665,52 @@ export type GiftcardRateCategoryInput = {
   vendorRate: number;
   isActive: boolean;
 };
+
+export function parseGiftcardVendorRateNumber(display: string): number {
+  const n = parseFloat(display.replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseGiftcardMarkupRateForConfigure(ourCommission: string): string | number {
+  const cleaned = ourCommission.replace(/[^\d.]/g, "");
+  return cleaned || "0";
+}
+
+/** Build configure body from current brand state (optionally override category active flags). */
+export function buildGiftcardConfigurePayload(
+  brand: GiftcardBrand,
+  options?: { categoryActiveById?: Record<string, boolean> },
+): {
+  rmbRate: string | number;
+  markupType: string;
+  markupRate: string | number;
+  categories: GiftcardRateCategoryInput[];
+} {
+  return {
+    rmbRate: parseRmbRateNumber(brand.rmbRate),
+    markupType: brand.commissionType,
+    markupRate: parseGiftcardMarkupRateForConfigure(brand.ourCommission),
+    categories: brand.denominations.map((d) => ({
+      category: d.category || d.label,
+      vendorRate: parseGiftcardVendorRateNumber(d.vendorRate),
+      isActive:
+        options?.categoryActiveById?.[d.id] !== undefined
+          ? options.categoryActiveById[d.id]
+          : d.status === "Active",
+    })),
+  };
+}
+
+export async function toggleGiftcardCategoryActive(
+  brand: GiftcardBrand,
+  denomination: GiftcardDenomination,
+  isActive: boolean,
+): Promise<void> {
+  const payload = buildGiftcardConfigurePayload(brand, {
+    categoryActiveById: { [denomination.id]: isActive },
+  });
+  await postConfigureGiftcardRate(brand.id, payload);
+}
 
 /** `POST /admin/rates/gift-card/{configId}/configure` — Configure a gift card rate */
 export async function postConfigureGiftcardRate(

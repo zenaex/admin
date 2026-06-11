@@ -150,9 +150,20 @@ export function ExchangeRatesPanel() {
     return rows.filter((r) => {
       if (appliedType && appliedType !== "All types" && r.commissionType !== appliedType) return false;
       if (!q) return true;
+      const pairHaystack = r.swapPair
+        ? [
+            r.swapPair.baseCode,
+            r.swapPair.quoteCode,
+            r.swapPair.baseName,
+            r.swapPair.quoteName,
+          ]
+            .join(" ")
+            .toLowerCase()
+        : "";
       return (
         r.currencyCode.toLowerCase().includes(q) ||
         r.currencyName.toLowerCase().includes(q) ||
+        pairHaystack.includes(q) ||
         r.id.toLowerCase().includes(q)
       );
     });

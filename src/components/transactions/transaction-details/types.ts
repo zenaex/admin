@@ -1,11 +1,18 @@
+import type { GiftcardCardFormat } from "@/components/transactions/transaction-detail-model";
+
 export type TxApprovalStatus = "Approved" | "Pending" | "Rejected";
 
 export type GiftcardDetailModel = {
   sessionId: string;
   customerName: string;
+  /** Denomination / category label (e.g. `10-500`). */
   typeLabel: string;
+  /** Card delivery format from API (`e-code` vs physical). */
+  cardFormat: GiftcardCardFormat;
+  cardTypeLabel: string;
   code: string;
   country: string;
+  physicalImageUrl?: string;
   amount: string;
   amountPaidOut: string;
   dateUploaded: string;

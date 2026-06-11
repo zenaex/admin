@@ -112,9 +112,14 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
 
   const isGiftcard = tx?.channel === "Giftcard";
 
+  const isGiftcardECode = isGiftcard && tx?.giftcardCardFormat === "e-code";
   const giftcardCodeDisplay =
     revealedCode ??
-    (tx?.code ? tx.code : canRevealECode && isGiftcard ? "••••••" : tx?.code ?? "");
+    (tx?.code
+      ? tx.code
+      : canRevealECode && isGiftcardECode
+        ? "••••••"
+        : tx?.code ?? "");
 
   const requireGiftcardSubmissionId = (): string | null => {
     const id = tx?.giftcardSubmissionId?.trim();
@@ -261,8 +266,8 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
           approvalStatus={approvalStatus}
           tx={tx}
           giftcardCodeDisplay={giftcardCodeDisplay}
-          canRevealECode={canRevealECode}
-          onRevealECode={isGiftcard ? () => void handleRevealECode() : undefined}
+          canRevealECode={canRevealECode && isGiftcardECode}
+          onRevealECode={isGiftcardECode ? () => void handleRevealECode() : undefined}
           eCodeLoading={eCodeLoading}
           eCodeError={eCodeError}
         />
@@ -1038,10 +1043,13 @@ function TransactionDetailsTab({
           model={{
             sessionId: tx.sessionId,
             customerName: tx.customerName,
-            channel: tx.categorySlug || "Giftcard",
-            typeLabel: tx.displayCategory || tx.giftcardType || tx.product,
+            channel: tx.giftcardProvider || tx.product || "Giftcard",
+            typeLabel: tx.giftcardCategory || tx.displayCategory || tx.product,
+            cardFormat: tx.giftcardCardFormat,
+            cardTypeLabel: tx.giftcardType,
             code: tx.code,
             country: tx.country,
+            physicalImageUrl: tx.giftcardImageUrl,
             amount: tx.amount,
             amountPaidOut: tx.amountPaidOut,
             dateUploaded: tx.dateUploaded,

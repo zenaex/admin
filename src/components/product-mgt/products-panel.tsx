@@ -4,17 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown2, Edit } from "iconsax-react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
-import { ProductMgtSubTabs } from "@/components/product-mgt/product-mgt-sub-tabs";
 import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 import {
   COMMISSION_TYPE_FILTER,
   PRODUCT_STATUS_FILTER,
-  PRODUCT_TABS,
   PRODUCT_PROVIDERS,
   PROVIDER_FILTER_OPTIONS,
-  TAB_CATEGORY_MAP,
 } from "@/components/product-mgt/product-fixtures";
-import type { ProductRow, ProductStatus, ProductTab } from "@/components/product-mgt/product-mgt-types";
+import type { ProductRow, ProductStatus } from "@/components/product-mgt/product-mgt-types";
 import {
   TableFilterApplyClear,
   TableFilterDropdownCard,
@@ -29,6 +26,7 @@ import {
   patchAdminProductToggle,
   patchAdminProductSwitchProvider,
   getAdminProductProviders,
+  UTILITY_PRODUCT_CATEGORY,
 } from "@/lib/admin-api/products-api";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 
@@ -126,7 +124,6 @@ function ProviderDropdown({
 
 export function ProductsPanel() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ProductTab>("All");
   const [search, setSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "status" | "provider" | "commission">(null);
@@ -177,7 +174,7 @@ export function ProductsPanel() {
         status: appliedProductStatus || undefined,
         provider: appliedSwitchProvider || undefined,
         commissionType: appliedCommissionType || undefined,
-        category: TAB_CATEGORY_MAP[activeTab] || undefined,
+        category: UTILITY_PRODUCT_CATEGORY,
       });
       setProducts(res.items);
       setTotalItems(res.total);
@@ -198,7 +195,6 @@ export function ProductsPanel() {
     appliedProductStatus,
     appliedSwitchProvider,
     appliedCommissionType,
-    activeTab,
   ]);
 
   const getStatus = (row: ProductRow) => statuses[row.id] ?? row.status;
@@ -235,17 +231,6 @@ export function ProductsPanel() {
 
   return (
     <>
-      <div className="mt-6">
-        <ProductMgtSubTabs
-          tabs={PRODUCT_TABS.map((t) => ({ id: t, label: t }))}
-          active={activeTab}
-          onChange={(id) => {
-            setActiveTab(id as ProductTab);
-            setPage(1);
-          }}
-        />
-      </div>
-
       {filterMode ? (
         <TableFilterModeBar
           barClassName="!mt-4"

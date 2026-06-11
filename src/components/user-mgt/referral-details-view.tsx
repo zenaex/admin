@@ -36,7 +36,6 @@ const REFERRED_EXPORT_COLUMNS: ExportColumn<AdminReferredUserRow>[] = [
   { header: "Name", value: (r) => r.name },
   { header: "Email", value: (r) => r.email },
   { header: "Phone", value: (r) => r.phone },
-  { header: "Referral Code", value: (r) => r.referralCode },
   { header: "Date", value: (r) => r.date },
   { header: "Status", value: (r) => r.status },
 ];
@@ -153,7 +152,7 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
         !(
           r.name.toLowerCase().includes(q) ||
           r.email.toLowerCase().includes(q) ||
-          r.referralCode.toLowerCase().includes(q)
+          r.phone.toLowerCase().includes(q)
         )
       ) {
         return false;
@@ -416,7 +415,6 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Name</th>
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Email</th>
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Phone Number</th>
-                <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Referral Code</th>
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Date</th>
                 <th className="h-11 border-b border-zinc-200 px-4 py-0 align-middle font-medium">Status</th>
               </tr>
@@ -424,13 +422,13 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                  <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
                     Loading referred users…
                   </td>
                 </tr>
               ) : paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                  <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
                     No referred users found.
                   </td>
                 </tr>
@@ -442,7 +440,6 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
                     </td>
                     <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle text-zinc-500">{row.email}</td>
                     <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle text-zinc-500">{row.phone}</td>
-                    <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle text-zinc-500">{row.referralCode}</td>
                     <td className="h-16 whitespace-nowrap border-b border-zinc-100 px-4 py-0 align-middle text-zinc-500">
                       {row.date}
                     </td>

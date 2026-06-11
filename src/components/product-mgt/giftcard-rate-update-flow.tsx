@@ -80,7 +80,7 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
         categories: form.denominations.map((d) => {
           const existing = activeBrand.denominations.find((denom) => denom.id === d.id);
           return {
-            category: d.label,
+            category: d.category || d.label,
             vendorRate: parseFloat(d.vendorRate) || 0,
             isActive: existing?.status !== "Inactive",
           };
