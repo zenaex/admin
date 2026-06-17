@@ -9,6 +9,7 @@ export type TableExportMenuProps = {
   loading?: boolean;
   label?: string;
   className?: string;
+  triggerClassName?: string;
   onExportCsv: () => void | Promise<void>;
   onExportPdf: () => void | Promise<void>;
   /** Show JSON option when API returns JSON records */
@@ -20,6 +21,7 @@ export function TableExportMenu({
   loading = false,
   label = "Export",
   className = "",
+  triggerClassName = "",
   onExportCsv,
   onExportPdf,
   onExportJson,
@@ -47,9 +49,9 @@ export function TableExportMenu({
         type="button"
         disabled={disabled || loading}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle disabled:opacity-50"
+        className={triggerClassName || "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle disabled:opacity-50"}
       >
-        <Download size={18} strokeWidth={2} color="var(--color-brand-navy)" />
+        <Download size={18} strokeWidth={2} color={triggerClassName ? "currentColor" : "var(--color-brand-navy)"} />
         {loading || busy ? "Exporting…" : label}
       </button>
       {open ? (
