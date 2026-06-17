@@ -170,10 +170,33 @@ function unwrapEntity(data: unknown): unknown {
 /** `GET /admin/permissions` — permissions grouped by module. */
 export async function getAdminPermissionsCatalog(): Promise<AdminPermissionModule[]> {
   const data = await adminRequest<unknown>("/admin/permissions", { method: "GET" });
-  const modules = extractArray(data)
+  const rawModules = extractArray(data)
     .map(normalizePermissionModule)
     .filter((x): x is AdminPermissionModule => x !== null);
-  if (modules.length > 0) return modules;
+
+  if (rawModules.length > 0) {
+    const mergedMap = new Map<string, AdminPermissionItem[]>();
+    for (const m of rawModules) {
+      const displayName = m.module
+        .replace(/([A-Z])/g, " $1")
+        .trim()
+        .split(/[_\s-]+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
+
+      const existing = mergedMap.get(displayName) ?? [];
+      for (const p of m.permissions) {
+        if (!existing.some((ep) => ep.key === p.key)) {
+          existing.push(p);
+        }
+      }
+      mergedMap.set(displayName, existing);
+    }
+    return Array.from(mergedMap.entries()).map(([module, permissions]) => ({
+      module,
+      permissions,
+    }));
+  }
 
   const flat = extractArray(data)
     .map(normalizePermissionItem)
