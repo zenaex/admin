@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, ArrowLeft2, ArrowDown2, Edit2 } from "iconsax-react";
+import { Add, People, Setting2, Chart, ShieldTick, Headphone, Code1, ArrowLeft2, ArrowDown2, Edit2, ArrowRight2 } from "iconsax-react";
 import { ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
@@ -103,9 +103,10 @@ type RoleCardData = AdminRoleListItem & {
 type AdminRolesTabProps = {
   canManage: boolean;
   onRolesChanged?: () => void;
+  onSelectionChange?: (hasSelected: boolean) => void;
 };
 
-export function AdminRolesTab({ canManage, onRolesChanged }: AdminRolesTabProps) {
+export function AdminRolesTab({ canManage, onRolesChanged, onSelectionChange }: AdminRolesTabProps) {
   const [roles, setRoles] = useState<RoleCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -127,6 +128,10 @@ export function AdminRolesTab({ canManage, onRolesChanged }: AdminRolesTabProps)
   // Selected role detail view state
   const [selectedRole, setSelectedRole] = useState<RoleCardData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    onSelectionChange?.(!!selectedRole);
+  }, [selectedRole, onSelectionChange]);
 
   const loadRoles = useCallback(async () => {
     setLoadError(null);
@@ -602,6 +607,7 @@ export function RoleDetailView({
 }: RoleDetailViewProps) {
   const [detailTab, setDetailTab] = useState<"members" | "permissions">("members");
   const [expandedModules, setExpandedModules] = useState<string[]>(["User Management"]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const [teamMembers, setTeamMembers] = useState<AdminTeamMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
@@ -693,29 +699,63 @@ export function RoleDetailView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-[#E8EBEE] bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-2 text-[#6B6B6B] hover:text-zinc-900 transition-colors text-[18px] font-semibold"
+            className="inline-flex items-center gap-1 text-primary-text hover:underline font-semibold"
           >
-            <ArrowLeft2 size={18} variant="Outline" color="currentColor" />
-            <span>Admin</span>
+            <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
+            Roles &amp; Permission
           </button>
-          <span className="text-zinc-400 font-normal select-none">&gt;</span>
-          <span className="text-[18px] font-semibold text-primary-text">{role.name}</span>
+          <ArrowRight2 size={14} variant="Outline" color="currentColor" />
+          <span className="text-primary-text font-semibold">{role.name}</span>
         </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex h-9 items-center gap-2 rounded-full border border-zinc-200 bg-white px-5 text-sm font-semibold text-[#0A0A0A] hover:bg-zinc-50 transition-colors"
-          >
-            <Edit2 size={16} variant="Outline" color="currentColor" />
-            <span>Edit Role &amp; Permission</span>
-          </button>
-        )}
+
+        <div className="flex items-center gap-2">
+          {canManage && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-3 text-xs font-semibold text-primary-text hover:bg-zinc-50 transition-colors"
+              >
+                Action
+                <ArrowDown2 size={12} variant="Outline" color="currentColor" />
+              </button>
+              {dropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1.5 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onEdit();
+                      }}
+                      className="flex w-full items-center px-4 py-2.5 text-sm text-[#0A0A0A] hover:bg-zinc-50 transition-colors text-left font-semibold"
+                    >
+                      Edit role &amp; permission
+                    </button>
+                    {!role.isSystem && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          onDelete();
+                        }}
+                        className="flex w-full items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-semibold"
+                      >
+                        Delete role
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="border-b border-zinc-200">
@@ -1016,38 +1056,18 @@ export function EditRoleView({ role, onBack, onCancel, onSaved }: EditRoleViewPr
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2 text-[15px] md:text-[18px]">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-1.5 text-[#6B6B6B] hover:text-[#0A0A0A] transition-colors font-semibold"
-          >
-            <ArrowLeft2 size={16} variant="Outline" color="currentColor" />
-            <span>Admin Management</span>
-          </button>
-          <span className="text-zinc-300 font-normal select-none">&lt;</span>
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-[#E8EBEE] bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
           <button
             type="button"
             onClick={onCancel}
-            className="flex items-center gap-1.5 text-[#6B6B6B] hover:text-[#0A0A0A] transition-colors font-semibold"
+            className="inline-flex items-center gap-1 text-primary-text hover:underline font-semibold"
           >
-            <ArrowLeft2 size={16} variant="Outline" color="currentColor" />
-            <span>Roles &amp; Permission</span>
+            <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
+            {role.name}
           </button>
-          <span className="text-zinc-300 font-normal select-none">&gt;</span>
-          <span className="font-semibold text-primary-text">Edit Roles &amp; Permission</span>
-        </div>
-
-        <div className="relative">
-          <button
-            type="button"
-            disabled
-            className="inline-flex h-9 items-center gap-2 rounded-full border border-zinc-200 bg-white px-5 text-sm font-semibold text-[#0A0A0A] opacity-50 cursor-not-allowed"
-          >
-            <span>Action</span>
-            <ArrowDown2 size={14} variant="Outline" color="currentColor" />
-          </button>
+          <ArrowRight2 size={14} variant="Outline" color="currentColor" />
+          <span className="text-primary-text font-semibold">Edit Roles &amp; Permission</span>
         </div>
       </div>
 

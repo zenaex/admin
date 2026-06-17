@@ -114,6 +114,7 @@ export function AdminManagementView() {
   );
 
   const [activeTab, setActiveTab] = useState<AdminTab>("Team");
+  const [hasSelectedRole, setHasSelectedRole] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
@@ -368,32 +369,36 @@ export function AdminManagementView() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-primary-text text-[20px] font-semibold whitespace-nowrap">Admin Management</h1>
+      {!hasSelectedRole && (
+        <div className="flex items-center justify-between">
+          <h1 className="text-primary-text text-[20px] font-semibold whitespace-nowrap">Admin Management</h1>
 
-        {/* Global Toolbar */}
-        <div className="flex items-center gap-6 w-full justify-end">
-          {/* Icons */}
-          <div className="flex items-center gap-4 text-zinc-600">
-            <NotificationDrawerTrigger notificationCount={2} iconSize={24} />
-            <button type="button" className="hover:text-primary-text transition-colors">
-              <Setting2 size={24} variant="Outline" color="currentColor" />
-            </button>
+          {/* Global Toolbar */}
+          <div className="flex items-center gap-6 w-full justify-end">
+            {/* Icons */}
+            <div className="flex items-center gap-4 text-zinc-600">
+              <NotificationDrawerTrigger notificationCount={2} iconSize={24} />
+              <button type="button" className="hover:text-primary-text transition-colors">
+                <Setting2 size={24} variant="Outline" color="currentColor" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Tabs */}
-      <div className="mt-4">
-        <UnderlineTabs
-          tabs={tabList.map((t) => ({ id: t, label: t }))}
-          active={activeTab}
-          onChange={(id) => {
-            setActiveTab(id as AdminTab);
-            setPage(1);
-          }}
-        />
-      </div>
+      {!hasSelectedRole && (
+        <div className="mt-4">
+          <UnderlineTabs
+            tabs={tabList.map((t) => ({ id: t, label: t }))}
+            active={activeTab}
+            onChange={(id) => {
+              setActiveTab(id as AdminTab);
+              setPage(1);
+            }}
+          />
+        </div>
+      )}
 
       {/* Tab content */}
       {activeTab === "Team" && (
@@ -762,7 +767,11 @@ export function AdminManagementView() {
       )}
 
       {activeTab === "Roles & Permission" && (
-        <AdminRolesTab canManage={isSuper} onRolesChanged={reloadRoleOptions} />
+        <AdminRolesTab
+          canManage={isSuper}
+          onRolesChanged={reloadRoleOptions}
+          onSelectionChange={setHasSelectedRole}
+        />
       )}
 
       {activeTab === "Pending Invites" && <PendingInvitesTab showInvite={isSuper} />}
