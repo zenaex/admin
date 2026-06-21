@@ -70,13 +70,13 @@ export function CryptoExchangeChart() {
             <CartesianGrid strokeDasharray="3 3" stroke="#E8EBEE" vertical={false} />
             <XAxis
               dataKey="coin"
-              tick={{ fontSize: 11, fill: "#9E9E9E" }}
+              tick={{ fontSize: 11, fill: "#0A0A0A" }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               tickFormatter={yTickFormatter}
-              tick={{ fontSize: 11, fill: "#9E9E9E" }}
+              tick={{ fontSize: 11, fill: "#0A0A0A" }}
               axisLine={false}
               tickLine={false}
               ticks={[0, 20000, 40000, 60000, 80000, 100000]}

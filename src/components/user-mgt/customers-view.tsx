@@ -18,7 +18,10 @@ import {
   TableFilterPill,
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
+  TableFilterCalendar,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import type { DateRange } from "react-day-picker";
 import { getAdminCustomersList, getAdminCustomersSummary } from "@/lib/admin-api/customers-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import type { AdminCustomerListQuery, AdminCustomerListRow, AdminCustomersSummary } from "@/lib/admin-api/types";
@@ -132,8 +135,9 @@ export function CustomersView() {
     useTableFilterBarAnchor<"status" | "date">(openFilter, filterMode);
 
   const [draftStatusValue, setDraftStatusValue] = useState<string>(FILTER_ACCOUNT_STATUSES[0].value);
-  const [draftDateLabel, setDraftDateLabel] = useState("Date range (picker coming soon)");
+  const [draftDate, setDraftDate] = useState<DateRange | undefined>(undefined);
   const [appliedAccountStatus, setAppliedAccountStatus] = useState<string | null>(null);
+  const [appliedDate, setAppliedDate] = useState<DateRange | undefined>(undefined);
 
   const [summary, setSummary] = useState<AdminCustomersSummary | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -170,13 +174,16 @@ export function CustomersView() {
   const loadSummary = useCallback(async () => {
     setSummaryError(null);
     try {
-      const s = await getAdminCustomersSummary();
+      const s = await getAdminCustomersSummary({
+        fromDate: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
+        toDate: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
+      });
       setSummary(s);
     } catch (e) {
       setSummary(null);
       setSummaryError(e instanceof AdminApiError ? e.message : "Could not load summary.");
     }
-  }, []);
+  }, [appliedDate]);
 
   useEffect(() => {
     void loadSummary();
@@ -199,6 +206,8 @@ export function CustomersView() {
         sortOrder: "desc",
         ...tabQ,
         accountStatus: pillStatus,
+        fromDate: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
+        toDate: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
       };
       const res = await getAdminCustomersList(q);
       setListRows(res.items);
@@ -210,7 +219,7 @@ export function CustomersView() {
     } finally {
       setListLoading(false);
     }
-  }, [activeTab, appliedAccountStatus, debouncedSearch, effectivePage, effectivePageSize]);
+  }, [activeTab, appliedAccountStatus, debouncedSearch, effectivePage, effectivePageSize, appliedDate]);
 
   useEffect(() => {
     void loadList();
@@ -251,6 +260,8 @@ export function CustomersView() {
         sortOrder: "desc",
         ...tabQ,
         accountStatus: pillStatus,
+        fromDate: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
+        toDate: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
       });
       rows = res.items;
     }
@@ -341,9 +352,9 @@ export function CustomersView() {
                   })
                 }
               />
-              <TableFilterPill
+               <TableFilterPill
                 label="Date onboarded"
-                summary={draftDateLabel}
+                summary={formatDateRangeLabel(draftDate, "All time")}
                 pillRef={registerPillRef("date")}
                 onClick={() =>
                   setOpenFilter((v) => {
@@ -385,9 +396,9 @@ export function CustomersView() {
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "date" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
                   <TableFilterPanelTitle />
-                  <p className="px-2 py-2 text-xs text-zinc-500">Okunola will shout when he sees this :)</p>
+                  <TableFilterCalendar value={draftDate} onChange={setDraftDate} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -396,14 +407,16 @@ export function CustomersView() {
             <TableFilterApplyClear
               onApply={() => {
                 setAppliedAccountStatus(draftStatusValue === "" ? null : draftStatusValue);
+                setAppliedDate(draftDate);
                 setOpenFilter(null);
                 setPage(1);
               }}
               onClear={() => {
                 setSearch("");
                 setAppliedAccountStatus(null);
+                setAppliedDate(undefined);
                 setDraftStatusValue(FILTER_ACCOUNT_STATUSES[0].value);
-                setDraftDateLabel("Date range (picker coming soon)");
+                setDraftDate(undefined);
                 setOpenFilter(null);
                 setFilterMode(false);
                 setPage(1);

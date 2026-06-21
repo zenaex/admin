@@ -37,6 +37,40 @@ export type TransactionLogEntry = {
   date: string;
 };
 
+const ISO_TO_FULL_NAME: Record<string, string> = {
+  US: "United States",
+  DE: "Germany",
+  NG: "Nigeria",
+  GB: "United Kingdom",
+  UK: "United Kingdom",
+  GH: "Ghana",
+  KE: "Kenya",
+  ZA: "South Africa",
+  CA: "Canada",
+  FR: "France",
+  ES: "Spain",
+  IT: "Italy",
+  CN: "China",
+  JP: "Japan",
+  IN: "India",
+  AU: "Australia",
+  NZ: "New Zealand",
+  IE: "Ireland",
+  NL: "Netherlands",
+  BE: "Belgium",
+  CH: "Switzerland",
+  SE: "Sweden",
+  NO: "Norway",
+  FI: "Finland",
+  DK: "Denmark",
+  SG: "Singapore",
+  HK: "Hong Kong",
+  MY: "Malaysia",
+  AE: "United Arab Emirates",
+  BR: "Brazil",
+  MX: "Mexico",
+};
+
 function channelKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -471,6 +505,24 @@ function pickNumFromBlocks(
   return undefined;
 }
 
+function formatGiftcardAmountDisplay(cents: number, currency: string): string {
+  const major = cents / 100;
+  const cur = currency.trim().toUpperCase();
+  const mapping: Record<string, { sign: string; name: string }> = {
+    USD: { sign: "$", name: "USD" },
+    EUR: { sign: "€", name: "EUR" },
+    GBP: { sign: "£", name: "GBP" },
+    CAD: { sign: "C$", name: "CAD" },
+    AUD: { sign: "A$", name: "AUD" },
+    NGN: { sign: "₦", name: "NGN" },
+  };
+  const info = mapping[cur] || { sign: cur, name: cur };
+  if (info.sign === info.name) {
+    return `${info.name} ${major.toLocaleString()}`;
+  }
+  return `${info.sign}${major.toLocaleString()} ${info.name}`;
+}
+
 function enrichGiftcardDetailModel(
   model: TransactionDetailModel,
   o: Record<string, unknown>,
@@ -500,7 +552,18 @@ function enrichGiftcardDetailModel(
     if (productRaw) model.product = productRaw;
   }
 
-  const cardTypeRaw = pickScalarFromBlocks(o, blocks, ["cardType", "card_type"]);
+  const cardTypeRaw = pickScalarFromBlocks(o, blocks, [
+    "cardType",
+    "card_type",
+    "cardFormat",
+    "card_format",
+    "format",
+    "giftcardFormat",
+    "giftcard_format",
+    "typeGift",
+    "giftType",
+    "type",
+  ]);
   if (cardTypeRaw) {
     model.giftcardCardType = cardTypeRaw;
     model.giftcardCardFormat = resolveGiftcardCardFormat(cardTypeRaw);
@@ -531,7 +594,7 @@ function enrichGiftcardDetailModel(
     pickScalarFromBlocks(o, blocks, ["currency", "currencyCode", "currency_code"]);
   if (faceCurrency) model.giftcardFaceCurrency = faceCurrency;
   if (faceCents !== undefined) {
-    model.amount = formatKoboAmountDisplay(faceCents, faceCurrency || "USD");
+    model.amount = formatGiftcardAmountDisplay(faceCents, faceCurrency || "USD");
   }
 
   const rateFromMoney = pickAndFormatMoneyField(o, [
@@ -557,7 +620,8 @@ function enrichGiftcardDetailModel(
     }
   }
 
-  const countryRaw = pickScalarFromBlocks(o, blocks, ["country", "countryName", "country_name"]);
+  const countryRawTemp = pickScalarFromBlocks(o, blocks, ["country", "countryName", "country_name"]);
+  const countryRaw = ISO_TO_FULL_NAME[countryRawTemp.trim().toUpperCase()] || countryRawTemp;
   const currencyForCountry =
     pickScalarFromBlocks(o, blocks, [
       "faceCurrency",
@@ -608,6 +672,22 @@ function enrichGiftcardDetailModel(
     }
   } else {
     model.giftcardImageUrl = imageUrl;
+  }
+
+  const amountPaidOut = pickAndFormatMoneyFromBlocks(o, blocks, [
+    "amountPaidOut",
+    "amount_paid_out",
+    "paidOut",
+    "payoutAmount",
+    "payout_amount",
+  ]);
+  if (amountPaidOut) {
+    model.amountPaidOut = amountPaidOut;
+  }
+
+  const uploadedRaw = pickScalarFromBlocks(o, blocks, ["dateUploaded", "uploadedAt", "uploaded_at"]);
+  if (uploadedRaw) {
+    model.dateUploaded = formatDisplayDate(uploadedRaw);
   }
 }
 

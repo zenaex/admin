@@ -56,6 +56,8 @@ const SCENARIO_META: Record<
     opsInCharge: string;
     country: string;
     eCode: string;
+    cardType?: string;
+    cardImageUrl?: string;
   }
 > = {
   [GIFTCARD_MOCK_REFS.successful]: {
@@ -96,6 +98,8 @@ const SCENARIO_META: Record<
     opsInCharge: "Florence Arinze",
     country: "Germany | EUR",
     eCode: "STEAM-DEMO-9912-7733",
+    cardType: "physical",
+    cardImageUrl: "https://images.unsplash.com/photo-1574634534894-89d7576c8259?auto=format&fit=crop&q=80&w=600",
   },
 };
 
@@ -218,6 +222,8 @@ function buildDetailRaw(reference: string): Record<string, unknown> {
     balanceAfterGift: "₦2,450,000.00",
     country: meta.country,
     giftcardType: meta.displayCategory,
+    cardType: meta.cardType || "e-code",
+    cardImageUrl: meta.cardImageUrl || "",
     provider: meta.provider,
     opsInCharge: meta.opsInCharge,
     assignedTo: meta.opsInCharge,

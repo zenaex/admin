@@ -452,26 +452,66 @@ export function readChannelRaw(o: Record<string, unknown>): string {
 }
 
 function pickTransactionChannel(o: Record<string, unknown>): string {
-  const productLikeChannel = pickString(o, [
+  if (
+    o.giftCardSubmission ||
+    o.giftcardImageUrl ||
+    o.giftcardProvider ||
+    o.giftcardType ||
+    o.cardType ||
+    o.card_type ||
+    o.cardFormat ||
+    o.card_format ||
+    o.giftcardCardFormat
+  ) {
+    return "Giftcard";
+  }
+
+  const raw = pickString(o, [
+    "channel",
     "productChannel",
     "product_channel",
+    "transactionType",
+    "transaction_type",
+    "productType",
+    "product_type",
+    "service",
     "category",
     "categorySlug",
     "category_slug",
-    "service",
-    "productType",
-    "product_type",
-    "transactionType",
-    "transaction_type",
+    "type",
   ]);
-  const raw = productLikeChannel || readChannelRaw(o);
-  return raw ? humanizeLabel(raw) : "—";
+
+  if (!raw) return "—";
+
+  const clean = raw.trim();
+  if (/^\d+-\d+$/.test(clean) || /^\d+\s*-\s*\d+$/.test(clean)) {
+    return "Giftcard";
+  }
+
+  if (clean.toLowerCase() === "credit") {
+    return "E-trade";
+  }
+
+  const lower = clean.toLowerCase();
+  if (lower === "esim" || lower === "e-sim") return "E-sim";
+  if (lower === "etrade" || lower === "e-trade") return "E-trade";
+  if (lower === "giftcard" || lower === "gift-card") return "Giftcard";
+
+  return humanizeLabel(clean);
 }
 
 function pickTransactionProduct(o: Record<string, unknown>, channelLabel: string): string {
   const dataBundle = readDataBundleRaw(o);
   if (dataBundle) {
     return formatDataBundleDisplay(dataBundle);
+  }
+
+  if (channelLabel === "E-trade") {
+    const tradeType = pickString(o, ["etradeType", "etrade_type", "tradeType", "trade_type", "type"]);
+    if (tradeType) {
+      return tradeType.toLowerCase().includes("percent") ? "Percentage" : "Exchange Rate";
+    }
+    return "Exchange Rate";
   }
 
   const productSlug = pickString(o, ["productSlug", "product_slug"]);
@@ -1117,7 +1157,12 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
   }
 
   const statusRaw = readStatusRaw(o);
-  const status = statusRaw ? humanizeStatus(statusRaw) : "—";
+  let status = statusRaw ? humanizeStatus(statusRaw) : "—";
+  if (channel === "Giftcard" && (status === "Processing" || status === "Pending")) {
+    status = "Pending Approval";
+  } else if (channel === "Giftcard" && status === "Failed") {
+    status = "Rejected";
+  }
   const dateRaw = readDateRaw(o) || parseDateFromReference(referenceNo);
   const customerName =
     pickString(o, ["customerName", "customer_name", "accountHolderName", "account_holder_name", "ownerName", "owner_name", "accountName", "account_name", "userFullName", "user_full_name", "displayName", "display_name"]) ||
@@ -1164,11 +1209,87 @@ export function normalizeTransactionListResponse(
   return { items, total, page, pageSize };
 }
 
+function normalizeEtradeToTransactionRow(raw: unknown, idx: number): AdminTransactionListRow | null {
+  const baseObj = asRecord(raw);
+  if (!baseObj) return null;
+
+  const inner = asRecord(baseObj.etrade) ?? asRecord(baseObj.eTrade) ?? asRecord(baseObj.trade) ?? baseObj;
+  const o = { ...baseObj, ...inner };
+
+  const id = pickString(o, ["id", "etradeId", "etrade_id", "tradeId", "trade_id", "uuid"]) || `etrade-${idx}`;
+  const tradeId = pickString(o, ["tradeId", "trade_id", "reference", "referenceId", "sessionId", "session_id"]) || id;
+  const title = pickString(o, ["requestType", "request_type", "title", "requestDetails", "request_details", "tradeName"]) || "—";
+
+  const first = pickString(o, ["customerFirstName", "customer_first_name"]);
+  const last = pickString(o, ["customerLastName", "customer_last_name"]);
+  const name =
+    [first, last].filter(Boolean).join(" ").trim() ||
+    pickString(o, ["customerName", "customer_name", "customer", "userName", "user_name"]) ||
+    "—";
+
+  const tradeCurrency = pickString(o, ["tradeCurrency", "trade_currency", "currency"]) || "USD";
+  const tradeAmountVal = pickNum(o, ["tradeAmount", "trade_amount", "amount"]);
+  const tradeValue = tradeAmountVal !== undefined ? `${tradeCurrency} ${tradeAmountVal.toLocaleString()}` : "—";
+
+  const opsInCharge = pickString(o, ["opsInCharge", "ops_in_charge", "assignedTo", "reviewer", "adminName"]) || "—";
+
+  const rawStatus = pickString(o, ["status", "tradeStatus", "trade_status", "state"]) || "awaiting_approval";
+  const s = rawStatus.toLowerCase().replace(/_/g, " ");
+  let status = "Completed";
+  if (s === "awaiting approval" || s === "awaiting_approval" || s.includes("await") || s.includes("pending")) {
+    status = "Pending";
+  } else if (s === "rejected" || s.includes("reject") || s.includes("declin") || s.includes("fail")) {
+    status = "Failed";
+  }
+
+  const dateRaw = pickString(o, ["createdAt", "created_at", "dateCreated", "date_created", "initiatedAt"]) || "";
+  const dateFormatted = dateRaw ? formatDisplayDate(dateRaw) : "—";
+
+  const tradeType = pickString(o, ["etradeType", "etrade_type", "tradeType", "trade_type", "type"]) || "";
+  let product = "Exchange Rate";
+  if (tradeType.toLowerCase().includes("percent")) {
+    product = "Percentage";
+  }
+
+  return {
+    id,
+    refNo: tradeId,
+    customerName: name,
+    channel: "E-trade",
+    product,
+    amount: tradeValue,
+    provider: title,
+    status,
+    date: dateFormatted,
+    dateSortKey: dateRaw,
+    raw: o,
+  };
+}
+
 export async function getAdminTransactionsList(
   query?: AdminTransactionListQuery,
 ): Promise<AdminTransactionListResult> {
   const page = query?.page ?? 1;
   const pageSize = Math.min(100, Math.max(1, query?.pageSize ?? 25));
+
+  if (query?.tab === "e-trade") {
+    const qs = buildQuery({
+      page,
+      limit: pageSize,
+      search: query.search,
+      status: query.status,
+      fromDate: query.dateFrom,
+      toDate: query.dateTo,
+    });
+    const data = await adminRequest<unknown>(`/admin/etrades${qs}`, { auth: true });
+    const rawItems = extractItemsArray(data);
+    const total = extractTotal(data, rawItems.length);
+    const items = rawItems
+      .map((raw, idx) => normalizeEtradeToTransactionRow(raw, idx))
+      .filter((x): x is AdminTransactionListRow => x !== null);
+    return { items, total, page, pageSize };
+  }
+
   const qs = buildQuery(transactionListQueryToParams({ ...query, page, pageSize }));
   const body = await adminRequest<unknown>(`/admin/transactions${qs}`, { method: "GET" });
   const result = normalizeTransactionListResponse(body, page, pageSize);

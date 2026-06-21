@@ -23,7 +23,10 @@ import {
   TableFilterPill,
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
+  TableFilterCalendar,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import type { DateRange } from "react-day-picker";
 import { AdminApiError } from "@/lib/admin-api/client";
 import { getAdminReferralDetail } from "@/lib/admin-api/referrals-api";
 import type { AdminReferredUserRow } from "@/lib/admin-api/types";
@@ -93,8 +96,9 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
     useTableFilterBarAnchor<"status" | "date">(openFilter, filterMode);
 
   const [draftStatus, setDraftStatus] = useState("All statuses");
-  const [draftDate, setDraftDate] = useState("Date range (picker coming soon)");
+  const [draftDate, setDraftDate] = useState<DateRange | undefined>(undefined);
   const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
+  const [appliedDate, setAppliedDate] = useState<DateRange | undefined>(undefined);
 
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getAdminReferralDetail>> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,6 +151,25 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
     const q = debouncedSearch.toLowerCase();
     return (detail?.referred ?? []).filter((r) => {
       if (!matchesStatus(r, appliedStatus)) return false;
+      if (appliedDate?.from) {
+        const rawDateStr =
+          r.raw?.referredAt ??
+          r.raw?.referred_at ??
+          r.raw?.qualifiedAt ??
+          r.raw?.qualified_at ??
+          r.raw?.createdAt ??
+          r.raw?.created_at ??
+          r.raw?.date ??
+          r.raw?.onboardedAt;
+        const itemDate = rawDateStr ? new Date(rawDateStr as string) : null;
+        if (itemDate && !Number.isNaN(itemDate.getTime())) {
+          const start = new Date(appliedDate.from);
+          start.setHours(0, 0, 0, 0);
+          const end = appliedDate.to ? new Date(appliedDate.to) : new Date(appliedDate.from);
+          end.setHours(23, 59, 59, 999);
+          if (itemDate < start || itemDate > end) return false;
+        }
+      }
       if (
         q &&
         !(
@@ -159,9 +182,9 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
       }
       return true;
     });
-  }, [detail?.referred, appliedStatus, debouncedSearch]);
+  }, [detail?.referred, appliedStatus, debouncedSearch, appliedDate]);
 
-  const clientSearchActive = Boolean(debouncedSearch || appliedStatus);
+  const clientSearchActive = Boolean(debouncedSearch || appliedStatus || appliedDate);
   const paginationTotal = clientSearchActive ? filteredReferred.length : (detail?.referredTotal ?? 0);
   const paginatedRows = clientSearchActive
     ? filteredReferred.slice((page - 1) * pageSize, page * pageSize)
@@ -173,7 +196,7 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
 
   useEffect(() => {
     if (clientSearchActive) setPage(1);
-  }, [debouncedSearch, appliedStatus, clientSearchActive]);
+  }, [debouncedSearch, appliedStatus, appliedDate, clientSearchActive]);
 
   const runExport = async (format: "csv" | "json" | "pdf") => {
     let rows = filteredReferred;
@@ -309,7 +332,7 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
                 />
                 <TableFilterPill
                   label="Date"
-                  summary={draftDate}
+                  summary={formatDateRangeLabel(draftDate, "All time")}
                   pillRef={registerPillRef("date")}
                   onClick={() =>
                     setOpenFilter((v) => {
@@ -350,11 +373,9 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
                   </TableFilterDropdownCard>
                 ) : null}
                 {openFilter === "date" ? (
-                  <TableFilterDropdownCard left={dropdownLeft}>
+                  <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
                     <TableFilterPanelTitle />
-                    <p className="px-2 py-2 text-xs text-zinc-500">
-                      Date range filters will send ISO dates once a picker is wired.
-                    </p>
+                    <TableFilterCalendar value={draftDate} onChange={setDraftDate} />
                   </TableFilterDropdownCard>
                 ) : null}
               </>
@@ -363,14 +384,16 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
               <TableFilterApplyClear
                 onApply={() => {
                   setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
+                  setAppliedDate(draftDate);
                   setOpenFilter(null);
                   setPage(1);
                 }}
                 onClear={() => {
                   setSearch("");
                   setAppliedStatus(null);
+                  setAppliedDate(undefined);
                   setDraftStatus("All statuses");
-                  setDraftDate("Date range (picker coming soon)");
+                  setDraftDate(undefined);
                   setOpenFilter(null);
                   setFilterMode(false);
                   setPage(1);

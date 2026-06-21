@@ -441,7 +441,11 @@ function formatGiftcardVendorRate(raw: string): string {
   if (!t) return "";
   if (t.startsWith("$") || t.startsWith("¥") || t.startsWith("₦")) return t;
   const n = Number(t);
-  if (Number.isFinite(n)) return `$${n}`;
+  if (Number.isFinite(n)) {
+    // Bug #52: Rates returned from backend in minor units — divide by 100
+    const major = n > 1000 ? n / 100 : n;
+    return `$${major}`;
+  }
   return t;
 }
 
@@ -450,7 +454,11 @@ function formatGiftcardFinalRate(raw: string): string {
   if (!t) return "";
   if (t.includes("/")) return t;
   const n = Number(t);
-  if (Number.isFinite(n)) return `$1/₦${n.toLocaleString()}`;
+  if (Number.isFinite(n)) {
+    // Bug #52: Rates returned from backend in minor units — divide by 100
+    const major = n > 1000 ? n / 100 : n;
+    return `$1/₦${major.toLocaleString()}`;
+  }
   return t;
 }
 
@@ -608,7 +616,8 @@ export async function getExchangeRates(subTab: ExchangeRateSubTab): Promise<Exch
 
 /** `GET /admin/rates/gift-card` — List gift card brand rates */
 export async function getGiftcardRates(): Promise<GiftcardBrand[]> {
-  const body = await adminRequest<unknown>("/admin/rates/gift-card", { method: "GET" });
+  // Request a large page size to ensure the full list is returned (Bug #51)
+  const body = await adminRequest<unknown>("/admin/rates/gift-card?pageSize=200&page=1", { method: "GET" });
   const itemsRaw = extractItemsArray(body);
   return itemsRaw.map((raw, idx) => normalizeGiftcardBrand(raw, idx)).filter((x): x is GiftcardBrand => x !== null);
 }
