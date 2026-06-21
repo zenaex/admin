@@ -168,8 +168,8 @@ export function GiftcardTransactionDetails({
           row={[
             <SessionIdLink key="tid" id={model.sessionId} />,
             model.customerName,
-            model.channel || "Giftcard",
-            model.typeLabel || model.cardTypeLabel,
+            "Gift Card",
+            model.cardFormat === "e-code" ? "Ecode" : "Physical",
             <CodeCell
               key="code"
               codeDisplay={isPhysical && !codeDisplay ? "—" : codeDisplay}

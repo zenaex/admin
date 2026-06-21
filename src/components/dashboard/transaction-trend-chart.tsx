@@ -130,13 +130,13 @@ export function TransactionTrendChart() {
             <CartesianGrid strokeDasharray="3 3" stroke="#E8EBEE" vertical={false} />
             <XAxis
               dataKey="month"
-              tick={{ fontSize: 11, fill: "#9E9E9E" }}
+              tick={{ fontSize: 11, fill: "#0A0A0A" }}
               axisLine={false}
               tickLine={false}
-              label={{ value: X_LABEL_MAP[timeFrame], position: "insideBottom", offset: -2, style: { fontSize: 11, fill: "#9E9E9E" } }}
+              label={{ value: X_LABEL_MAP[timeFrame], position: "insideBottom", offset: -2, style: { fontSize: 11, fill: "#0A0A0A" } }}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "#9E9E9E" }}
+              tick={{ fontSize: 11, fill: "#0A0A0A" }}
               axisLine={false}
               tickLine={false}
             />

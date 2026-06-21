@@ -26,6 +26,177 @@ const DETAIL_TABS = [
   { id: "transaction-details", label: "Transaction Details" },
 ];
 
+function printEtradeReceipt(detail: EtradeTransactionDetail, outcome: string) {
+  const statusText = outcome === "approved"
+    ? "Successful"
+    : outcome === "pending"
+      ? "Pending Approval"
+      : "Failed";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Receipt - ${detail.id}</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px;
+      color: #0A0A0A;
+      background: #FFFFFF;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      border-bottom: 2px solid #E8EBEE;
+      padding-bottom: 20px;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #0A0A0A;
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 14px;
+      color: #777F89;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .amount-box {
+      text-align: center;
+      background: #F7F7F7;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+    .amount-label {
+      font-size: 13px;
+      color: #777F89;
+      margin-bottom: 6px;
+    }
+    .amount-value {
+      font-size: 32px;
+      font-weight: 800;
+      color: #0A0A0A;
+    }
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 40px;
+    }
+    .details-row {
+      border-bottom: 1px solid #E8EBEE;
+    }
+    .details-row:last-child {
+      border-bottom: none;
+    }
+    .details-label {
+      padding: 16px 0;
+      font-size: 14px;
+      color: #777F89;
+      width: 40%;
+    }
+    .details-value {
+      padding: 16px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #0A0A0A;
+      text-align: right;
+    }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #9E9E9E;
+      margin-top: 60px;
+      border-top: 1px solid #E8EBEE;
+      padding-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">ZENAEX EXCHANGE</div>
+    <div class="title">Transaction Receipt</div>
+  </div>
+
+  <div class="amount-box">
+    <div class="amount-label">Trade Amount</div>
+    <div class="amount-value">${detail.tradeAmount || "—"}</div>
+  </div>
+
+  <table class="details-table">
+    <tr class="details-row">
+      <td class="details-label">Trade ID / Ref</td>
+      <td class="details-value">${detail.id}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Session ID</td>
+      <td class="details-value">${detail.sessionId || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Customer Name</td>
+      <td class="details-value">${detail.customerName || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Channel</td>
+      <td class="details-value">${detail.channel}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Request Details</td>
+      <td class="details-value">${detail.requestDetails || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Rate / Fee</td>
+      <td class="details-value">${detail.rateFee || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">NGN Equivalent</td>
+      <td class="details-value">${detail.ngnEquivalent || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Date Initiated</td>
+      <td class="details-value">${detail.dateInitiated || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Status</td>
+      <td class="details-value">${statusText}</td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    <p>Thank you for trading with Zenaex Exchange.</p>
+    <p>This is an automated transaction receipt.</p>
+  </div>
+
+  <script>
+    window.onload = function() {
+      window.print();
+    }
+  </script>
+</body>
+</html>
+  `;
+  const win = window.open("", "_blank");
+  if (!win) {
+    alert("Pop-up blocked. Please allow pop-ups to download the receipt.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => {
+    try {
+      win.print();
+    } catch (e) {
+      console.error("Print failed:", e);
+    }
+  }, 300);
+}
+
 type EtradeTransactionDetailViewProps = {
   transactionId: string;
 };
@@ -149,8 +320,11 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
                 <div className="absolute right-0 top-full z-50 mt-2 w-[200px] overflow-hidden rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg">
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => setActionOpen(false)}
+                    className="flex w-full items-center gap-2 rounded-[10px] bg-background px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-200"
+                    onClick={() => {
+                      setActionOpen(false);
+                      printEtradeReceipt(detail!, outcome);
+                    }}
                   >
                     <DocumentDownload size={16} variant="Outline" color="currentColor" />
                     Download Receipt

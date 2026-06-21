@@ -11,9 +11,7 @@ import { Button } from "@/components/button";
 import { InputField } from "@/components/input-field";
 import { NotificationDrawerTrigger } from "@/components/notifications/notification-drawer";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
-import { postPasswordResetApprove, postPasswordResetDecline } from "@/lib/admin-api/auth-api";
 import { AdminApiError } from "@/lib/admin-api/client";
-import { getAdminSettingsPasswordResetRequests } from "@/lib/admin-api/settings-api";
 import {
   getAdminTeamList,
   postAdminTeamInvite,
@@ -28,7 +26,7 @@ import {
   getAdminRoles,
   humanizeRole,
 } from "@/lib/admin-api/team-api";
-import type { AdminSettingsPasswordResetRequestRow, AdminTeamMember, AdminPendingInvite, AdminRole } from "@/lib/admin-api/types";
+import type { AdminTeamMember, AdminPendingInvite, AdminRole } from "@/lib/admin-api/types";
 import { uiRoleLabelToApiRole, isRealAdminId } from "@/lib/admin-api/users-api";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 
@@ -47,14 +45,17 @@ import {
   TableFilterPill,
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
+  TableFilterCalendar,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import type { DateRange } from "react-day-picker";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { ErrorAlert } from "@/components/ui/error-alert";
 
 /* ── Tab config ── */
-type AdminTab = "Team" | "Roles & Permission" | "Pending Invites" | "Password resets";
+type AdminTab = "Team" | "Roles & Permission" | "Pending Invites";
 
 const INVITE_ROLE_OPTIONS = ["Super Admin", "Admin", "Operations", "Compliance", "Customer Care", "Tech Support"] as const;
 
@@ -106,11 +107,8 @@ export function AdminManagementView() {
     [isAuthenticated],
   );
   const tabList = useMemo<AdminTab[]>(
-    () =>
-      isSuper
-        ? ["Team", "Roles & Permission", "Pending Invites", "Password resets"]
-        : ["Team", "Roles & Permission", "Pending Invites"],
-    [isSuper],
+    () => ["Team", "Roles & Permission", "Pending Invites"],
+    [],
   );
 
   const [activeTab, setActiveTab] = useState<AdminTab>("Team");
@@ -203,10 +201,6 @@ export function AdminManagementView() {
     () => ["All statuses", ...Array.from(new Set(teamMembers.map((m) => m.status).filter(Boolean))).sort()],
     [teamMembers],
   );
-
-  useEffect(() => {
-    if (activeTab === "Password resets" && !isSuper) setActiveTab("Team");
-  }, [activeTab, isSuper]);
 
   useEffect(() => {
     if (activeTab !== "Team") setTeamFilterMode(false);
@@ -776,8 +770,6 @@ export function AdminManagementView() {
 
       {activeTab === "Pending Invites" && <PendingInvitesTab showInvite={isSuper} />}
 
-      {activeTab === "Password resets" && isSuper ? <PasswordResetsTab /> : null}
-
       {adminActionError ? (
         <div
           className="fixed bottom-6 left-1/2 z-50 max-w-md -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg"
@@ -1143,158 +1135,6 @@ function InviteAdminModal({
   );
 }
 
-function PasswordResetsTab() {
-  const [rows, setRows] = useState<AdminSettingsPasswordResetRequestRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<null | { requestId: string; kind: "approve" | "decline" }>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(18);
-
-  const load = useCallback(async () => {
-    setLoadError(null);
-    setLoading(true);
-    try {
-      const list = await getAdminSettingsPasswordResetRequests();
-      setRows(list);
-      setPage(1);
-    } catch (e) {
-      setRows([]);
-      setLoadError(e instanceof AdminApiError ? e.message : "Could not load password reset requests.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(rows.length, 1) / pageSize)));
-  const paginatedRows = useMemo(
-    () => rows.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [rows, safePage, pageSize],
-  );
-
-  const runAction = async (requestId: string, kind: "approve" | "decline") => {
-    setActionError(null);
-    setMessage(null);
-    setBusy({ requestId, kind });
-    try {
-      if (kind === "approve") {
-        await postPasswordResetApprove({ requestId });
-        setMessage("Password reset approved. The user will receive a reset link by email.");
-      } else {
-        await postPasswordResetDecline({ requestId });
-        setMessage("Password reset request declined.");
-      }
-      await load();
-    } catch (e) {
-      setActionError(e instanceof AdminApiError ? e.message : kind === "approve" ? "Approve failed." : "Decline failed.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  if (loading) {
-    return <p className="mt-6 text-sm text-zinc-500">Loading password reset requests…</p>;
-  }
-
-  if (loadError) {
-    return (
-      <ErrorAlert error={loadError} onRetry={() => void load()} className="mt-6" />
-    );
-  }
-
-  return (
-    <div className="mt-6 space-y-4">
-      {actionError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-          {actionError}
-        </p>
-      ) : null}
-      {message ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
-          {message}
-        </p>
-      ) : null}
-      <div className="overflow-x-auto rounded-[8px] border border-outline bg-white">
-        <table className="w-full border-collapse text-left text-sm">
-          <thead>
-            <tr className="bg-outline text-xs text-zinc-400">
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Request ID</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Name</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Email</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Role</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Requested</th>
-              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedRows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="border-b border-zinc-100 px-4 py-10 text-center text-zinc-500">
-                  No pending password reset requests.
-                </td>
-              </tr>
-            ) : (
-              paginatedRows.map((row) => {
-                const rowBusy = busy?.requestId === row.requestId;
-                return (
-                  <tr key={row.requestId} className="hover:bg-zinc-50">
-                    <td className="border-b border-zinc-100 px-4 py-3 font-mono text-xs">{row.requestId}</td>
-                    <td className="border-b border-zinc-100 px-4 py-3 font-medium text-primary-text">
-                      {row.name ?? "—"}
-                    </td>
-                    <td className="border-b border-zinc-100 px-4 py-3">{row.email ?? "—"}</td>
-                    <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500">{row.role ?? "—"}</td>
-                    <td className="border-b border-zinc-100 px-4 py-3 text-zinc-500 whitespace-nowrap">
-                      {row.dateRequested ?? "—"}
-                    </td>
-                    <td className="border-b border-zinc-100 px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          disabled={Boolean(busy)}
-                          onClick={() => void runAction(row.requestId, "approve")}
-                        >
-                          {rowBusy && busy?.kind === "approve" ? "Approving…" : "Approve"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={Boolean(busy)}
-                          onClick={() => void runAction(row.requestId, "decline")}
-                        >
-                          {rowBusy && busy?.kind === "decline" ? "Declining…" : "Decline"}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-      {rows.length > 0 ? (
-        <AuditTrailPagination
-          page={safePage}
-          pageSize={pageSize}
-          totalItems={rows.length}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPage(1);
-          }}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 /* ── Pending Invites tab ── */
 const PENDING_EXPORT_COLUMNS: ExportColumn<AdminPendingInvite>[] = [
   { header: "ID", value: (m) => m.id },
@@ -1306,6 +1146,25 @@ const PENDING_EXPORT_COLUMNS: ExportColumn<AdminPendingInvite>[] = [
   { header: "Date Sent", value: (m) => m.dateSent },
 ];
 
+/** Bug #56: Status badge for pending invites */
+function InviteStatusBadge({ status }: { status: string }) {
+  const s = (status || "Pending").trim().toLowerCase();
+  let cls = "bg-orange-50 text-orange-600";
+  let dot = "bg-orange-500";
+  if (s.includes("accept") || s.includes("complete")) {
+    cls = "bg-green-50 text-green-700"; dot = "bg-green-600";
+  } else if (s.includes("expir") || s.includes("cancel") || s.includes("reject")) {
+    cls = "bg-red-50 text-red-600"; dot = "bg-red-500";
+  }
+  const label = status || "Pending";
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${cls}`}>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
 function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -1316,9 +1175,9 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
     useTableFilterBarAnchor<"role" | "date">(openFilter, filterMode);
 
   const [draftRole, setDraftRole] = useState("All roles");
-  const [draftDate, setDraftDate] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const [draftDate, setDraftDate] = useState<DateRange | undefined>(undefined);
   const [appliedRole, setAppliedRole] = useState<string | null>(null);
-  const [appliedDate, setAppliedDate] = useState<string | null>(null);
+  const [appliedDate, setAppliedDate] = useState<DateRange | undefined>(undefined);
 
   /* ── Live invitations data ── */
   const [invites, setInvites] = useState<AdminPendingInvite[]>([]);
@@ -1402,7 +1261,16 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
     const q = search.trim().toLowerCase();
     return invites.filter((m) => {
       if (appliedRole && appliedRole !== "All roles" && m.role !== appliedRole) return false;
-      if (appliedDate && !m.dateSent.includes("Jan 6, 2026")) return false;
+      if (appliedDate?.from) {
+        const itemDate = new Date(m.dateSent);
+        if (itemDate && !Number.isNaN(itemDate.getTime())) {
+          const start = new Date(appliedDate.from);
+          start.setHours(0, 0, 0, 0);
+          const end = appliedDate.to ? new Date(appliedDate.to) : new Date(appliedDate.from);
+          end.setHours(23, 59, 59, 999);
+          if (itemDate < start || itemDate > end) return false;
+        }
+      }
       if (!q) return true;
       const fullName = [m.firstName, m.lastName].filter(Boolean).join(" ").toLowerCase();
       return (
@@ -1461,7 +1329,7 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
               />
               <TableFilterPill
                 label="Date onboarded"
-                summary={draftDate}
+                summary={formatDateRangeLabel(draftDate, "All time")}
                 pillRef={registerPillRef("date")}
                 onClick={() =>
                   setOpenFilter((v) => {
@@ -1502,19 +1370,9 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "date" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
                   <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Jan 6, 2026 - Jan 6, 2026
-                    <CalendarDays size={16} />
-                  </button>
+                  <TableFilterCalendar value={draftDate} onChange={setDraftDate} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -1530,9 +1388,9 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
               onClear={() => {
                 setSearch("");
                 setAppliedRole(null);
-                setAppliedDate(null);
+                setAppliedDate(undefined);
                 setDraftRole("All roles");
-                setDraftDate("From Jan 6, 2026 - To Jan 6, 2026");
+                setDraftDate(undefined);
                 setOpenFilter(null);
                 setFilterMode(false);
                 setPage(1);
@@ -1582,6 +1440,7 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
             <tr className="bg-outline text-xs text-zinc-400">
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Email</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Role</th>
+              <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Status</th>
               <th className="h-11 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Date Onboarded</th>
               <th className="h-11 w-48 border-b border-zinc-200 px-4 py-0 font-medium align-middle">Action</th>
             </tr>
@@ -1593,6 +1452,9 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
                   {row.email}
                 </td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">{row.role}</td>
+                <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
+                  <InviteStatusBadge status={row.status} />
+                </td>
                 <td className="h-16 border-b border-zinc-100 px-4 py-0 text-zinc-500 align-middle">
                   {row.dateSent.replace(",", " |")}
                 </td>
@@ -1610,7 +1472,7 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
             ))}
             {paginatedRows.length === 0 && (
               <tr>
-                <td colSpan={4} className="h-32 text-center text-zinc-500">
+                <td colSpan={5} className="h-32 text-center text-zinc-500">
                   No pending invites found.
                 </td>
               </tr>

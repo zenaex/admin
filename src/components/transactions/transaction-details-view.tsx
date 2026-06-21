@@ -35,6 +35,177 @@ import { ErrorAlert } from "@/components/ui/error-alert";
 type DetailTab = "Transaction Details" | "Transaction Log";
 const TABS: DetailTab[] = ["Transaction Details", "Transaction Log"];
 
+function printTransactionReceipt(tx: TransactionDetailModel, approvalStatus: TxApprovalStatus) {
+  const statusLabel = tx.channel === "Giftcard"
+    ? approvalStatus
+    : tx.channel === "Esim"
+      ? tx.esimOutcome
+      : tx.defaultOutcome;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Receipt - ${tx.transactionId}</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px;
+      color: #0A0A0A;
+      background: #FFFFFF;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      border-bottom: 2px solid #E8EBEE;
+      padding-bottom: 20px;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #0A0A0A;
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 14px;
+      color: #777F89;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .amount-box {
+      text-align: center;
+      background: #F7F7F7;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+    .amount-label {
+      font-size: 13px;
+      color: #777F89;
+      margin-bottom: 6px;
+    }
+    .amount-value {
+      font-size: 32px;
+      font-weight: 800;
+      color: #0A0A0A;
+    }
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 40px;
+    }
+    .details-row {
+      border-bottom: 1px solid #E8EBEE;
+    }
+    .details-row:last-child {
+      border-bottom: none;
+    }
+    .details-label {
+      padding: 16px 0;
+      font-size: 14px;
+      color: #777F89;
+      width: 40%;
+    }
+    .details-value {
+      padding: 16px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #0A0A0A;
+      text-align: right;
+    }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #9E9E9E;
+      margin-top: 60px;
+      border-top: 1px solid #E8EBEE;
+      padding-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">ZENAEX EXCHANGE</div>
+    <div class="title">Transaction Receipt</div>
+  </div>
+
+  <div class="amount-box">
+    <div class="amount-label">Amount</div>
+    <div class="amount-value">${tx.amount || tx.amountSent || "—"}</div>
+  </div>
+
+  <table class="details-table">
+    <tr class="details-row">
+      <td class="details-label">Transaction ID</td>
+      <td class="details-value">${tx.transactionId}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Session ID</td>
+      <td class="details-value">${tx.sessionId || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Customer Name</td>
+      <td class="details-value">${tx.customerName || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Channel</td>
+      <td class="details-value">${tx.channel}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Product / Type</td>
+      <td class="details-value">${tx.product || tx.giftcardType || tx.esimCoverage || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Date Initiated</td>
+      <td class="details-value">${tx.datedInitiated || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Date Completed</td>
+      <td class="details-value">${tx.dateCompleted || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Rate / Fee</td>
+      <td class="details-value">${tx.rateFeeGiven || tx.rateGiven || "—"}</td>
+    </tr>
+    <tr class="details-row">
+      <td class="details-label">Status</td>
+      <td class="details-value">${statusLabel}</td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    <p>Thank you for trading with Zenaex Exchange.</p>
+    <p>This is an automated transaction receipt.</p>
+  </div>
+
+  <script>
+    window.onload = function() {
+      window.print();
+    }
+  </script>
+</body>
+</html>
+  `;
+  const win = window.open("", "_blank");
+  if (!win) {
+    alert("Pop-up blocked. Please allow pop-ups to download the receipt.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => {
+    try {
+      win.print();
+    } catch (e) {
+      console.error("Print failed:", e);
+    }
+  }, 300);
+}
+
 /* ?????? Rejection reasons ?????? */
 const REJECTION_REASONS = [
   "Invalid card",
@@ -111,6 +282,10 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
   }, [loadDetail]);
 
   const isGiftcard = tx?.channel === "Giftcard";
+
+  const displayLogEntries = isGiftcard && tx
+    ? buildGiftcardLogs(tx, approvalStatus)
+    : logEntries;
 
   const isGiftcardECode = isGiftcard && tx?.giftcardCardFormat === "e-code";
   const giftcardCodeDisplay =
@@ -220,8 +395,11 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
               <div className="absolute right-0 top-full z-50 mt-2 w-[200px] overflow-hidden rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg">
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-50"
-                  onClick={() => setActionOpen(false)}
+                  className="flex w-full items-center gap-2 rounded-[10px] bg-background px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-200"
+                  onClick={() => {
+                    setActionOpen(false);
+                    printTransactionReceipt(tx!, approvalStatus);
+                  }}
                 >
                   <DocumentDownload size={16} variant="Outline" color="currentColor" />
                   Download Receipt
@@ -272,7 +450,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
           eCodeError={eCodeError}
         />
       )}
-      {activeTab === "Transaction Log" && <TransactionLogTab entries={logEntries} />}
+      {activeTab === "Transaction Log" && <TransactionLogTab entries={displayLogEntries} />}
 
       {actionError && isGiftcard ? (
         <p className="mt-4 text-sm text-red-600" role="alert">
@@ -281,7 +459,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
       ) : null}
 
       {isGiftcard && approvalStatus === "Pending" && (
-        <div className="sticky bottom-0 z-40 -mx-8 mt-8 flex items-center justify-center gap-4 border-t border-zinc-100 bg-white px-6 py-5">
+        <div className="sticky bottom-0 z-40 -mx-8 mt-8 flex items-center justify-center gap-4 bg-background px-6 py-5">
           <button
             type="button"
             disabled={actionLoading}
@@ -594,6 +772,19 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
 function EsimTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
   const timestamp = tx.datedInitiated;
 
+  let allowance = tx.esimDataAllowance || "—";
+  const cleanAllowance = allowance.trim().toLowerCase();
+  if (
+    cleanAllowance === "0" ||
+    cleanAllowance === "0gb" ||
+    cleanAllowance === "0 gb" ||
+    cleanAllowance === "0.00" ||
+    cleanAllowance === "0mb" ||
+    cleanAllowance === "0 mb"
+  ) {
+    allowance = "Unlimited";
+  }
+
   return (
     <>
       <section className="mt-6">
@@ -605,29 +796,36 @@ function EsimTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
             "Transaction ID",
             "Customer Names",
             "Channel",
+            "Package Name",
             "Coverage",
-            "Data Allowance",
-            "Validity",
+            "Amount",
           ]}
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
             tx.customerName,
-            tx.esimChannelLabel,
-            tx.esimCoverage,
-            tx.esimDataAllowance,
-            tx.esimValidity,
+            "E-sim",
+            tx.product || "—",
+            tx.esimCoverage || "—",
+            tx.amount,
           ]}
         />
         <TxDataBlockTable
           className="mt-6"
-          headers={["Validity", "Price (USD)", "Price (NGN)", "Provider", "Timestamp", "Balance After"]}
+          headers={[
+            "Data Allowance",
+            "Validity",
+            "Timestamp",
+            "Fee",
+            "Provider",
+            "Balance After",
+          ]}
           row={[
-            tx.esimValidity,
-            tx.esimPriceUsd,
-            tx.esimPriceNgn,
-            tx.esimProvider,
+            allowance,
+            tx.esimValidity || "—",
             <TimeStampCell key="ts" value={timestamp} />,
-            tx.esimBalanceAfter,
+            tx.charge || tx.ourFee || "—",
+            tx.esimProvider || tx.provider || "—",
+            tx.esimBalanceAfter || tx.balanceAfter || "—",
           ]}
         />
       </section>
@@ -698,6 +896,8 @@ function WithdrawalTransactionDetailsContent({ tx }: { tx: TransactionDetailMode
     </>
   );
 }
+
+
 
 function EtradeTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
   return (
@@ -1077,9 +1277,49 @@ function TransactionDetailsTab({
       return <WithdrawalTransactionDetailsContent tx={tx} />;
     case "E-trade":
       return <EtradeTransactionDetailsContent tx={tx} />;
+    case "Esim":
+      return <EsimTransactionDetailsContent tx={tx} />;
     default:
       return <DepositTransactionDetailsContent tx={tx} />;
   }
+}
+
+function buildGiftcardLogs(
+  tx: TransactionDetailModel,
+  status: TxApprovalStatus,
+): TransactionLogEntry[] {
+  const customer = tx.customerName || "Customer";
+  const agent = tx.opsInCharge || "support agent in charge";
+  const dateInit = tx.datedInitiated || "";
+  const dateComp = tx.dateCompleted || "";
+
+  if (status === "Approved") {
+    return [
+      { step: 1, title: customer, date: dateInit },
+      { step: 2, title: "System verifying", date: dateInit },
+      { step: 3, title: `Verified and approved by ${agent}`, date: dateComp },
+      { step: 4, title: "Funds sent to the customer wallet", date: dateComp },
+      { step: 5, title: "Transaction completed", date: dateComp },
+    ];
+  }
+
+  if (status === "Rejected") {
+    return [
+      { step: 1, title: customer, date: dateInit },
+      { step: 2, title: "System verifying", date: dateInit },
+      { step: 3, title: `Rejected by ${agent}`, date: dateComp },
+      { step: 4, title: "Transaction completed", date: dateComp },
+    ];
+  }
+
+  // Pending
+  return [
+    { step: 1, title: customer, date: dateInit },
+    { step: 2, title: "System verifying", date: dateInit },
+    { step: 3, title: `Verified and approved by ${agent}`, date: "" },
+    { step: 4, title: "Funds sent to the customer wallet", date: "" },
+    { step: 5, title: "Transaction completed", date: "" },
+  ];
 }
 
 /* ?????? Transaction Log Tab ?????? */
@@ -1097,18 +1337,34 @@ function TransactionLogTab({ entries }: { entries: TransactionLogEntry[] }) {
       <div className="relative">
         {entries.map((entry, idx) => {
           const isLast = idx === entries.length - 1;
+          const isPending = !entry.date;
+          const isRejected = entry.title.toLowerCase().includes("rejected");
+
+          let circleBgClass = "bg-primary-green text-primary-text";
+          let textClass = "text-primary-text";
+
+          if (isPending) {
+            circleBgClass = "border border-zinc-200 bg-zinc-50 text-zinc-400";
+            textClass = "text-zinc-400";
+          } else if (isRejected) {
+            circleBgClass = "bg-red-50 text-red-600 border border-red-200";
+            textClass = "text-primary-text";
+          }
+
           return (
             <div key={entry.step} className="relative flex gap-4">
               <div className="flex flex-col items-center">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-green text-xs font-bold text-primary-text">
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${circleBgClass}`}>
                   {entry.step}
                 </span>
                 {!isLast && <div className="w-px flex-1 bg-zinc-200" />}
               </div>
 
               <div className={`pb-8 ${isLast ? "pb-0" : ""}`}>
-                <p className="text-sm font-semibold leading-8 text-primary-text">{entry.title}</p>
-                <p className="mt-0.5 text-xs text-zinc-400">{entry.date}</p>
+                <p className={`text-sm font-semibold leading-8 ${textClass}`}>{entry.title}</p>
+                {entry.date ? (
+                  <p className="mt-0.5 text-xs text-zinc-400">{entry.date}</p>
+                ) : null}
               </div>
             </div>
           );

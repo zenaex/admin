@@ -9,6 +9,94 @@ import {
   type RefObject,
 } from "react";
 import { X, ChevronDown } from "lucide-react";
+import { DayPicker, type DateRange } from "react-day-picker";
+import { format } from "date-fns";
+import { ArrowLeft2, ArrowRight2 } from "iconsax-react";
+import "react-day-picker/dist/style.css";
+
+export function formatDateRangeLabel(range: DateRange | undefined, fallback = "All time"): string {
+  if (!range?.from) return fallback;
+  const fmt = (d: Date) =>
+    d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  if (!range.to) return `${fmt(range.from)} – ...`;
+  return `${fmt(range.from)} – ${fmt(range.to)}`;
+}
+
+export function TableFilterCalendar({
+  value,
+  onChange,
+}: {
+  value: DateRange | undefined;
+  onChange: (range: DateRange | undefined) => void;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <DayPicker
+        mode="range"
+        selected={value}
+        onSelect={onChange}
+        numberOfMonths={1}
+        components={{
+          PreviousMonthButton: (props) => (
+            <button
+              {...props}
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 transition-colors"
+            >
+              <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
+            </button>
+          ),
+          NextMonthButton: (props) => (
+            <button
+              {...props}
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 transition-colors"
+            >
+              <ArrowRight2 size={14} variant="Outline" color="currentColor" />
+            </button>
+          ),
+        }}
+        styles={{
+          months: { display: "flex", gap: "1rem", padding: "0.5rem" },
+          month_caption: {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "0.5rem",
+          },
+          caption_label: { fontSize: "0.875rem", fontWeight: 600, color: "#0A0A0A" },
+          nav: { display: "flex", alignItems: "center", gap: "0.25rem" },
+          weekdays: { marginBottom: "0.25rem" },
+          weekday: {
+            fontSize: "0.75rem",
+            color: "#9E9E9E",
+            fontWeight: 500,
+            width: "2rem",
+            textAlign: "center",
+            padding: "0.25rem 0",
+          },
+          day: { width: "2rem", height: "2rem", fontSize: "0.8125rem", borderRadius: "9999px" },
+          day_button: {
+            width: "2rem",
+            height: "2rem",
+            borderRadius: "9999px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          today: { fontWeight: 700, color: "#013220" },
+        }}
+        classNames={{
+          selected: "bg-[#BCEB0F] text-primary-text rounded-full",
+          range_start: "bg-[#013220] text-white rounded-full",
+          range_end: "bg-[#013220] text-white rounded-full",
+          range_middle: "bg-[#BCEB0F]/20 rounded-none",
+          day_button: "hover:bg-zinc-100 rounded-full transition-colors",
+        }}
+      />
+    </div>
+  );
+}
 
 /** Muted label color used across Transactions-style filter panels */
 export const TABLE_FILTER_MUTED = "#667085";

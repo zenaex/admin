@@ -268,7 +268,7 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
       } else {
         items.push({
           key: "remove-pnd",
-          label: "Remove PND",
+          label: "Remove Post No Debit",
           icon: <MoneyForbidden size={16} variant="Outline" color="currentColor" />,
           onClick: () => {
             setActionError(null);
@@ -283,7 +283,7 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
       if (!customerHasLien) {
         items.push({
           key: "add-lien",
-          label: "Add Lien To Wallet",
+          label: "Add Lien",
           icon: <Wallet size={16} variant="Outline" color="currentColor" />,
           onClick: () => {
             setActionError(null);
@@ -294,7 +294,7 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
       } else {
         items.push({
           key: "remove-lien",
-          label: "Remove Lien",
+          label: "Remove Lien from Wallet",
           icon: <Wallet size={16} variant="Outline" color="currentColor" />,
           onClick: () => {
             setActionError(null);
@@ -1216,7 +1216,21 @@ function AuditLogTab({ accountId }: { accountId: string }) {
   const normalized = logs.map((log, idx) => {
     const time = pickStr(log, ["timestamp", "createdAt", "created_at", "time", "date"]);
     const message = pickStr(log, ["message", "action", "description", "event", "type"]);
-    const ua = pickStr(log, ["userAgent", "user_agent", "browser"]);
+    // Bug #49: Device field was not connected — check all possible device/userAgent keys
+    const ua = pickStr(log, [
+      "device",
+      "deviceInfo",
+      "device_info",
+      "deviceName",
+      "device_name",
+      "clientDevice",
+      "client_device",
+      "userAgent",
+      "user_agent",
+      "browser",
+      "platform",
+      "client",
+    ]);
     const ip = pickStr(log, ["ip", "ipAddress", "ip_address", "clientIp"]);
     const parsed = time ? new Date(time) : null;
     const hasValidDate = Boolean(parsed && !Number.isNaN(parsed.getTime()));

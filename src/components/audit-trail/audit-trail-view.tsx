@@ -17,7 +17,10 @@ import {
   TableFilterPill,
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
+  TableFilterCalendar,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import type { DateRange } from "react-day-picker";
 import { AdminApiError } from "@/lib/admin-api/client";
 import {
   getAdminAuditCustomerSessions,
@@ -74,9 +77,10 @@ export function AuditTrailView() {
 
   const [draftRole, setDraftRole] = useState("All roles");
   const [draftAction, setDraftAction] = useState("All actions");
-  const [draftSessionLabel, setDraftSessionLabel] = useState("Date range (picker coming soon)");
+  const [draftSession, setDraftSession] = useState<DateRange | undefined>(undefined);
   const [appliedRole, setAppliedRole] = useState<string | null>(null);
   const [appliedAction, setAppliedAction] = useState<string | null>(null);
+  const [appliedSession, setAppliedSession] = useState<DateRange | undefined>(undefined);
 
   const activeApiRows = tab === "customers" ? customerRows : internalRows;
 
@@ -141,6 +145,27 @@ export function AuditTrailView() {
     return activeApiRows.filter((r) => {
       if (appliedRole && appliedRole !== "All roles" && r.role !== appliedRole) return false;
       if (appliedAction && appliedAction !== "All actions" && r.action !== appliedAction) return false;
+      if (appliedSession?.from) {
+        const rawDateStr =
+          r.raw?.sessionIn ??
+          r.raw?.session_in ??
+          r.raw?.startedAt ??
+          r.raw?.started_at ??
+          r.raw?.createdAt ??
+          r.raw?.created_at ??
+          r.raw?.sessionStart ??
+          r.raw?.session_start ??
+          r.raw?.loginAt ??
+          r.raw?.login_at;
+        const itemDate = rawDateStr ? new Date(rawDateStr as string) : null;
+        if (itemDate && !Number.isNaN(itemDate.getTime())) {
+          const start = new Date(appliedSession.from);
+          start.setHours(0, 0, 0, 0);
+          const end = appliedSession.to ? new Date(appliedSession.to) : new Date(appliedSession.from);
+          end.setHours(23, 59, 59, 999);
+          if (itemDate < start || itemDate > end) return false;
+        }
+      }
       if (!q) return true;
       return (
         r.name.toLowerCase().includes(q) ||
@@ -149,7 +174,7 @@ export function AuditTrailView() {
         r.role.toLowerCase().includes(q)
       );
     });
-  }, [activeApiRows, appliedRole, appliedAction, debouncedSearch]);
+  }, [activeApiRows, appliedRole, appliedAction, debouncedSearch, appliedSession]);
 
   const totalItems = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -230,7 +255,7 @@ export function AuditTrailView() {
               />
               <TableFilterPill
                 label="Session In"
-                summary={draftSessionLabel}
+                summary={formatDateRangeLabel(draftSession, "All time")}
                 pillRef={registerPillRef("session")}
                 onClick={() =>
                   setOpenFilter((v) => {
@@ -282,12 +307,10 @@ export function AuditTrailView() {
                   />
                 </TableFilterDropdownCard>
               ) : null}
-              {openFilter === "session" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
+               {openFilter === "session" ? (
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
                   <TableFilterPanelTitle />
-                  <p className="px-2 py-2 text-xs text-zinc-500">
-                    Date range filters will send ISO dates once a picker is wired.
-                  </p>
+                  <TableFilterCalendar value={draftSession} onChange={setDraftSession} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -297,6 +320,7 @@ export function AuditTrailView() {
               onApply={() => {
                 setAppliedRole(draftRole);
                 setAppliedAction(draftAction);
+                setAppliedSession(draftSession);
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -304,9 +328,10 @@ export function AuditTrailView() {
                 setTableSearch("");
                 setAppliedRole(null);
                 setAppliedAction(null);
+                setAppliedSession(undefined);
                 setDraftRole("All roles");
                 setDraftAction("All actions");
-                setDraftSessionLabel("Date range (picker coming soon)");
+                setDraftSession(undefined);
                 setOpenFilter(null);
                 setFilterMode(false);
                 setPage(1);

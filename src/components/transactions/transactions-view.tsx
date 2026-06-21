@@ -18,13 +18,17 @@ import {
   TableFilterPill,
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
+  TableFilterCalendar,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import type { DateRange } from "react-day-picker";
 import { AdminApiError } from "@/lib/admin-api/client";
 import {
   getAdminTransactionsList,
   getAdminTransactionsSummary,
   tabToApiTab,
   uiStatusToApiStatus,
+  filterRowsByChannelTab,
 } from "@/lib/admin-api/transactions-api";
 import type { AdminTransactionListRow, AdminTransactionsSummary } from "@/lib/admin-api/types";
 import type { ExportColumn } from "@/lib/export/table-export";
@@ -133,10 +137,11 @@ export function TransactionsView() {
 
   const [draftAmount, setDraftAmount] = useState<AmountFilter>("Less than ₦20,000");
   const [draftStatus, setDraftStatus] = useState<TxStatusFilter>("Successful");
-  const [draftDateLabel, setDraftDateLabel] = useState("Date range (picker coming soon)");
+  const [draftDate, setDraftDate] = useState<DateRange | undefined>(undefined);
 
   const [appliedAmount, setAppliedAmount] = useState<AmountFilter | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<TxStatusFilter | null>(null);
+  const [appliedDate, setAppliedDate] = useState<DateRange | undefined>(undefined);
 
   const [listRows, setListRows] = useState<AdminTransactionListRow[]>([]);
   const [listTotal, setListTotal] = useState(0);
@@ -166,13 +171,16 @@ export function TransactionsView() {
   const loadSummary = useCallback(async () => {
     setSummaryError(null);
     try {
-      const s = await getAdminTransactionsSummary();
+      const s = await getAdminTransactionsSummary({
+        fromDate: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
+        toDate: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
+      });
       setSummary(s);
     } catch (e) {
       setSummary(null);
       setSummaryError(e instanceof AdminApiError ? e.message : "Could not load transaction metrics.");
     }
-  }, []);
+  }, [appliedDate]);
 
   useEffect(() => {
     void loadSummary();
@@ -192,6 +200,8 @@ export function TransactionsView() {
         tab,
         page,
         pageSize,
+        dateFrom: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
+        dateTo: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
       });
       setListRows(res.items);
       setListTotal(res.total);
@@ -208,19 +218,25 @@ export function TransactionsView() {
     } finally {
       setListLoading(false);
     }
-  }, [activeTab, appliedStatus, debouncedSearch, page, pageSize]);
+  }, [activeTab, appliedStatus, debouncedSearch, page, pageSize, appliedDate]);
 
   useEffect(() => {
     void loadList();
   }, [loadList]);
 
   const clientFiltered = useMemo(() => {
-    return listRows.filter((row) => {
+    let rows = listRows;
+    // Bug #59: Deposit tab shows all channels — apply client-side tab filtering
+    // as a safety net in case the backend doesn't filter correctly.
+    if (activeTab !== "All") {
+      rows = filterRowsByChannelTab(rows, activeTab);
+    }
+    return rows.filter((row) => {
       const matchAmount = matchesAmountFilter(row, appliedAmount);
       const matchStatus = matchesStatusFilter(row, appliedStatus);
       return matchAmount && matchStatus;
     });
-  }, [listRows, appliedAmount, appliedStatus]);
+  }, [listRows, activeTab, appliedAmount, appliedStatus]);
 
   const paginationTotal = listTotal;
   const paginatedRows = clientFiltered;
@@ -243,17 +259,28 @@ export function TransactionsView() {
       search: debouncedSearch || undefined,
       productSlug: tab,
       statuses: status ? [status] : undefined,
+      dateFrom: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
+      dateTo: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
     };
-  }, [activeTab, appliedStatus, debouncedSearch]);
+  }, [activeTab, appliedStatus, debouncedSearch, appliedDate]);
 
   const runExport = async (format: "csv" | "json" | "pdf") => {
     const filename = `transactions-${activeTab.toLowerCase().replace(/\s+/g, "-")}`;
+    const exportColumns = TX_EXPORT_COLUMNS.map((col) => {
+      if (col.header === "Product" && activeTab === "E-sim") {
+        return {
+          header: "Coverage",
+          value: (r: AdminTransactionListRow) => String(r.raw.coverage || r.raw.esimCoverage || r.raw.region || r.product),
+        };
+      }
+      return col;
+    });
     await exportTableWithApiFallback(
       filename,
       format,
       () => exportViaTransactionsApi(filename, format, exportBody),
       clientFiltered,
-      TX_EXPORT_COLUMNS,
+      exportColumns,
     );
   };
 
@@ -318,7 +345,7 @@ export function TransactionsView() {
             <>
               <TableFilterPill
                 label="Date"
-                summary={draftDateLabel}
+                summary={formatDateRangeLabel(draftDate, "All time")}
                 pillRef={registerPillRef("date")}
                 onClick={() =>
                   setOpenFilter((v) => {
@@ -371,11 +398,9 @@ export function TransactionsView() {
           dropdownLayer={
             <>
               {openFilter === "date" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
                   <TableFilterPanelTitle />
-                  <p className="px-2 py-2 text-xs text-zinc-500">
-                    Date range filters will send ISO dates once a picker is wired.
-                  </p>
+                  <TableFilterCalendar value={draftDate} onChange={setDraftDate} />
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "amount" ? (
@@ -409,6 +434,7 @@ export function TransactionsView() {
               onApply={() => {
                 setAppliedAmount(draftAmount);
                 setAppliedStatus(draftStatus);
+                setAppliedDate(draftDate);
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -416,9 +442,10 @@ export function TransactionsView() {
                 setSearch("");
                 setAppliedAmount(null);
                 setAppliedStatus(null);
+                setAppliedDate(undefined);
                 setDraftAmount("Less than ₦20,000");
                 setDraftStatus("Successful");
-                setDraftDateLabel("Date range (picker coming soon)");
+                setDraftDate(undefined);
                 setOpenFilter(null);
                 setFilterMode(false);
                 setPage(1);
@@ -444,7 +471,7 @@ export function TransactionsView() {
               <th className="px-4 py-4 font-medium">Reference No</th>
               <th className="px-4 py-4 font-medium">Customer Names</th>
               <th className="px-4 py-4 font-medium">Channel</th>
-              <th className="px-4 py-4 font-medium">Product</th>
+              <th className="px-4 py-4 font-medium">{activeTab === "E-sim" ? "Coverage" : "Product"}</th>
               <th className="px-4 py-4 font-medium">Amount</th>
               <th className="px-4 py-4 font-medium">Provider</th>
               <th className="px-4 py-4 font-medium">Status</th>
@@ -477,7 +504,9 @@ export function TransactionsView() {
                   </td>
                   <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">{row.customerName}</td>
                   <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">{row.channel}</td>
-                  <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">{row.product}</td>
+                  <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">
+                    {activeTab === "E-sim" ? String(row.raw.coverage || row.raw.esimCoverage || row.raw.region || row.product) : row.product}
+                  </td>
                   <td className="h-16 px-4 py-0 align-middle text-[13px] font-medium text-primary-text">{row.amount}</td>
                   <td className="h-16 px-4 py-0 align-middle text-[13px] text-zinc-600">{row.provider}</td>
                   <td className="h-16 px-4 py-0 align-middle">

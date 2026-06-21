@@ -16,7 +16,10 @@ import {
   TableFilterPill,
   TableFilterTrailingIconButton,
   useTableFilterBarAnchor,
+  TableFilterCalendar,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import type { DateRange } from "react-day-picker";
 import { ConfigureEarningsModal } from "@/components/user-mgt/referral-config-modal";
 import { AdminApiError } from "@/lib/admin-api/client";
 import { getAdminReferralsList } from "@/lib/admin-api/referrals-api";
@@ -79,11 +82,12 @@ export function ReferralView() {
 
   const [draftMade, setDraftMade] = useState("All");
   const [draftRewards, setDraftRewards] = useState("All");
-  const [draftPeriod, setDraftPeriod] = useState("Date range (picker coming soon)");
+  const [draftPeriod, setDraftPeriod] = useState<DateRange | undefined>(undefined);
   const [draftStatus, setDraftStatus] = useState("");
   const [appliedMade, setAppliedMade] = useState<string | null>(null);
   const [appliedRewards, setAppliedRewards] = useState<string | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<"" | "qualified" | "pending" | null>(null);
+  const [appliedPeriod, setAppliedPeriod] = useState<DateRange | undefined>(undefined);
 
   const [listRows, setListRows] = useState<AdminReferralListRow[]>([]);
   const [listTotal, setListTotal] = useState(0);
@@ -125,6 +129,8 @@ export function ReferralView() {
         pageSize: clientFiltersActive ? 100 : pageSize,
         search: debouncedSearch || undefined,
         status: appliedStatus ?? undefined,
+        fromDate: appliedPeriod?.from ? appliedPeriod.from.toISOString() : undefined,
+        toDate: appliedPeriod?.to ? appliedPeriod.to.toISOString() : undefined,
       });
       setListRows(res.items);
       setListTotal(res.total);
@@ -135,7 +141,7 @@ export function ReferralView() {
     } finally {
       setListLoading(false);
     }
-  }, [appliedStatus, clientFiltersActive, debouncedSearch, page, pageSize]);
+  }, [appliedStatus, clientFiltersActive, debouncedSearch, page, pageSize, appliedPeriod]);
 
   useEffect(() => {
     void loadList();
@@ -177,6 +183,8 @@ export function ReferralView() {
         pageSize: 100,
         search: debouncedSearch || undefined,
         status: appliedStatus ?? undefined,
+        fromDate: appliedPeriod?.from ? appliedPeriod.from.toISOString() : undefined,
+        toDate: appliedPeriod?.to ? appliedPeriod.to.toISOString() : undefined,
       });
       rows = res.items.filter((r) => matchesClientFilters(r, appliedMade, appliedRewards));
     }
@@ -242,7 +250,7 @@ export function ReferralView() {
               />
               <TableFilterPill
                 label="Period"
-                summary={draftPeriod}
+                summary={formatDateRangeLabel(draftPeriod, "All time")}
                 pillRef={registerPillRef("period")}
                 onClick={() =>
                   setOpenFilter((v) => {
@@ -308,11 +316,9 @@ export function ReferralView() {
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "period" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
                   <TableFilterPanelTitle />
-                  <p className="px-2 py-2 text-xs text-zinc-500">
-                    Date range filters will send ISO dates once a picker is wired.
-                  </p>
+                  <TableFilterCalendar value={draftPeriod} onChange={setDraftPeriod} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -325,6 +331,7 @@ export function ReferralView() {
                 setAppliedStatus(
                   draftStatus === "" ? null : (draftStatus as "qualified" | "pending"),
                 );
+                setAppliedPeriod(draftPeriod);
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -333,10 +340,11 @@ export function ReferralView() {
                 setAppliedMade(null);
                 setAppliedRewards(null);
                 setAppliedStatus(null);
+                setAppliedPeriod(undefined);
                 setDraftMade("All");
                 setDraftRewards("All");
                 setDraftStatus("");
-                setDraftPeriod("Date range (picker coming soon)");
+                setDraftPeriod(undefined);
                 setOpenFilter(null);
                 setFilterMode(false);
                 setPage(1);

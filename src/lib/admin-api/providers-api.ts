@@ -506,7 +506,7 @@ function normalizeProviderDetail(raw: Record<string, unknown>, fallbackId: strin
     pickString(raw, ["id", "providerId", "provider_id", "uuid"]) || fallbackId;
   const providerName =
     pickString(raw, ["providerName", "provider_name", "name", "displayName", "title"]) || id;
-  const providerId = pickString(raw, ["slug", "providerId", "provider_id", "code", "externalId"]) || id;
+  const providerId = pickString(raw, ["providerId", "provider_id", "uuid", "id"]) || fallbackId;
   const email = pickString(raw, ["email", "emailAddress", "contactEmail"]) || "—";
   const categorySlug = pickString(raw, [
     "categorySlug",
