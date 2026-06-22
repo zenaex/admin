@@ -127,6 +127,7 @@ export function AdminRolesTab({ canManage, onRolesChanged, onSelectionChange }: 
 
   // Selected role detail view state
   const [selectedRole, setSelectedRole] = useState<RoleCardData | null>(null);
+  const [initialDetailTab, setInitialDetailTab] = useState<"members" | "permissions">("members");
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -260,8 +261,10 @@ export function AdminRolesTab({ canManage, onRolesChanged, onSelectionChange }: 
           />
         ) : (
           <RoleDetailView
+            key={selectedRole.id}
             role={selectedRole}
             canManage={canManage}
+            initialTab={initialDetailTab}
             onBack={() => setSelectedRole(null)}
             onEdit={() => setIsEditing(true)}
             onDelete={() => setDeleteTarget(selectedRole)}
@@ -380,12 +383,18 @@ export function AdminRolesTab({ canManage, onRolesChanged, onSelectionChange }: 
             <p className="mt-8 text-sm text-zinc-500">No roles found.</p>
           ) : (
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredRoles.map((role) => (
+               {filteredRoles.map((role) => (
                 <RoleCard
                   key={role.id}
                   role={role}
-                  onSeePermissions={() => setPermissionsRole(role)}
-                  onClick={() => setSelectedRole(role)}
+                  onSeePermissions={() => {
+                    setInitialDetailTab("permissions");
+                    setSelectedRole(role);
+                  }}
+                  onClick={() => {
+                    setInitialDetailTab("members");
+                    setSelectedRole(role);
+                  }}
                 />
               ))}
             </div>
@@ -596,6 +605,7 @@ type RoleDetailViewProps = {
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  initialTab?: "members" | "permissions";
 };
 
 export function RoleDetailView({
@@ -604,8 +614,9 @@ export function RoleDetailView({
   onBack,
   onEdit,
   onDelete,
+  initialTab = "members",
 }: RoleDetailViewProps) {
-  const [detailTab, setDetailTab] = useState<"members" | "permissions">("members");
+  const [detailTab, setDetailTab] = useState<"members" | "permissions">(initialTab);
   const [expandedModules, setExpandedModules] = useState<string[]>(["User Management"]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
