@@ -202,7 +202,7 @@ export function RoleFormModal({
                             <label className="flex cursor-pointer items-start gap-2 text-sm">
                               <input
                                 type="checkbox"
-                                className="mt-0.5"
+                                className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 accent-secondary-green text-secondary-green focus:ring-secondary-green/20 cursor-pointer"
                                 checked={permissionKeys.includes(perm.key)}
                                 disabled={saving}
                                 onChange={() => toggleKey(perm.key)}
