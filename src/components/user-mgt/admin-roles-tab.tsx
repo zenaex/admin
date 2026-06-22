@@ -900,16 +900,16 @@ export function RoleDetailView({
                     </div>
 
                     {expanded && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-y-4 gap-x-2 py-6 pl-10 pr-6 border-t border-[#E8EBEE] bg-white">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-4 gap-x-6 py-6 pl-10 pr-6 border-t border-[#E8EBEE] bg-white">
                         {visible.length === 0 ? (
                           <span className="col-span-full text-sm text-zinc-400 font-normal">
                             No permissions assigned.
                           </span>
                         ) : (
                           visible.map((p) => (
-                            <div key={p.key} className="flex items-center gap-2 text-[13px] text-zinc-500">
-                              <span className="text-zinc-300 font-bold select-none text-[16px] leading-none">•</span>
-                              <span className="whitespace-nowrap">{p.label}</span>
+                            <div key={p.key} className="flex items-start gap-2 text-[13px] text-zinc-500">
+                              <span className="text-zinc-300 font-bold select-none text-[16px] leading-none mt-0.5">•</span>
+                              <span className="font-medium text-[13px] text-zinc-600 leading-tight">{p.label}</span>
                             </div>
                           ))
                         )}
