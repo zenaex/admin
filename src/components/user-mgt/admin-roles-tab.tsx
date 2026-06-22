@@ -1219,7 +1219,7 @@ export function EditRoleView({ role, onBack, onCancel, onSaved }: EditRoleViewPr
                             checked={isChecked}
                             disabled={saving}
                             onChange={() => toggleCategory(mod)}
-                            className="h-4 w-4 rounded border-zinc-300 text-primary-green focus:ring-primary-green/20"
+                            className="h-4 w-4 rounded border-zinc-300 accent-secondary-green text-secondary-green focus:ring-secondary-green/20 cursor-pointer"
                           />
                           <span className="text-sm font-semibold text-primary-text">{mod.module}</span>
                         </div>
@@ -1250,7 +1250,7 @@ export function EditRoleView({ role, onBack, onCancel, onSaved }: EditRoleViewPr
                                     checked={isPermChecked}
                                     disabled={saving}
                                     onChange={() => togglePermission(p.key)}
-                                    className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 text-primary-green focus:ring-primary-green/20"
+                                    className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 accent-secondary-green text-secondary-green focus:ring-secondary-green/20 cursor-pointer"
                                   />
                                   <span className="font-medium text-[13px] text-zinc-600 leading-tight">
                                     {p.label}
