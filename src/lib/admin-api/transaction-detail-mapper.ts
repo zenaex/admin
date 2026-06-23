@@ -18,7 +18,6 @@ import {
   readChannelRaw,
   readDateRaw,
   readStatusRaw,
-  unwrapTransactionRecord,
 } from "@/lib/admin-api/transactions-api";
 import type { TxApprovalStatus } from "@/components/transactions/transaction-details/types";
 import {
@@ -528,7 +527,13 @@ function enrichGiftcardDetailModel(
   o: Record<string, unknown>,
   detailBlocks: Record<string, unknown>[],
 ): void {
-  const submission = pickNestedRecord(o, ["submission", "giftCardSubmission", "gift_card_submission"]);
+  const submission = pickNestedRecord(o, [
+    "submission",
+    "giftCardSubmission",
+    "gift_card_submission",
+    "giftCard",
+    "gift_card",
+  ]);
   const blocks = submission ? [...detailBlocks, submission] : detailBlocks;
 
   const providerName = pickScalarFromBlocks(o, blocks, [
@@ -597,26 +602,35 @@ function enrichGiftcardDetailModel(
     model.amount = formatGiftcardAmountDisplay(faceCents, faceCurrency || "USD");
   }
 
-  const rateFromMoney = pickAndFormatMoneyField(o, [
-    "rateFeeGiven",
-    "rate_fee_given",
-    "rateFee",
-    "rate_fee",
-  ]);
-  if (rateFromMoney) {
-    model.rateFeeGiven = rateFromMoney;
+  const rateAppliedKobo = pickNumFromBlocks(o, blocks, ["rateApplied", "rate_applied"]);
+  const topLevelRateKobo = pickNum(o, ["rate"]);
+  const bestRateKobo = rateAppliedKobo ?? topLevelRateKobo;
+
+  if (bestRateKobo !== undefined && bestRateKobo > 0) {
+    const naira = bestRateKobo / 100;
+    model.rateFeeGiven = formatGiftcardRateFeeDisplay(String(naira));
   } else {
-    const vendorRate = pickScalarFromBlocks(o, blocks, ["vendorRate", "vendor_rate"]);
-    const rateRaw =
-      vendorRate ||
-      pickScalarFromBlocks(o, blocks, [
-        "conversionRate",
-        "conversion_rate",
-        "exchangeRate",
-        "exchange_rate",
-      ]);
-    if (rateRaw) {
-      model.rateFeeGiven = formatGiftcardRateFeeDisplay(rateRaw);
+    const rateFromMoney = pickAndFormatMoneyField(o, [
+      "rateFeeGiven",
+      "rate_fee_given",
+      "rateFee",
+      "rate_fee",
+    ]);
+    if (rateFromMoney) {
+      model.rateFeeGiven = rateFromMoney;
+    } else {
+      const vendorRate = pickScalarFromBlocks(o, blocks, ["vendorRate", "vendor_rate"]);
+      const rateRaw =
+        vendorRate ||
+        pickScalarFromBlocks(o, blocks, [
+          "conversionRate",
+          "conversion_rate",
+          "exchangeRate",
+          "exchange_rate",
+        ]);
+      if (rateRaw) {
+        model.rateFeeGiven = formatGiftcardRateFeeDisplay(rateRaw);
+      }
     }
   }
 
