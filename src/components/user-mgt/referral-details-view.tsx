@@ -108,13 +108,17 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
   const [pageSize, setPageSize] = useState(18);
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 320);
+    const t = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 320);
     return () => window.clearTimeout(t);
   }, [search]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
+  const toggleFilterMode = (active: boolean) => {
+    setFilterMode(active);
+    if (!active) setOpenFilter(null);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -139,7 +143,15 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
   }, [accountId, page, pageSize]);
 
   useEffect(() => {
-    void loadDetail();
+    let active = true;
+    const run = async () => {
+      await Promise.resolve();
+      if (active) void loadDetail();
+    };
+    void run();
+    return () => {
+      active = false;
+    };
   }, [loadDetail]);
 
   const statusOptions = useMemo(() => {
@@ -194,9 +206,7 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
     ? Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)))
     : page;
 
-  useEffect(() => {
-    if (clientSearchActive) setPage(1);
-  }, [debouncedSearch, appliedStatus, appliedDate, clientSearchActive]);
+
 
   const runExport = async (format: "csv" | "json" | "pdf") => {
     let rows = filteredReferred;
@@ -395,7 +405,7 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
                   setDraftStatus("All statuses");
                   setDraftDate(undefined);
                   setOpenFilter(null);
-                  setFilterMode(false);
+                  toggleFilterMode(false);
                   setPage(1);
                 }}
               />
@@ -405,19 +415,19 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
           <div className="flex h-14 items-center gap-2 rounded-xl bg-white px-3 sm:px-4">
             <span className="shrink-0 text-[15px] font-semibold text-primary-text">Referred Users</span>
             <div className="ml-4 w-[280px] shrink-0">
-              <AuditTrailIconSearch
-                variant="toolbar"
-                placeholder="Search by Name or ID"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+            <AuditTrailIconSearch
+              variant="toolbar"
+              placeholder="Search by Name or Email"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
             </div>
             <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
                 className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
                 aria-label="Filter"
-                onClick={() => setFilterMode(true)}
+                onClick={() => toggleFilterMode(true)}
               >
                 <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
               </button>

@@ -100,17 +100,21 @@ export function ReferralView() {
   const [showConfigSuccess, setShowConfigSuccess] = useState(false);
 
   const clientFiltersActive = Boolean(
-    (appliedMade && appliedMade !== "All") || (appliedRewards && appliedRewards !== "All"),
+    (appliedMade && appliedMade !== "All") || (appliedRewards && appliedRewards !== "All") || debouncedSearch,
   );
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 320);
+    const t = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 320);
     return () => window.clearTimeout(t);
   }, [search]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
+  const toggleFilterMode = (active: boolean) => {
+    setFilterMode(active);
+    if (!active) setOpenFilter(null);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -126,8 +130,8 @@ export function ReferralView() {
     try {
       const res = await getAdminReferralsList({
         page: clientFiltersActive ? 1 : page,
-        pageSize: clientFiltersActive ? 100 : pageSize,
-        search: debouncedSearch || undefined,
+        pageSize: clientFiltersActive ? 200 : pageSize,
+        search: undefined,
         status: appliedStatus ?? undefined,
         fromDate: appliedPeriod?.from ? appliedPeriod.from.toISOString() : undefined,
         toDate: appliedPeriod?.to ? appliedPeriod.to.toISOString() : undefined,
@@ -141,10 +145,18 @@ export function ReferralView() {
     } finally {
       setListLoading(false);
     }
-  }, [appliedStatus, clientFiltersActive, debouncedSearch, page, pageSize, appliedPeriod]);
+  }, [appliedStatus, clientFiltersActive, page, pageSize, appliedPeriod]);
 
   useEffect(() => {
-    void loadList();
+    let active = true;
+    const run = async () => {
+      await Promise.resolve();
+      if (active) void loadList();
+    };
+    void run();
+    return () => {
+      active = false;
+    };
   }, [loadList]);
 
   const rewardOptions = useMemo(() => {
@@ -158,8 +170,20 @@ export function ReferralView() {
   }, [listRows]);
 
   const displayedRows = useMemo(() => {
-    return listRows.filter((r) => matchesClientFilters(r, appliedMade, appliedRewards));
-  }, [listRows, appliedMade, appliedRewards]);
+    let rows = listRows;
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      rows = rows.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.email.toLowerCase().includes(q) ||
+          r.phone.toLowerCase().includes(q) ||
+          r.referralCode.toLowerCase().includes(q) ||
+          r.accountId.toLowerCase().includes(q),
+      );
+    }
+    return rows.filter((r) => matchesClientFilters(r, appliedMade, appliedRewards));
+  }, [listRows, debouncedSearch, appliedMade, appliedRewards]);
 
   const paginationTotal = clientFiltersActive ? displayedRows.length : listTotal;
   const paginatedRows = useMemo(() => {
@@ -180,8 +204,8 @@ export function ReferralView() {
     if (!clientFiltersActive) {
       const res = await getAdminReferralsList({
         page: 1,
-        pageSize: 100,
-        search: debouncedSearch || undefined,
+        pageSize: 200,
+        search: undefined,
         status: appliedStatus ?? undefined,
         fromDate: appliedPeriod?.from ? appliedPeriod.from.toISOString() : undefined,
         toDate: appliedPeriod?.to ? appliedPeriod.to.toISOString() : undefined,
@@ -197,7 +221,7 @@ export function ReferralView() {
 
       {clientFiltersActive ? (
         <p className="mt-3 text-xs text-zinc-500">
-          Referrals made / rewards filters apply to up to 100 loaded rows. Status uses the API query param.
+          Referrals made / rewards / search filters apply to up to 200 loaded rows. Status uses the API query param.
         </p>
       ) : null}
 
@@ -346,7 +370,7 @@ export function ReferralView() {
                 setDraftStatus("");
                 setDraftPeriod(undefined);
                 setOpenFilter(null);
-                setFilterMode(false);
+                toggleFilterMode(false);
                 setPage(1);
               }}
             />
@@ -358,7 +382,7 @@ export function ReferralView() {
           <div className="ml-4 w-[280px] shrink-0">
             <AuditTrailIconSearch
               variant="toolbar"
-              placeholder="Search by Name or ID"
+              placeholder="Search by Name or Email"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -368,7 +392,7 @@ export function ReferralView() {
               type="button"
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
               aria-label="Filter"
-              onClick={() => setFilterMode(true)}
+              onClick={() => toggleFilterMode(true)}
             >
               <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             </button>
