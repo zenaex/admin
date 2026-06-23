@@ -1074,6 +1074,8 @@ export function flattenTransactionRecord(raw: Record<string, unknown>): Record<s
     "submission",
     "giftCardSubmission",
     "gift_card_submission",
+    "giftCard",
+    "gift_card",
   ]) {
     const nested = asRecord(o[key]);
     if (nested) Object.assign(merged, nested);
