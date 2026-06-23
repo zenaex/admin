@@ -639,7 +639,7 @@ function enrichGiftcardDetailModel(
     model.country = currencyForCountry;
   }
 
-  const imageUrl = pickString(o, [
+  const IMAGE_URL_KEYS = [
     "cardImageUrl",
     "card_image_url",
     "imageUrl",
@@ -650,28 +650,45 @@ function enrichGiftcardDetailModel(
     "receipt_image_url",
     "photoUrl",
     "photo_url",
-  ]);
-  if (!imageUrl) {
-    for (const block of blocks) {
-      const fromBlock = pickString(block, [
-        "cardImageUrl",
-        "card_image_url",
-        "imageUrl",
-        "image_url",
-        "proofImageUrl",
-        "proof_image_url",
-        "receiptImageUrl",
-        "receipt_image_url",
-        "photoUrl",
-        "photo_url",
-      ]);
-      if (fromBlock) {
-        model.giftcardImageUrl = fromBlock;
-        break;
-      }
+  ];
+
+  function findImageUrlInRecord(rec: Record<string, unknown>): string {
+    // Direct key lookup first
+    const direct = pickString(rec, IMAGE_URL_KEYS);
+    if (direct) return direct;
+    // Walk one level deeper into any nested object values
+    for (const val of Object.values(rec)) {
+      const nested = asRecord(val);
+      if (!nested) continue;
+      const fromNested = pickString(nested, IMAGE_URL_KEYS);
+      if (fromNested) return fromNested;
     }
-  } else {
-    model.giftcardImageUrl = imageUrl;
+    return "";
+  }
+
+  // 1. Search flattened root
+  let resolvedImageUrl = findImageUrlInRecord(o);
+
+  // 2. Search each detail block
+  if (!resolvedImageUrl) {
+    for (const block of blocks) {
+      const found = findImageUrlInRecord(block);
+      if (found) { resolvedImageUrl = found; break; }
+    }
+  }
+
+  // 3. Explicit submission sub-block search (catches deeply nested imageUrl)
+  if (!resolvedImageUrl) {
+    for (const submissionKey of ["submission", "giftCardSubmission", "gift_card_submission", "giftcard_submission"]) {
+      const sub = asRecord(o[submissionKey]);
+      if (!sub) continue;
+      const found = findImageUrlInRecord(sub);
+      if (found) { resolvedImageUrl = found; break; }
+    }
+  }
+
+  if (resolvedImageUrl) {
+    model.giftcardImageUrl = resolvedImageUrl;
   }
 
   const amountPaidOut = pickAndFormatMoneyFromBlocks(o, blocks, [
