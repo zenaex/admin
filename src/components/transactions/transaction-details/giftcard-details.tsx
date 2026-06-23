@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { TxDataBlockTable, LINK, TEXT } from "@/components/transactions/transaction-details/tx-data-block-table";
 import type {
@@ -21,21 +22,91 @@ function GiftcardImagePlaceholder() {
   );
 }
 
+function GiftcardImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal
+      aria-label="Gift card image expanded view"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+
+      {/* Close button */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+        aria-label="Close image"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {/* Image container */}
+      <div
+        className="relative z-10 max-h-[90vh] max-w-[90vw] animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt="Physical gift card — full size"
+          className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+        />
+      </div>
+    </div>
+  );
+}
+
 function GiftcardPhysicalImage({ imageUrl }: { imageUrl?: string }) {
+  const [open, setOpen] = useState(false);
   const src = imageUrl?.trim();
   if (!src) return <GiftcardImagePlaceholder />;
 
   return (
-    <div className="relative min-h-[220px] w-full overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
-      <Image
-        src={src}
-        alt="Physical gift card"
-        fill
-        className="object-contain p-2"
-        sizes="(max-width: 768px) 100vw, 640px"
-        unoptimized
-      />
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="group relative min-h-[220px] w-full overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 transition-all hover:border-zinc-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+        aria-label="View full-size gift card image"
+      >
+        <Image
+          src={src}
+          alt="Physical gift card"
+          fill
+          className="object-contain p-2 transition-transform duration-300 group-hover:scale-[1.02]"
+          sizes="(max-width: 768px) 100vw, 640px"
+          unoptimized
+        />
+        {/* Expand hint overlay */}
+        <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/50 px-2 py-1 text-[11px] font-medium text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+            <path d="M7.5 1.5H10.5V4.5M10.5 1.5L7 5M4.5 10.5H1.5V7.5M1.5 10.5L5 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Click to expand
+        </span>
+      </button>
+
+      {open && <GiftcardImageLightbox src={src} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
