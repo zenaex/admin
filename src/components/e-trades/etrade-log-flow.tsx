@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type FormEvent } from "react";
+import { useState, useEffect, useRef, useMemo, type FormEvent } from "react";
 import { Upload, Check, Search, ChevronDown } from "lucide-react";
 import { ArrowLeft2, ArrowRight2 } from "iconsax-react";
 import { InputField } from "@/components/input-field";
@@ -38,14 +38,29 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
   const [vendorRate, setVendorRate] = useState("$1/₦1200");
   const [markupRate, setMarkupRate] = useState("₦50");
 
-  // Calculated states
-  const [customerRate, setCustomerRate] = useState("");
-  const [amountEquivalent, setAmountEquivalent] = useState("");
-  const [profitMarkup, setProfitMarkup] = useState("");
+  // Calculated values
+  const { customerRate, amountEquivalent, profitMarkup } = useMemo(() => {
+    const amountVal = parseFloat(tradeAmount.replace(/[^0-9.]/g, "")) || 0;
+    const vendorRateVal = (() => {
+      const parts = vendorRate.split("/");
+      const ratePart = parts.length > 1 ? parts[1] : vendorRate;
+      return parseFloat(ratePart.replace(/[^0-9.]/g, "")) || 0;
+    })();
+    const markupVal = parseFloat(markupRate.replace(/[^0-9.]/g, "")) || 0;
+
+    const custRateVal = Math.max(0, vendorRateVal - markupVal);
+    const equivalentVal = amountVal * custRateVal;
+    const profitVal = amountVal * markupVal;
+
+    return {
+      customerRate: custRateVal > 0 ? `$1/₦${custRateVal}` : "$1/₦0",
+      amountEquivalent: `₦${equivalentVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      profitMarkup: `₦${profitVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    };
+  }, [tradeAmount, vendorRate, markupRate]);
 
   // Upload image state
   const [imageName, setImageName] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [proofImageUrl, setProofImageUrl] = useState("");
 
   // Submit flow states
@@ -107,7 +122,9 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
   // Debounced search fetch
   useEffect(() => {
     if (!customerSearch.trim()) {
-      setCustomers(initialCustomers);
+      Promise.resolve().then(() => {
+        setCustomers(initialCustomers);
+      });
       return;
     }
 
@@ -137,37 +154,46 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
     };
   }, [customerSearch, initialCustomers]);
 
-  // Run live calculations based on inputs
-  useEffect(() => {
-    // Parse tradeAmount: extract digits (allow decimals)
-    const amountVal = parseFloat(tradeAmount.replace(/[^0-9.]/g, "")) || 0;
 
-    // Parse vendorRate: extract last digits (after the slash, or general digits)
-    const vendorRateVal = (() => {
-      const parts = vendorRate.split("/");
-      const ratePart = parts.length > 1 ? parts[1] : vendorRate;
-      return parseFloat(ratePart.replace(/[^0-9.]/g, "")) || 0;
-    })();
 
-    // Parse markupRate: extract digits
-    const markupVal = parseFloat(markupRate.replace(/[^0-9.]/g, "")) || 0;
-
-    // Calculations
-    const custRateVal = Math.max(0, vendorRateVal - markupVal);
-    const equivalentVal = amountVal * custRateVal;
-    const profitVal = amountVal * markupVal;
-
-    // Set formatted values
-    setCustomerRate(custRateVal > 0 ? `$1/₦${custRateVal}` : "$1/₦0");
-    setAmountEquivalent(`₦${equivalentVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-    setProfitMarkup(`₦${profitVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-  }, [tradeAmount, vendorRate, markupRate]);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageName(file.name);
-      setImageFile(file);
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProofImageUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith("image/")) {
+        setImageName(file.name);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setProofImageUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -183,7 +209,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
     ) {
       setSubmitError(
         !proofImageUrl.trim()
-          ? "Proof image URL is required (paste a hosted receipt image link)."
+          ? "Transaction receipt image is required."
           : "Please complete all required fields.",
       );
       return;
@@ -319,7 +345,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
             {/* Customer's Name (Searchable Custom Dropdown) */}
             <div className="relative" ref={customerDropdownRef}>
               <label className="mb-1.5 block text-[11px] font-medium text-gray-500">
-                Customer's Name
+                Customer&apos;s Name
               </label>
               
               {/* Dropdown Toggle Trigger Button */}
@@ -426,7 +452,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
             {/* Vendor's Rate */}
             <InputField
               id="log-vendor-rate"
-              label="Vendor's Rate"
+              label="Vendor&apos;s Rate"
               value={vendorRate}
               onChange={(e) => setVendorRate(e.target.value)}
               placeholder="$1/₦0"
@@ -446,7 +472,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
             {/* Customer's rate (Calculated) */}
             <div>
               <label className="mb-1.5 block text-[11px] font-medium text-gray-400">
-                Customer's rate
+                Customer&apos;s rate
               </label>
               <input
                 type="text"
@@ -489,7 +515,14 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
               </span>
               <label
                 htmlFor="receipt-upload"
-                className="flex flex-col items-center justify-center w-full h-28 border-2 border-zinc-200 border-dashed rounded-xl bg-zinc-50/50 cursor-pointer hover:bg-zinc-50 transition-colors"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
+                  isDragOver
+                    ? "border-primary-green bg-primary-green/5"
+                    : "border-zinc-200 bg-zinc-50/50 hover:bg-zinc-50"
+                }`}
               >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <Upload className="w-6 h-6 text-zinc-400 mb-2" />
@@ -507,14 +540,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
               </label>
             </div>
 
-            <InputField
-              id="log-proof-image-url"
-              label="Proof image URL"
-              value={proofImageUrl}
-              onChange={(e) => setProofImageUrl(e.target.value)}
-              placeholder="https://…"
-              required
-            />
+
 
             {submitError ? (
               <p className="text-center text-sm text-red-600" role="alert">
@@ -530,19 +556,19 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
             </button>
           </form>
         ) : (
-          <div className="grid gap-6">
+          <div className="mt-6 rounded-[24px] bg-[#F8F9FA] p-8 flex flex-col items-center gap-6 border border-[#E8EDF2]">
             {/* Warning Circle Icon */}
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-emerald-500">
-                <span className="text-2xl font-bold text-emerald-500 leading-none">!</span>
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white border border-[#E8EDF2] shadow-[0_4px_12px_rgba(0,0,0,0.03)]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#013220]">
+                <span className="text-[28px] font-bold text-[#013220] leading-none">!</span>
               </div>
             </div>
 
-            <h2 className="text-center text-xl font-bold text-zinc-900 -mt-2">
+            <h2 className="text-center text-[22px] font-bold text-zinc-950 -mt-2">
               Confirm Etrades
             </h2>
 
-            <div className="rounded-2xl border border-zinc-100 bg-zinc-50/50 p-6 flex flex-col gap-3.5 text-[13px] text-zinc-500">
+            <div className="w-full rounded-[16px] border border-[#E8EDF2] bg-white p-6 flex flex-col gap-3.5 text-[13px] text-zinc-500">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Trade Type</span>
                 <span className="font-semibold text-zinc-900">{tradeType}</span>
@@ -560,7 +586,7 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
                 <span className="font-semibold text-zinc-900">{tradeAmount}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-medium">Vendor's Rate</span>
+                <span className="font-medium">Vendor&apos;s Rate</span>
                 <span className="font-semibold text-zinc-900">{vendorRate}</span>
               </div>
               <div className="flex justify-between items-center">
@@ -568,16 +594,16 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
                 <span className="font-semibold text-zinc-900">{markupRate}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-medium">Customer's Rate</span>
+                <span className="font-medium">Customer&apos;s Rate</span>
                 <span className="font-semibold text-zinc-900">{customerRate}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Amount Equivalent</span>
-                <span className="font-semibold text-zinc-950 font-bold">{amountEquivalent}</span>
+                <span className="font-semibold text-zinc-955 font-bold text-zinc-900">{amountEquivalent}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="font-medium">Our Profit Markup</span>
-                <span className="font-semibold text-zinc-950 font-bold">{profitMarkup}</span>
+                <span className="font-semibold text-zinc-955 font-bold text-zinc-900">{profitMarkup}</span>
               </div>
               {imageName && (
                 <div className="flex justify-between items-center border-t border-zinc-100 pt-3.5 mt-1">
@@ -593,12 +619,12 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
               </p>
             ) : null}
 
-            <div className="mt-2 flex gap-4">
+            <div className="flex items-center justify-center gap-4 w-full mt-2">
               <button
                 type="button"
                 disabled={loading}
                 onClick={() => setStep(1)}
-                className="flex-1 rounded-full bg-white border border-zinc-200 py-3.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                className="w-[140px] h-11 rounded-full bg-white border border-[#E8EDF2] text-sm font-semibold text-zinc-800 hover:bg-zinc-50 transition-colors shadow-sm disabled:opacity-50"
               >
                 Go Back
               </button>
@@ -606,11 +632,11 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
                 type="button"
                 disabled={loading}
                 onClick={handleConfirmSubmit}
-                className="flex-1 rounded-full bg-[#C1FF00] py-3.5 text-sm font-bold text-zinc-950 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm"
+                className="w-[180px] h-11 rounded-full bg-primary-green text-sm font-bold text-primary-text hover:opacity-90 transition-opacity shadow-sm flex items-center justify-center disabled:opacity-50"
               >
                 {loading ? "Logging Trade…" : "Login Trade"}
               </button>
-            </div>
+          </div>
           </div>
         )}
         </div>
