@@ -11,7 +11,7 @@ import {
 } from "@/lib/admin-api/audit-api";
 import type { AdminAuditActivityLogEntry, AdminAuditSubjectDetails } from "@/lib/admin-api/types";
 import type { ExportColumn } from "@/lib/export/table-export";
-import { exportTableWithApiFallback, exportViaAuditApi } from "@/lib/export/export-handlers";
+import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import { ErrorAlert } from "@/components/ui/error-alert";
 
@@ -97,13 +97,7 @@ export function AuditTrailDetailsView({ subjectId, subjectType }: AuditTrailDeta
   const exportScope = subjectType === "customers" ? "customers" : "internal";
   const runExport = async (format: "csv" | "json" | "pdf") => {
     const filename = `audit-logs-${subjectId}`;
-    await exportTableWithApiFallback(
-      filename,
-      format,
-      () => exportViaAuditApi(filename, format, { scope: exportScope }),
-      logs,
-      AUDIT_LOG_EXPORT_COLUMNS,
-    );
+    exportClientTable(filename, format, logs, AUDIT_LOG_EXPORT_COLUMNS);
   };
 
   return (

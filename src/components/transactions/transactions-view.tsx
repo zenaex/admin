@@ -59,7 +59,6 @@ const TX_TABS = [
   { id: "Giftcard", label: "Giftcard" },
   { id: "Utility", label: "Utility" },
   { id: "E-sim", label: "E-sim" },
-  { id: "E-trade", label: "E-trade" },
   { id: "Withdrawal", label: "Withdrawal" },
 ];
 
@@ -278,7 +277,7 @@ export function TransactionsView() {
     await exportTableWithApiFallback(
       filename,
       format,
-      () => exportViaTransactionsApi(filename, format, exportBody),
+      () => exportViaTransactionsApi(filename, format, exportColumns, exportBody),
       clientFiltered,
       exportColumns,
     );

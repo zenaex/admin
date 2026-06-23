@@ -192,7 +192,7 @@ export function AuditTrailView() {
     await exportTableWithApiFallback(
       filename,
       format,
-      () => exportViaAuditApi(filename, format, { scope: exportScope }),
+      () => exportViaAuditApi(filename, format, AUDIT_EXPORT_COLUMNS, { scope: exportScope }),
       filteredRows,
       AUDIT_EXPORT_COLUMNS,
     );

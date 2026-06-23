@@ -1,6 +1,6 @@
 import type { AdminAuditExportBody, AdminTransactionsExportBody } from "@/lib/admin-api/export-api";
 import {
-  downloadExportPayload,
+  extractExportRecords,
   postAdminAuditExport,
   postAdminTransactionsExport,
 } from "@/lib/admin-api/export-api";
@@ -10,29 +10,40 @@ import {
   exportColumnsToPdfPrint,
   type ExportColumn,
 } from "@/lib/export/table-export";
+import { normalizeTransactionRow } from "@/lib/admin-api/transactions-api";
+import { normalizeAuditSessionList } from "@/lib/admin-api/audit-api";
+import type { AdminTransactionListRow, AdminAuditTrailRow } from "@/lib/admin-api/types";
 
 export async function exportViaTransactionsApi(
   filenameBase: string,
   format: "csv" | "json" | "pdf",
+  columns: ExportColumn<AdminTransactionListRow>[],
   body?: AdminTransactionsExportBody,
 ): Promise<void> {
   const payload = await postAdminTransactionsExport({
     ...body,
     format: format === "pdf" ? "csv" : format,
   });
-  downloadExportPayload(filenameBase, payload, format);
+  const rawRecords = extractExportRecords(payload);
+  const normalized = rawRecords
+    .map((raw, idx) => normalizeTransactionRow(raw, idx))
+    .filter((x): x is AdminTransactionListRow => x !== null);
+  exportClientTable(filenameBase, format, normalized, columns);
 }
 
 export async function exportViaAuditApi(
   filenameBase: string,
   format: "csv" | "json" | "pdf",
+  columns: ExportColumn<AdminAuditTrailRow>[],
   body?: AdminAuditExportBody,
 ): Promise<void> {
   const payload = await postAdminAuditExport({
     ...body,
     format: format === "pdf" ? "csv" : format,
   });
-  downloadExportPayload(filenameBase, payload, format);
+  const subjectType = body?.scope === "customers" ? "customers" : "internal";
+  const normalized = normalizeAuditSessionList(payload, subjectType);
+  exportClientTable(filenameBase, format, normalized, columns);
 }
 
 export function exportClientTable<T>(

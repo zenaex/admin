@@ -635,7 +635,10 @@ function enrichGiftcardDetailModel(
   }
 
   const countryRawTemp = pickScalarFromBlocks(o, blocks, ["country", "countryName", "country_name"]);
-  const countryRaw = ISO_TO_FULL_NAME[countryRawTemp.trim().toUpperCase()] || countryRawTemp;
+  const countryParts = countryRawTemp.split("|").map((s) => s.trim());
+  const countryBase = countryParts[0] || "";
+  const countryRaw = ISO_TO_FULL_NAME[countryBase.toUpperCase()] || countryBase;
+
   const currencyForCountry =
     pickScalarFromBlocks(o, blocks, [
       "faceCurrency",
@@ -643,15 +646,10 @@ function enrichGiftcardDetailModel(
       "currency",
       "currencyCode",
       "currency_code",
-    ]) || model.giftcardFaceCurrency;
+    ]) || model.giftcardFaceCurrency || countryParts[1] || "";
 
-  if (countryRaw && currencyForCountry) {
-    model.country = `${countryRaw} | ${currencyForCountry}`;
-  } else if (countryRaw) {
-    model.country = countryRaw;
-  } else if (currencyForCountry) {
-    model.country = currencyForCountry;
-  }
+  const uniqueParts = [countryRaw, currencyForCountry].filter((v, i, self) => v && self.indexOf(v) === i);
+  model.country = uniqueParts.join(" | ");
 
   const IMAGE_URL_KEYS = [
     "cardImageUrl",
@@ -824,8 +822,39 @@ export function mapApiDetailToTransactionModel(
   const hasMappedStatus = outcome !== null;
   const routing = detectChannel(o);
   const categorySlug = pickString(o, ["categorySlug", "category_slug", "category"]) || "";
-  const displayCategory = pickString(o, ["displayCategory", "display_category", "type"]) || "";
+  let displayCategory = pickString(o, ["displayCategory", "display_category", "type"]) || "";
   const productSlug = pickString(o, ["productSlug", "product_slug"]) || "";
+
+  const isUtility =
+    routing.channel === "Deposit" && routing.depositDetailVariant === "utility";
+
+  if (isUtility) {
+    const combinedStr = [
+      categorySlug,
+      displayCategory,
+      productSlug,
+      o.product,
+      o.transactionType,
+      o.transaction_type
+    ].map(v => String(v || "").toLowerCase()).join(" ");
+
+    if (combinedStr.includes("betting") || combinedStr.includes("sportybet") || o.bettingId) {
+      displayCategory = "Betting";
+    } else if (combinedStr.includes("airtime")) {
+      displayCategory = "Airtime";
+    } else if (combinedStr.includes("data")) {
+      displayCategory = "Data";
+    } else if (combinedStr.includes("electric") || combinedStr.includes("ikedec")) {
+      displayCategory = "Electricity";
+    } else if (combinedStr.includes("tv") || combinedStr.includes("cable") || combinedStr.includes("dstv") || combinedStr.includes("gotv")) {
+      displayCategory = "TV";
+    } else {
+      const u = routing.utilityDetailVariant;
+      if (u === "electricity") displayCategory = "Electricity";
+      else if (u === "data") displayCategory = "Data";
+      else if (u === "tv") displayCategory = "TV";
+    }
+  }
 
   const customerBlock = pickNestedRecord(o, [
     "customer",
@@ -883,7 +912,10 @@ export function mapApiDetailToTransactionModel(
     (customerBlock ? formatPersonName(customerBlock) : "") ||
     formatPersonName(o);
 
-  const provider = detailProvider(o);
+  let provider = detailProvider(o);
+  if (isUtility && (provider === "—" || provider === "Manual" || provider === "System" || !provider || provider.toLowerCase().includes("ringo"))) {
+    provider = "Ringo";
+  }
   const amountFormatted = formatAmountFromRecord(o);
 
   const dateInitiatedRaw = readDateRaw(o);
@@ -934,10 +966,31 @@ export function mapApiDetailToTransactionModel(
   const providerLogRequest = readProviderLogRequestPayload(o);
 
   const uploadedRaw = pickString(o, ["dateUploaded", "uploadedAt", "uploaded_at"]);
-  const product =
-    pickString(o, ["product", "productName", "product_name"]) ||
-    pickNestedString(o, [["product", "name"], ["product", "title"], ["service", "name"]]) ||
+  let product =
+    pickString(o, ["product", "productName", "product_name", "productSlug", "product_slug"]) ||
+    pickNestedString(o, [["product", "name"], ["product", "title"], ["service", "name"], ["product", "slug"]]) ||
     "";
+
+  if (isUtility) {
+    const searchStr = [
+      product,
+      productSlug,
+      categorySlug,
+      displayCategory,
+      o.providerName,
+      o.provider_name
+    ].map(v => String(v || "").toLowerCase()).join(" ");
+
+    if (searchStr.includes("mtn")) product = "MTN";
+    else if (searchStr.includes("glo")) product = "GLO";
+    else if (searchStr.includes("airtel")) product = "Airtel";
+    else if (searchStr.includes("9mobile")) product = "9mobile";
+    else if (searchStr.includes("ikedec") || searchStr.includes("ikeja")) product = "Ikedec";
+    else if (searchStr.includes("ekedp") || searchStr.includes("eko")) product = "Ekedp";
+    else if (searchStr.includes("dstv")) product = "DSTV";
+    else if (searchStr.includes("gotv")) product = "GOTV";
+    else if (searchStr.includes("sporty")) product = "Sporty Bet";
+  }
   const planRaw =
     readDataBundleRaw(o) || pickFromBlocks(o, detailBlocks, ["dataBundle", "data_bundle"]) || "";
   const plan = planRaw ? formatDataBundleDisplay(planRaw) : "";
