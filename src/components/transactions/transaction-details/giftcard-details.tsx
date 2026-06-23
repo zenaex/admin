@@ -146,7 +146,7 @@ function splitTimestamp(value: string) {
   const parts = value.split(" | ");
   return (
     <span className="text-sm" style={{ color: TEXT }}>
-      <span style={{ color: LINK }}>{parts[0]}</span>
+      <span>{parts[0]}</span>
       {parts.length > 1 ? ` | ${parts.slice(1).join(" | ")}` : ""}
     </span>
   );
@@ -158,7 +158,7 @@ function countryCell(country: string) {
   const countryRest = countryParts.length > 1 ? ` | ${countryParts.slice(1).join(" | ")}` : "";
   return (
     <span key="co" className="text-sm" style={{ color: TEXT }}>
-      <span style={{ color: LINK }}>{countryLeft}</span>
+      <span>{countryLeft}</span>
       {countryRest}
     </span>
   );

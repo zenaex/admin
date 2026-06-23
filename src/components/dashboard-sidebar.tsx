@@ -414,7 +414,9 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           {!collapsed ? (
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-semibold leading-tight text-white">{sidebarTitle}</p>
-              <p className="truncate text-[11px] text-label">{sidebarSubtitle}</p>
+              {sidebarTitle.toLowerCase().replace(/[\s_]+/g, "") !== sidebarSubtitle.toLowerCase().replace(/[\s_]+/g, "") ? (
+                <p className="truncate text-[11px] text-label">{sidebarSubtitle}</p>
+              ) : null}
               {displayEmail && sidebarTitle !== displayEmail ? (
                 <p className="mt-0.5 truncate text-[10px] text-sidebar-label">{displayEmail}</p>
               ) : null}

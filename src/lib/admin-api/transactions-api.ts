@@ -501,6 +501,54 @@ function pickTransactionChannel(o: Record<string, unknown>): string {
 }
 
 function pickTransactionProduct(o: Record<string, unknown>, channelLabel: string): string {
+  const isUtility =
+    channelLabel === "Utility" ||
+    (channelLabel === "Deposit" &&
+      /utility|electric|betting|airtime|data|tv|cable/i.test(
+        [
+          o.categorySlug,
+          o.category_slug,
+          o.category,
+          o.displayCategory,
+          o.display_category,
+          o.productSlug,
+          o.product_slug,
+          o.product,
+          o.type,
+          o.transactionType,
+          o.transaction_type,
+        ].map(v => String(v || "")).join(" ")
+      ));
+
+  if (isUtility) {
+    const rawProduct =
+      pickString(o, ["product", "productName", "product_name", "productSlug", "product_slug"]) ||
+      pickNestedString(o, [["product", "name"], ["product", "slug"]]) || "";
+    
+    const searchStr = [
+      rawProduct,
+      o.productSlug,
+      o.product_slug,
+      o.displayCategory,
+      o.display_category,
+      o.category,
+      o.categorySlug,
+      o.category_slug,
+      o.providerName,
+      o.provider_name
+    ].map(v => String(v || "").toLowerCase()).join(" ");
+
+    if (searchStr.includes("mtn")) return "MTN";
+    if (searchStr.includes("glo")) return "GLO";
+    if (searchStr.includes("airtel")) return "Airtel";
+    if (searchStr.includes("9mobile")) return "9mobile";
+    if (searchStr.includes("ikedec") || searchStr.includes("ikeja")) return "Ikedec";
+    if (searchStr.includes("ekedp") || searchStr.includes("eko")) return "Ekedp";
+    if (searchStr.includes("dstv")) return "DSTV";
+    if (searchStr.includes("gotv")) return "GOTV";
+    if (searchStr.includes("sporty")) return "Sporty Bet";
+  }
+
   const dataBundle = readDataBundleRaw(o);
   if (dataBundle) {
     return formatDataBundleDisplay(dataBundle);
@@ -1133,7 +1181,31 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
   const product = pickTransactionProduct(o, channel);
 
   let provider = pickProviderLabel(o);
-  if (provider === "—") {
+  
+  const isUtility =
+    channel === "Utility" ||
+    (channel === "Deposit" &&
+      /utility|electric|betting|airtime|data|tv|cable/i.test(
+        [
+          o.categorySlug,
+          o.category_slug,
+          o.category,
+          o.displayCategory,
+          o.display_category,
+          o.productSlug,
+          o.product_slug,
+          o.product,
+          o.type,
+          o.transactionType,
+          o.transaction_type,
+        ].map(v => String(v || "")).join(" ")
+      ));
+
+  if (isUtility) {
+    if (provider === "—" || provider === "Manual" || provider === "System" || !provider || provider.toLowerCase().includes("ringo")) {
+      provider = "Ringo";
+    }
+  } else if (provider === "—") {
     const narr = pickString(o, [
       "narration",
       "description",
@@ -1205,7 +1277,8 @@ export function normalizeTransactionListResponse(
   const itemsRaw = extractItemsArray(data);
   const items = itemsRaw
     .map((raw, idx) => normalizeTransactionRow(raw, idx))
-    .filter((x): x is AdminTransactionListRow => x !== null);
+    .filter((x): x is AdminTransactionListRow => x !== null)
+    .filter((x) => x.channel !== "E-trade");
   const total = extractTotal(data, items.length);
   const { page, pageSize } = extractPageInfo(data, requestedPage, requestedPageSize);
   return { items, total, page, pageSize };
@@ -1232,8 +1305,6 @@ function normalizeEtradeToTransactionRow(raw: unknown, idx: number): AdminTransa
   const tradeCurrency = pickString(o, ["tradeCurrency", "trade_currency", "currency"]) || "USD";
   const tradeAmountVal = pickNum(o, ["tradeAmount", "trade_amount", "amount"]);
   const tradeValue = tradeAmountVal !== undefined ? `${tradeCurrency} ${tradeAmountVal.toLocaleString()}` : "—";
-
-  const opsInCharge = pickString(o, ["opsInCharge", "ops_in_charge", "assignedTo", "reviewer", "adminName"]) || "—";
 
   const rawStatus = pickString(o, ["status", "tradeStatus", "trade_status", "state"]) || "awaiting_approval";
   const s = rawStatus.toLowerCase().replace(/_/g, " ");

@@ -582,7 +582,7 @@ function TimeStampCell({ value }: { value: string }) {
   const parts = value.split(" | ");
   return (
     <span className="text-sm" style={{ color: TEXT }}>
-      <span style={{ color: LINK }}>{parts[0]}</span>
+      <span>{parts[0]}</span>
       {parts.length > 1 ? ` | ${parts.slice(1).join(" | ")}` : ""}
     </span>
   );
@@ -606,9 +606,9 @@ function CryptoCurrencyCell({ value }: { value: string }) {
     const [left, right] = value.split(" to ");
     return (
       <span className="text-sm" style={{ color: TEXT }}>
-        <span style={{ color: LINK }}>{left}</span>
+        <span>{left}</span>
         {" to "}
-        <span style={{ color: LINK }}>{right}</span>
+        <span>{right}</span>
       </span>
     );
   }
@@ -617,7 +617,7 @@ function CryptoCurrencyCell({ value }: { value: string }) {
   const cRest = currencyParts.length > 1 ? ` | ${currencyParts.slice(1).join(" | ")}` : "";
   return (
     <span className="text-sm" style={{ color: TEXT }}>
-      <span style={{ color: LINK }}>{c0}</span>
+      <span>{c0}</span>
       {cRest}
     </span>
   );
@@ -681,13 +681,13 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
   const completedParts = tx.dateCompleted.split(" | ");
   const dateInitiatedCell = (
     <span key="di" className="text-sm" style={{ color: TEXT }}>
-      <span style={{ color: LINK }}>{initiatedParts[0]}</span>
+      <span>{initiatedParts[0]}</span>
       {initiatedParts.length > 1 ? ` | ${initiatedParts.slice(1).join(" | ")}` : ""}
     </span>
   );
   const dateCompletedCell = (
     <span key="dc" className="text-sm" style={{ color: TEXT }}>
-      <span style={{ color: LINK }}>{completedParts[0]}</span>
+      <span>{completedParts[0]}</span>
       {completedParts.length > 1 ? ` | ${completedParts.slice(1).join(" | ")}` : ""}
     </span>
   );
@@ -984,7 +984,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
                 tx.customerName,
                 tx.categorySlug || "Utility",
                 tx.displayCategory || "Data",
-                dataPlanLabel(tx),
+                tx.product || "—",
                 tx.amount,
               ]}
             />
@@ -1035,7 +1035,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
                 tx.customerName,
                 tx.categorySlug || "Utility",
                 tx.displayCategory || typeLabel,
-                tx.productSlug || tx.product,
+                tx.product || "—",
                 tx.amount,
               ]}
             />
@@ -1087,7 +1087,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
                 tx.customerName,
                 tx.categorySlug || "Utility",
                 tx.displayCategory || typeLabel,
-                dataPlanLabel(tx),
+                tx.product || "—",
                 tx.amount,
               ]}
             />
@@ -1131,7 +1131,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               tx.customerName,
               tx.categorySlug || "Utility",
               tx.displayCategory || typeLabel,
-              tx.productSlug || tx.product,
+              tx.product || "—",
               tx.plan,
             ]}
           />
@@ -1184,7 +1184,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             tx.customerName,
             tx.categorySlug || "Utility",
             tx.displayCategory || "Betting",
-            tx.productSlug || tx.product,
+            tx.product || "—",
             tx.amount,
           ]}
         />
