@@ -9,7 +9,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
 } from "recharts";
 import { ExportSquare } from "iconsax-react";
 
@@ -17,36 +16,48 @@ type TimeFrame = "12 months" | "3 months" | "30 days" | "7 days" | "24 hours";
 
 /* ── Monthly data ── */
 const MONTHLY_DATA = [
-  { month: "Jan", inflows: 450, outflows: 390 },
-  { month: "Feb", inflows: 400, outflows: 340 },
-  { month: "Mar", inflows: 500, outflows: 360 },
-  { month: "Apr", inflows: 510, outflows: 370 },
-  { month: "May", inflows: 560, outflows: 390 },
-  { month: "Jun", inflows: 620, outflows: 420 },
-  { month: "Jul", inflows: 680, outflows: 450 },
-  { month: "Aug", inflows: 710, outflows: 460 },
-  { month: "Sep", inflows: 740, outflows: 480 },
-  { month: "Oct", inflows: 780, outflows: 500 },
-  { month: "Nov", inflows: 820, outflows: 520 },
-  { month: "Dec", inflows: 450, outflows: 390 },
+  { month: "Jan", inflows: 650, outflows: 380 },
+  { month: "Feb", inflows: 320, outflows: 590 },
+  { month: "Mar", inflows: 890, outflows: 340 },
+  { month: "Apr", inflows: 410, outflows: 780 },
+  { month: "May", inflows: 950, outflows: 420 },
+  { month: "Jun", inflows: 520, outflows: 890 },
+  { month: "Jul", inflows: 1100, outflows: 450 },
+  { month: "Aug", inflows: 490, outflows: 980 },
+  { month: "Sep", inflows: 1250, outflows: 510 },
+  { month: "Oct", inflows: 580, outflows: 1100 },
+  { month: "Nov", inflows: 1400, outflows: 550 },
+  { month: "Dec", inflows: 620, outflows: 1250 },
 ];
 
 const THREE_MONTH_DATA = MONTHLY_DATA.slice(9);
-const THIRTY_DAY_DATA = Array.from({ length: 30 }, (_, i) => ({
-  month: `${i + 1}`,
-  inflows: 400 + Math.round(Math.sin(i / 3) * 80 + i * 8),
-  outflows: 300 + Math.round(Math.sin(i / 4) * 50 + i * 5),
-}));
-const SEVEN_DAY_DATA = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => ({
-  month: d,
-  inflows: 500 + i * 30 + Math.round(Math.random() * 60),
-  outflows: 350 + i * 20 + Math.round(Math.random() * 40),
-}));
-const HOURLY_DATA = Array.from({ length: 24 }, (_, i) => ({
-  month: `${i}:00`,
-  inflows: 200 + Math.round(Math.sin(i / 3) * 100 + 50),
-  outflows: 150 + Math.round(Math.sin(i / 4) * 70 + 30),
-}));
+const THIRTY_DAY_DATA = Array.from({ length: 30 }, (_, i) => {
+  const baseInflow = 650 + Math.sin(i * 1.4) * 260 + Math.cos(i * 0.8) * 130 + (i % 3 === 0 ? 160 : -110);
+  const baseOutflow = 480 + Math.cos(i * 1.7) * 190 + Math.sin(i * 0.9) * 95 + (i % 4 === 0 ? 130 : -90);
+  return {
+    month: `${i + 1}`,
+    inflows: Math.max(120, Math.round(baseInflow)),
+    outflows: Math.max(90, Math.round(baseOutflow)),
+  };
+});
+const SEVEN_DAY_DATA = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => {
+  const inflowVals = [780, 390, 950, 450, 1100, 320, 1250];
+  const outflowVals = [420, 680, 310, 820, 490, 910, 380];
+  return {
+    month: d,
+    inflows: inflowVals[i],
+    outflows: outflowVals[i],
+  };
+});
+const HOURLY_DATA = Array.from({ length: 24 }, (_, i) => {
+  const baseInflow = 450 + Math.sin(i * 1.3) * 220 + Math.cos(i * 2.6) * 110 + (i % 2 === 0 ? 90 : -90);
+  const baseOutflow = 320 + Math.cos(i * 1.5) * 160 + Math.sin(i * 2.2) * 85 + (i % 3 === 0 ? 70 : -70);
+  return {
+    month: `${i}:00`,
+    inflows: Math.max(60, Math.round(baseInflow)),
+    outflows: Math.max(40, Math.round(baseOutflow)),
+  };
+});
 
 const DATA_MAP: Record<TimeFrame, typeof MONTHLY_DATA> = {
   "12 months": MONTHLY_DATA,
@@ -65,7 +76,13 @@ const X_LABEL_MAP: Record<TimeFrame, string> = {
 };
 
 /* ── Custom tooltip ── */
-function CustomTooltip({ active, payload, label }: any) {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-outline bg-white px-4 py-3 shadow-lg text-center">
