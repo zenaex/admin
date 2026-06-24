@@ -601,6 +601,21 @@ function TransactionIdLink({ id }: { id: string }) {
   );
 }
 
+function CustomerNameLink({ id, name }: { id?: string; name: string }) {
+  if (!id?.trim()) {
+    return <span className="text-sm" style={{ color: TEXT }}>{name}</span>;
+  }
+  return (
+    <Link
+      href={`/dashboard/user-mgt/customers/${encodeURIComponent(id.trim())}`}
+      className="underline underline-offset-2 hover:opacity-80"
+      style={{ color: LINK }}
+    >
+      {name}
+    </Link>
+  );
+}
+
 function CryptoCurrencyCell({ value }: { value: string }) {
   if (value.includes(" to ")) {
     const [left, right] = value.split(" to ");
@@ -702,7 +717,7 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
           headers: ["Transaction ID", customerHeader, "Channel", "Type", "Currency", "Amount Sent"] as const,
           row: [
             <TransactionIdLink key="txid" id={tx.transactionId} />,
-            tx.customerName,
+            <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
             tx.categorySlug || channelLabel,
             tx.displayCategory || cryptoTypeLabel(variant),
             <CryptoCurrencyCell key="cur" value={tx.currency} />,
@@ -713,7 +728,7 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
           headers: ["Transaction ID", customerHeader, "Channel", "Type", "Currency", "Amount (USD)"] as const,
           row: [
             <TransactionIdLink key="txid" id={tx.transactionId} />,
-            tx.customerName,
+            <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
             tx.categorySlug || channelLabel,
             tx.displayCategory || cryptoTypeLabel(variant),
             <CryptoCurrencyCell key="cur" value={tx.currency} />,
@@ -802,7 +817,7 @@ function EsimTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }) {
           ]}
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
-            tx.customerName,
+            <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
             "E-sim",
             tx.product || "—",
             tx.esimCoverage || "—",
@@ -859,7 +874,7 @@ function WithdrawalTransactionDetailsContent({ tx }: { tx: TransactionDetailMode
           ]}
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
-            tx.customerName,
+            <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
             channelLabel,
             payoutCurrency,
             tx.withdrawalAmount,
@@ -917,7 +932,7 @@ function EtradeTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
           ]}
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
-            tx.customerName,
+            <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
             tx.categorySlug || "E-trade",
             tx.etradeSymbol,
             tx.etradeSide,
@@ -981,7 +996,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Amount"]}
               row={[
                 <TransactionIdLink key="txid" id={tx.transactionId} />,
-                tx.customerName,
+                <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
                 tx.categorySlug || "Utility",
                 tx.displayCategory || "Data",
                 tx.product || "—",
@@ -1032,7 +1047,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               ]}
               row={[
                 <TransactionIdLink key="txid" id={tx.transactionId} />,
-                tx.customerName,
+                <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
                 tx.categorySlug || "Utility",
                 tx.displayCategory || typeLabel,
                 tx.product || "—",
@@ -1084,7 +1099,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Amount"]}
               row={[
                 <TransactionIdLink key="txid" id={tx.transactionId} />,
-                tx.customerName,
+                <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
                 tx.categorySlug || "Utility",
                 tx.displayCategory || typeLabel,
                 tx.product || "—",
@@ -1128,7 +1143,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
             headers={["Transaction ID", "Customer", "Channel", "Type", "Product", "Plan"]}
             row={[
               <TransactionIdLink key="txid" id={tx.transactionId} />,
-              tx.customerName,
+              <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
               tx.categorySlug || "Utility",
               tx.displayCategory || typeLabel,
               tx.product || "—",
@@ -1181,7 +1196,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
           ]}
           row={[
             <TransactionIdLink key="txid" id={tx.transactionId} />,
-            tx.customerName,
+            <CustomerNameLink key="cust" id={tx.customerId} name={tx.customerName} />,
             tx.categorySlug || "Utility",
             tx.displayCategory || "Betting",
             tx.product || "—",
@@ -1243,6 +1258,7 @@ function TransactionDetailsTab({
           model={{
             sessionId: tx.sessionId,
             customerName: tx.customerName,
+            customerId: tx.customerId,
             channel: tx.giftcardProvider || tx.product || "Giftcard",
             typeLabel: tx.giftcardCategory || tx.displayCategory || tx.product,
             cardFormat: tx.giftcardCardFormat,

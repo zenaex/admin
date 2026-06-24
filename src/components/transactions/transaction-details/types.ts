@@ -5,6 +5,7 @@ export type TxApprovalStatus = "Approved" | "Pending" | "Rejected";
 export type GiftcardDetailModel = {
   sessionId: string;
   customerName: string;
+  customerId?: string;
   /** Denomination / category label (e.g. `10-500`). */
   typeLabel: string;
   /** Card delivery format from API (`e-code` vs physical). */

@@ -142,6 +142,21 @@ function SessionIdLink({ id }: { id: string }) {
   );
 }
 
+function CustomerNameLink({ id, name }: { id?: string; name: string }) {
+  if (!id?.trim()) {
+    return <span className="text-sm" style={{ color: TEXT }}>{name}</span>;
+  }
+  return (
+    <Link
+      href={`/dashboard/user-mgt/customers/${encodeURIComponent(id.trim())}`}
+      className="underline underline-offset-2 hover:opacity-80"
+      style={{ color: LINK }}
+    >
+      {name}
+    </Link>
+  );
+}
+
 function splitTimestamp(value: string) {
   const parts = value.split(" | ");
   return (
@@ -238,7 +253,7 @@ export function GiftcardTransactionDetails({
           headers={["Session ID", "Customer Names", "Channel", "Type", "Code", "Country"]}
           row={[
             <SessionIdLink key="tid" id={model.sessionId} />,
-            model.customerName,
+            <CustomerNameLink key="cust" id={model.customerId} name={model.customerName} />,
             "Gift Card",
             model.cardFormat === "e-code" ? "Ecode" : "Physical",
             <CodeCell

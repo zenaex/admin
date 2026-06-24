@@ -48,6 +48,7 @@ export type TransactionDetailModel = {
   utilityDetailVariant: UtilityDetailVariant;
   cryptoDetailVariant: CryptoDetailVariant;
   transactionId: string;
+  customerId: string;
   customerName: string;
   typeDeposit: string;
   currency: string;
@@ -142,6 +143,7 @@ export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
   utilityDetailVariant: "electricity",
   cryptoDetailVariant: "buy",
   transactionId: "",
+  customerId: "",
   customerName: "",
   typeDeposit: "",
   currency: "",
