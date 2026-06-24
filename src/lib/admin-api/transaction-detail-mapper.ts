@@ -912,6 +912,10 @@ export function mapApiDetailToTransactionModel(
     (customerBlock ? formatPersonName(customerBlock) : "") ||
     formatPersonName(o);
 
+  const customerId =
+    (customerBlock ? pickString(customerBlock, ["accountId", "id", "uuid", "userId", "customerId"]) : "") ||
+    pickString(o, ["customerAccountId", "customer_id", "customerId", "accountId", "userId"]);
+
   let provider = detailProvider(o);
   if (isUtility && (provider === "—" || provider === "Manual" || provider === "System" || !provider || provider.toLowerCase().includes("ringo"))) {
     provider = "Ringo";
@@ -1005,6 +1009,7 @@ export function mapApiDetailToTransactionModel(
     transactionId: referenceNo,
     sessionId: pickString(o, ["sessionId", "session_id"]) || referenceNo,
     customerName,
+    customerId,
     provider,
     giftcardProvider: provider,
     esimProvider: provider,
