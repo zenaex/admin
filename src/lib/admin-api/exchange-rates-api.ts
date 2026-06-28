@@ -443,7 +443,7 @@ function formatGiftcardVendorRate(raw: string): string {
   const n = Number(t);
   if (Number.isFinite(n)) {
     // Bug #52: Rates returned from backend in minor units — divide by 100
-    const major = n > 1000 ? n / 100 : n;
+    const major = n / 100;
     return `$${major}`;
   }
   return t;
@@ -456,7 +456,7 @@ function formatGiftcardFinalRate(raw: string): string {
   const n = Number(t);
   if (Number.isFinite(n)) {
     // Bug #52: Rates returned from backend in minor units — divide by 100
-    const major = n > 1000 ? n / 100 : n;
+    const major = n / 100;
     return `$1/₦${major.toLocaleString()}`;
   }
   return t;
@@ -738,7 +738,11 @@ export async function postConfigureGiftcardRate(
       rmbRate: parseRmbRateNumber(input.rmbRate),
       markupType,
       markupValue,
-      categories: input.categories,
+      categories: input.categories.map((c) => ({
+        category: c.category,
+        vendorRate: Math.round(c.vendorRate * 100),
+        isActive: c.isActive,
+      })),
     }),
     auth: true,
   });
