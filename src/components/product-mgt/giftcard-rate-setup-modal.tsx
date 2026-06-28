@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CloseCircle } from "iconsax-react";
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import type { MarkupType } from "@/lib/product-mgt/rate-preview";
+import { getCurrencySymbol } from "@/lib/admin-api/exchange-rates-api";
 
 /** Form values structure for configuring giftcard brand and denomination rates */
 export type GiftcardRateFormValues = {
@@ -73,9 +74,11 @@ export function GiftcardRateSetupModal({ brand, brands, onClose, onSubmit }: Gif
     return `₦${cleaned}`;
   };
 
+  const symbol = getCurrencySymbol(selectedBrand.currency);
+
   const getVendorRateDisplay = (val: string) => {
     const cleaned = val.replace(/[^0-9.]/g, "");
-    return cleaned ? `$${cleaned}` : "";
+    return cleaned ? `${symbol}${cleaned}` : "";
   };
 
   const modalTitle = selectedBrand.brandName.substring(0, 3) + "Rate Setup";
@@ -206,7 +209,7 @@ export function GiftcardRateSetupModal({ brand, brands, onClose, onSubmit }: Gif
                         return { ...f, denominations: updatedDenoms };
                       });
                     }}
-                    placeholder="e.g. $5.18"
+                    placeholder={`e.g. ${symbol}5.18`}
                   />
                 </div>
               ))}

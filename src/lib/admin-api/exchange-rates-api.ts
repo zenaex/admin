@@ -830,3 +830,81 @@ export async function getPublicSellCryptoRate(query: { cryptoSlug: string }): Pr
   });
   return adminRequest<unknown>(`/rates/sell-crypto${qs}`, { method: "GET", auth: false });
 }
+
+export function getCurrencySymbol(currency?: string): string {
+  const code = (currency || "USD").trim().toUpperCase();
+  switch (code) {
+    case "USD":
+      return "$";
+    case "GBP":
+      return "£";
+    case "EUR":
+      return "€";
+    case "CAD":
+      return "C$";
+    case "GHS":
+      return "₵";
+    default:
+      return "$";
+  }
+}
+
+export type GiftcardPreviewCategoryInput = {
+  category: string;
+  vendorRate: number;
+};
+
+export type GiftcardPreviewCategoryResult = {
+  category: string;
+  vendorRate: number;
+  finalRate: number;
+};
+
+export type GiftcardPreviewInput = {
+  rmbRate: number;
+  markupType: string;
+  markupRate: number;
+  categories: GiftcardPreviewCategoryInput[];
+};
+
+export type GiftcardPreviewResponse = {
+  rmbRate: number;
+  markupValue: number;
+  categories: GiftcardPreviewCategoryResult[];
+};
+
+export async function getGiftcardRatePreview(input: GiftcardPreviewInput): Promise<GiftcardPreviewResponse> {
+  const isFlat = input.markupType.trim().toLowerCase() === "flat";
+  const markupValue = isFlat ? Math.round(input.markupRate * 100) : 0;
+
+  const response = await adminRequest<GiftcardPreviewResponse>("/admin/rates/gift-card/preview", {
+    method: "POST",
+    body: JSON.stringify({
+      rmbRate: input.rmbRate,
+      markupValue,
+      categories: input.categories.map((c) => ({
+        category: c.category,
+        vendorRate: Math.round(c.vendorRate * 100),
+      })),
+    }),
+    auth: true,
+  });
+
+  if (!isFlat) {
+    const isCapped = input.markupType.trim().toLowerCase().includes("capped");
+    response.categories = response.categories.map((c) => {
+      const baseRateKobo = c.finalRate;
+      let markupKobo = (baseRateKobo * input.markupRate) / 100;
+      if (isCapped) {
+        markupKobo = Math.min(markupKobo, 5000);
+      }
+      return {
+        ...c,
+        finalRate: Math.round(baseRateKobo - markupKobo),
+      };
+    });
+  }
+
+  return response;
+}
+
