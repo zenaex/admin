@@ -3,10 +3,12 @@
 import type { GiftcardRateFormValues } from "@/components/product-mgt/giftcard-rate-setup-modal";
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import type { MarkupType } from "@/lib/product-mgt/rate-preview";
+import { getCurrencySymbol } from "@/lib/admin-api/exchange-rates-api";
 
 type GiftcardRateConfirmSummaryProps = {
   form: GiftcardRateFormValues;
   brand: GiftcardBrand;
+  previewCategories?: { category: string; vendorRate: number; finalRate: number }[];
 };
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
@@ -18,7 +20,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function GiftcardRateConfirmSummary({ form, brand }: GiftcardRateConfirmSummaryProps) {
+export function GiftcardRateConfirmSummary({ form, brand, previewCategories }: GiftcardRateConfirmSummaryProps) {
   const countryDisplay = brand.country === "United State" || brand.country.startsWith("United State") ? "USA" : brand.country;
   const brandTypeDisplay = brand.brandType === "E-code" ? "Ecode" : brand.brandType;
   const commTypeLabel =
@@ -34,6 +36,8 @@ export function GiftcardRateConfirmSummary({ form, brand }: GiftcardRateConfirmS
       : form.commissionType === "% capped @"
         ? `${form.commissionRate}%@₦50`
         : `₦${parseFloat(form.commissionRate || "100").toLocaleString()}`;
+
+  const symbol = getCurrencySymbol(brand.currency);
 
   const calculateFinalRate = (
     commissionType: MarkupType,
@@ -53,7 +57,7 @@ export function GiftcardRateConfirmSummary({ form, brand }: GiftcardRateConfirmS
       const baseNgn = 1250;
       finalNgn = baseNgn - commNum;
     }
-    return `$1/₦${finalNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${symbol}1/₦${finalNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
@@ -85,18 +89,25 @@ export function GiftcardRateConfirmSummary({ form, brand }: GiftcardRateConfirmS
           {/* Table Body */}
           <div className="divide-y divide-zinc-100 mt-1">
             {form.denominations.map((denom) => {
-              const formattedVendorRate = `$${parseFloat(denom.vendorRate || "5.18").toFixed(2)}`;
-              const formattedFinalRate = calculateFinalRate(
-                form.commissionType,
-                form.commissionRate,
-                denom.vendorRate
+              const preview = previewCategories?.find(
+                (pc) => pc.category === denom.category || pc.category === denom.label
               );
+              
+              const vendorRateNum = preview 
+                ? preview.vendorRate / 100 
+                : parseFloat(denom.vendorRate || "0");
+                
+              const finalRateDisplay = preview
+                ? `${symbol}1/₦${(preview.finalRate / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : calculateFinalRate(form.commissionType, form.commissionRate, denom.vendorRate);
+
+              const formattedVendorRate = `${symbol}${vendorRateNum.toFixed(2)}`;
 
               return (
                 <div key={denom.id} className="flex items-center justify-between text-xs py-2.5">
                   <span className="w-1/2 font-medium text-zinc-500">{denom.label}</span>
                   <span className="w-1/4 text-center font-medium text-primary-text">{formattedVendorRate}</span>
-                  <span className="w-1/4 text-right font-bold text-primary-text">{formattedFinalRate}</span>
+                  <span className="w-1/4 text-right font-bold text-primary-text">{finalRateDisplay}</span>
                 </div>
               );
             })}

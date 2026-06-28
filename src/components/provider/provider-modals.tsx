@@ -14,6 +14,7 @@ type ConfirmModalProps = {
   variant?: "danger" | "approve";
   onConfirm: () => void;
   onCancel: () => void;
+  disabled?: boolean;
 };
 
 export function ConfirmModal({
@@ -25,12 +26,13 @@ export function ConfirmModal({
   variant = "danger",
   onConfirm,
   onCancel,
+  disabled = false,
 }: ConfirmModalProps) {
   const iconColor = variant === "approve" ? "var(--color-secondary-green)" : "var(--color-failed)";
   const confirmCls =
     variant === "approve"
-      ? "flex-1 rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90"
-      : "flex-1 rounded-full bg-red-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-red-700";
+      ? "flex-1 rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+      : "flex-1 rounded-full bg-red-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -66,7 +68,7 @@ export function ConfirmModal({
           >
             {cancelLabel}
           </button>
-          <button type="button" onClick={onConfirm} className={confirmCls}>
+          <button type="button" onClick={onConfirm} className={confirmCls} disabled={disabled}>
             {confirmLabel}
           </button>
         </div>

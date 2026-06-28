@@ -7,7 +7,7 @@ import { GiftcardRateSetupModal, type GiftcardRateFormValues } from "@/component
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import { formatUpdatedDate } from "@/lib/product-mgt/rate-preview";
 import type { MarkupType } from "@/lib/product-mgt/rate-preview";
-import { postConfigureGiftcardRate } from "@/lib/admin-api/exchange-rates-api";
+import { postConfigureGiftcardRate, getGiftcardRatePreview, getCurrencySymbol } from "@/lib/admin-api/exchange-rates-api";
 
 type FlowStep = "setup" | "confirm" | "success";
 
@@ -22,10 +22,14 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
   const [step, setStep] = useState<FlowStep>("setup");
   const [form, setForm] = useState<GiftcardRateFormValues | null>(null);
   const [activeBrand, setActiveBrand] = useState<GiftcardBrand | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewCategories, setPreviewCategories] = useState<{ category: string; vendorRate: number; finalRate: number }[] | null>(null);
 
   const reset = useCallback(() => {
     setStep("setup");
     setForm(null);
+    setPreviewLoading(false);
+    setPreviewCategories(null);
   }, []);
 
   useEffect(() => {
@@ -34,6 +38,41 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
       setActiveBrand(brand);
     }
   }, [brand?.id, reset]);
+
+  useEffect(() => {
+    if (step === "confirm" && form && activeBrand) {
+      let cancelled = false;
+      const fetchPreview = async () => {
+        setPreviewLoading(true);
+        try {
+          const res = await getGiftcardRatePreview({
+            rmbRate: parseFloat(form.rmbRate.replace(/[^\d.]/g, "")) || 0,
+            markupType: form.commissionType,
+            markupRate: parseFloat(form.commissionRate) || 0,
+            categories: form.denominations.map((d) => ({
+              category: d.category || d.label,
+              vendorRate: parseFloat(d.vendorRate) || 0,
+            })),
+          });
+          if (!cancelled) {
+            setPreviewCategories(res.categories);
+          }
+        } catch (e) {
+          console.error("Failed to load preview rates:", e);
+        } finally {
+          if (!cancelled) {
+            setPreviewLoading(false);
+          }
+        }
+      };
+      void fetchPreview();
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setPreviewCategories(null);
+    }
+  }, [step, form, activeBrand?.id]);
 
   if (!brand || !activeBrand) return null;
 
@@ -48,6 +87,8 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
     setActiveBrand(chosen);
     setStep("confirm");
   };
+
+  const symbol = getCurrencySymbol(activeBrand.currency);
 
   const calculateFinalRate = (
     commissionType: MarkupType,
@@ -66,7 +107,7 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
       const baseNgn = 1250;
       finalNgn = baseNgn - commNum;
     }
-    return `$1/₦${finalNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${symbol}1/₦${finalNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const handleConfirm = async () => {
@@ -102,11 +143,16 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
         denominations: activeBrand.denominations.map((denom) => {
           const formDenom = form.denominations.find((fd) => fd.id === denom.id);
           const updatedVendorRateClean = formDenom ? formDenom.vendorRate : denom.vendorRate.replace(/[^\d.]/g, "");
+          const preview = previewCategories?.find((pc) => pc.category === denom.category || pc.category === denom.label);
+          
+          const finalRateDisplay = preview
+            ? `${symbol}1/₦${(preview.finalRate / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : calculateFinalRate(form.commissionType, form.commissionRate, updatedVendorRateClean);
 
           return {
             ...denom,
-            vendorRate: `$${parseFloat(updatedVendorRateClean).toFixed(2)}`,
-            finalRate: calculateFinalRate(form.commissionType, form.commissionRate, updatedVendorRateClean),
+            vendorRate: `${symbol}${parseFloat(updatedVendorRateClean).toFixed(2)}`,
+            finalRate: finalRateDisplay,
             dateUpdated: formatUpdatedDate(),
           };
         }),
@@ -135,9 +181,15 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
         confirmLabel="Update"
         onConfirm={handleConfirm}
         onCancel={() => setStep("setup")}
+        disabled={previewLoading}
       >
-        <div className="text-left w-full">
-          <GiftcardRateConfirmSummary form={form} brand={activeBrand} />
+        <div className="text-left w-full relative">
+          {previewLoading && (
+            <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-3xl">
+              <span className="text-xs font-semibold text-zinc-500">Loading live preview rates...</span>
+            </div>
+          )}
+          <GiftcardRateConfirmSummary form={form} brand={activeBrand} previewCategories={previewCategories || undefined} />
         </div>
       </ConfirmModal>
     );
