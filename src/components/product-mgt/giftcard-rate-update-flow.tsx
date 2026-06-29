@@ -7,7 +7,7 @@ import { GiftcardRateSetupModal, type GiftcardRateFormValues } from "@/component
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import { formatUpdatedDate } from "@/lib/product-mgt/rate-preview";
 import type { MarkupType } from "@/lib/product-mgt/rate-preview";
-import { postConfigureGiftcardRate, getGiftcardRatePreview, getCurrencySymbol } from "@/lib/admin-api/exchange-rates-api";
+import { postConfigureGiftcardRate, getGiftcardRatePreview, getCurrencySymbol, parseRmbRate } from "@/lib/admin-api/exchange-rates-api";
 
 type FlowStep = "setup" | "confirm" | "success";
 
@@ -46,7 +46,7 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
         setPreviewLoading(true);
         try {
           const res = await getGiftcardRatePreview({
-            rmbRate: parseFloat(form.rmbRate.replace(/[^\d.]/g, "")) || 0,
+            rmbRate: parseRmbRate(form.rmbRate),
             markupType: form.commissionType,
             markupRate: parseFloat(form.commissionRate) || 0,
             categories: form.denominations.map((d) => ({
@@ -95,17 +95,20 @@ export function GiftcardRateUpdateFlow({ brand, brands, onClose, onApplied }: Gi
     commissionRate: string,
     vendorRate: string
   ) => {
+    const rmb = parseRmbRate(form?.rmbRate || activeBrand.rmbRate);
+    const vendor = parseFloat(vendorRate) || 0;
+    const baseNgn = rmb * vendor;
+
     const commNum = parseFloat(commissionRate) || 0;
-    let finalNgn = 1200;
+    let finalNgn = baseNgn;
+
     if (commissionType === "Percentage") {
-      const baseNgn = 1500;
       finalNgn = baseNgn * (1 - commNum / 100);
     } else if (commissionType === "Flat") {
-      const baseNgn = 1300;
       finalNgn = baseNgn - commNum;
     } else {
-      const baseNgn = 1250;
-      finalNgn = baseNgn - commNum;
+      const markup = Math.min((baseNgn * commNum) / 100, 50);
+      finalNgn = baseNgn - markup;
     }
     return `${symbol}1/₦${finalNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };

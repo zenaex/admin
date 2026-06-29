@@ -3,7 +3,7 @@
 import type { GiftcardRateFormValues } from "@/components/product-mgt/giftcard-rate-setup-modal";
 import type { GiftcardBrand } from "@/components/product-mgt/product-mgt-types";
 import type { MarkupType } from "@/lib/product-mgt/rate-preview";
-import { getCurrencySymbol } from "@/lib/admin-api/exchange-rates-api";
+import { getCurrencySymbol, parseRmbRate } from "@/lib/admin-api/exchange-rates-api";
 
 type GiftcardRateConfirmSummaryProps = {
   form: GiftcardRateFormValues;
@@ -44,18 +44,21 @@ export function GiftcardRateConfirmSummary({ form, brand, previewCategories }: G
     commissionRate: string,
     vendorRate: string
   ) => {
+    const rmb = parseRmbRate(form.rmbRate);
+    const vendor = parseFloat(vendorRate) || 0;
+    const baseNgn = rmb * vendor;
+
     const commNum = parseFloat(commissionRate) || 0;
-    let finalNgn = 1200;
+    let finalNgn = baseNgn;
+
     // Calculate exchange rate in Naira using the custom commission rules
     if (commissionType === "Percentage") {
-      const baseNgn = 1500;
       finalNgn = baseNgn * (1 - commNum / 100);
     } else if (commissionType === "Flat") {
-      const baseNgn = 1300;
       finalNgn = baseNgn - commNum;
     } else {
-      const baseNgn = 1250;
-      finalNgn = baseNgn - commNum;
+      const markup = Math.min((baseNgn * commNum) / 100, 50);
+      finalNgn = baseNgn - markup;
     }
     return `${symbol}1/₦${finalNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };

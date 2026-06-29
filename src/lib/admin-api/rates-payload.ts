@@ -77,6 +77,20 @@ export function slugToCryptoTicker(slugOrCode: string): string {
   return "";
 }
 
-export function parseRmbRateNumber(value: string | number): number {
-  return parseRateNumber(value);
+export function parseRmbRate(val: string): number {
+  const clean = val.trim();
+  if (clean.includes("/")) {
+    const parts = clean.split("/");
+    const after = parts[parts.length - 1];
+    const n = parseFloat(after.replace(/[^\d.]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+  const n = parseFloat(clean.replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) ? n : 0;
 }
+
+export function parseRmbRateNumber(value: string | number): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return parseRmbRate(String(value));
+}
+
