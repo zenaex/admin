@@ -2,6 +2,7 @@ import { adminRequest } from "@/lib/admin-api/client";
 import { formatNgnMajor, koboToMajor } from "@/lib/admin-api/money";
 import {
   buildMarkupConfigurePayload,
+  parseRmbRate,
   parseRmbRateNumber,
   resolveCryptoSlug,
   resolveSwapCryptoCode,
@@ -830,6 +831,8 @@ export async function getPublicSellCryptoRate(query: { cryptoSlug: string }): Pr
   });
   return adminRequest<unknown>(`/rates/sell-crypto${qs}`, { method: "GET", auth: false });
 }
+
+export { parseRmbRate };
 
 export function getCurrencySymbol(currency?: string): string {
   const code = (currency || "USD").trim().toUpperCase();
