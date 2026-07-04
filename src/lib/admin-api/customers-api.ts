@@ -451,8 +451,9 @@ function pickKycStatus(o: Record<string, unknown>): string {
 
 function pickKycName(o: Record<string, unknown>, fallbackName?: string): string {
   const first = pickString(o, ["firstName", "first_name", "givenName"]);
+  const middle = pickString(o, ["middleName", "middle_name", "middle"]);
   const last = pickString(o, ["lastName", "last_name", "familyName"]);
-  const fromParts = [first, last].filter(Boolean).join(" ").trim();
+  const fromParts = [first, middle, last].filter(Boolean).join(" ").trim();
   if (fromParts) return fromParts;
   const full = pickString(o, ["fullName", "full_name", "name", "customerName", "displayName"]);
   if (full) return full;
@@ -561,19 +562,27 @@ function normalizeTier1(raw: Record<string, unknown> | null, fallbackName?: stri
   const o = raw ?? {};
   return {
     name: pickKycName(o, fallbackName),
-    bvn: pickString(o, ["bvn", "BVN", "bankVerificationNumber", "bank_verification_number"]),
+    bvn: pickString(o, ["bvn", "BVN", "bankVerificationNumber", "bank_verification_number", "idNumber"]),
     dateOfBirth: formatKycDateValue(
       o.dateOfBirth ?? o.date_of_birth ?? o.dob ?? o.birthDate ?? o.birth_date,
     ),
     status: pickKycStatus(o),
+    gender: pickString(o, ["gender"]),
+    submittedAt: formatKycDateValue(o.submittedAt ?? o.submitted_at),
+    provider: pickString(o, ["provider"]),
+    errorMessage: pickString(o, ["errorMessage", "error_message", "error"]),
   };
 }
 
 function normalizeTier2(raw: Record<string, unknown> | null): AdminCustomerKycTier2 {
   const o = raw ?? {};
-  const idType =
-    pickString(o, ["idType", "id_type", "documentType", "document_type", "identificationType"]) ||
+  const rawIdType =
+    pickString(o, ["idType", "id_type", "documentType", "document_type", "identificationType", "type"]) ||
     (pickString(o, ["nin", "NIN"]) ? "NIN" : "");
+  const idType =
+    rawIdType.toUpperCase() === "NIN" || rawIdType.toUpperCase() === "BVN"
+      ? rawIdType.toUpperCase()
+      : rawIdType;
   const idNumber = pickString(o, [
     "idNumber",
     "id_number",
@@ -585,6 +594,7 @@ function normalizeTier2(raw: Record<string, unknown> | null): AdminCustomerKycTi
     "identification_number",
   ]);
   return {
+    name: pickKycName(o),
     idType,
     idNumber,
     dateIssued: formatKycDateValue(o.dateIssued ?? o.date_issued ?? o.issuedAt ?? o.issued_at),
@@ -598,6 +608,13 @@ function normalizeTier2(raw: Record<string, unknown> | null): AdminCustomerKycTi
         o.expirationDate,
     ),
     status: pickKycStatus(o),
+    dateOfBirth: formatKycDateValue(
+      o.dateOfBirth ?? o.date_of_birth ?? o.dob ?? o.birthDate ?? o.birth_date,
+    ),
+    gender: pickString(o, ["gender"]),
+    submittedAt: formatKycDateValue(o.submittedAt ?? o.submitted_at),
+    provider: pickString(o, ["provider"]),
+    errorMessage: pickString(o, ["errorMessage", "error_message", "error"]),
   };
 }
 

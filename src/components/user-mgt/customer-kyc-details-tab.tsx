@@ -11,8 +11,8 @@ type CustomerKycDetailsTabProps = {
   customerDisplayName?: string;
 };
 
-function kycCell(value: string): string {
-  const t = value.trim();
+function kycCell(value: string | undefined): string {
+  const t = value?.trim();
   return t ? t : "-";
 }
 
@@ -118,47 +118,117 @@ export function CustomerKycDetailsTab({ accountId, customerDisplayName }: Custom
     return <ErrorAlert error={error} onRetry={() => void load()} className="mt-6" />;
   }
 
-  const tier1 = kyc?.tier1 ?? { name: "", bvn: "", dateOfBirth: "", status: "" };
-  const tier2 = kyc?.tier2 ?? { idType: "", idNumber: "", dateIssued: "", dateOfExpiry: "", status: "" };
+  const tier1 = kyc?.tier1 ?? {
+    name: "",
+    bvn: "",
+    dateOfBirth: "",
+    status: "",
+    gender: "",
+    submittedAt: "",
+    provider: "",
+    errorMessage: "",
+  };
+  const tier2 = kyc?.tier2 ?? {
+    name: "",
+    idType: "",
+    idNumber: "",
+    dateIssued: "",
+    dateOfExpiry: "",
+    status: "",
+    dateOfBirth: "",
+    gender: "",
+    submittedAt: "",
+    provider: "",
+    errorMessage: "",
+  };
 
   return (
     <div className="mt-6 space-y-8">
-      <KycTierTable
-        title="Tier 1 Details"
-        headers={["Name", "BVN", "Date of Birth", "Status"]}
-        cells={[
-          <span key="name" className="font-medium text-primary-text">
-            {kycCell(tier1.name)}
-          </span>,
-          <span key="bvn" className="text-zinc-600">
-            {kycCell(tier1.bvn)}
-          </span>,
-          <span key="dob" className="whitespace-nowrap text-zinc-600">
-            {kycCell(tier1.dateOfBirth)}
-          </span>,
-          <KycStatusBadge key="status" status={tier1.status} />,
-        ]}
-      />
+      <div>
+        <KycTierTable
+          title="Tier 1 Details"
+          headers={["Name", "BVN", "Date of Birth", "Gender", "Provider", "Submitted At", "Status"]}
+          cells={[
+            <span key="name" className="font-medium text-primary-text">
+              {kycCell(tier1.name)}
+            </span>,
+            <span key="bvn" className="text-zinc-600">
+              {kycCell(tier1.bvn)}
+            </span>,
+            <span key="dob" className="whitespace-nowrap text-zinc-600">
+              {kycCell(tier1.dateOfBirth)}
+            </span>,
+            <span key="gender" className="whitespace-nowrap text-zinc-600 capitalize">
+              {kycCell(tier1.gender?.toLowerCase() || "")}
+            </span>,
+            <span key="provider" className="whitespace-nowrap text-zinc-600 capitalize">
+              {kycCell(tier1.provider)}
+            </span>,
+            <span key="submitted" className="whitespace-nowrap text-zinc-600">
+              {kycCell(tier1.submittedAt)}
+            </span>,
+            <KycStatusBadge key="status" status={tier1.status} />,
+          ]}
+        />
+        {tier1.errorMessage && (
+          <div className="mt-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600">
+            <strong>Verification Error:</strong> {tier1.errorMessage}
+          </div>
+        )}
+      </div>
 
-      <KycTierTable
-        title="Tier 2 Details"
-        headers={["ID Type", "ID Number", "Date Issued", "Date of Expiry", "Status"]}
-        cells={[
-          <span key="idType" className="font-medium text-primary-text">
-            {kycCell(tier2.idType)}
-          </span>,
-          <span key="idNumber" className="text-zinc-600">
-            {kycCell(tier2.idNumber)}
-          </span>,
-          <span key="issued" className="whitespace-nowrap text-zinc-600">
-            {kycCell(tier2.dateIssued)}
-          </span>,
-          <span key="expiry" className="whitespace-nowrap text-zinc-600">
-            {kycCell(tier2.dateOfExpiry)}
-          </span>,
-          <KycStatusBadge key="status" status={tier2.status} />,
-        ]}
-      />
+      <div>
+        <KycTierTable
+          title="Tier 2 Details"
+          headers={[
+            "Name",
+            "ID Type",
+            "ID Number",
+            "Date of Birth",
+            "Gender",
+            "Date Issued",
+            "Date of Expiry",
+            "Provider",
+            "Submitted At",
+            "Status",
+          ]}
+          cells={[
+            <span key="name" className="font-medium text-primary-text">
+              {kycCell(tier2.name)}
+            </span>,
+            <span key="idType" className="font-medium text-primary-text">
+              {kycCell(tier2.idType)}
+            </span>,
+            <span key="idNumber" className="text-zinc-600">
+              {kycCell(tier2.idNumber)}
+            </span>,
+            <span key="dob" className="whitespace-nowrap text-zinc-600">
+              {kycCell(tier2.dateOfBirth || "")}
+            </span>,
+            <span key="gender" className="whitespace-nowrap text-zinc-600 capitalize">
+              {kycCell(tier2.gender?.toLowerCase() || "")}
+            </span>,
+            <span key="issued" className="whitespace-nowrap text-zinc-600">
+              {kycCell(tier2.dateIssued)}
+            </span>,
+            <span key="expiry" className="whitespace-nowrap text-zinc-600">
+              {kycCell(tier2.dateOfExpiry)}
+            </span>,
+            <span key="provider" className="whitespace-nowrap text-zinc-600 capitalize">
+              {kycCell(tier2.provider)}
+            </span>,
+            <span key="submitted" className="whitespace-nowrap text-zinc-600">
+              {kycCell(tier2.submittedAt)}
+            </span>,
+            <KycStatusBadge key="status" status={tier2.status} />,
+          ]}
+        />
+        {tier2.errorMessage && (
+          <div className="mt-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600">
+            <strong>Verification Error:</strong> {tier2.errorMessage}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

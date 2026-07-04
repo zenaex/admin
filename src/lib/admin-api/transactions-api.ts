@@ -501,6 +501,17 @@ function pickTransactionChannel(o: Record<string, unknown>): string {
 }
 
 function pickTransactionProduct(o: Record<string, unknown>, channelLabel: string): string {
+  if (channelLabel === "Giftcard") {
+    const providerName = pickString(o, ["providerName", "provider_name", "brandName", "brand_name"]);
+    if (providerName) return providerName;
+
+    const category = pickString(o, ["category", "categorySlug", "category_slug"]);
+    const norm = category.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (category && norm !== "giftcard" && norm !== "giftcardcategory") {
+      return category;
+    }
+  }
+
   const isUtility =
     channelLabel === "Utility" ||
     (channelLabel === "Deposit" &&
@@ -1122,8 +1133,11 @@ export function flattenTransactionRecord(raw: Record<string, unknown>): Record<s
     "submission",
     "giftCardSubmission",
     "gift_card_submission",
+    "giftcardSubmission",
+    "giftcard_submission",
     "giftCard",
     "gift_card",
+    "giftcard",
   ]) {
     const nested = asRecord(o[key]);
     if (nested) Object.assign(merged, nested);
