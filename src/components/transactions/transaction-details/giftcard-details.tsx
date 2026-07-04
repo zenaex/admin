@@ -8,6 +8,7 @@ import type {
   GiftcardTransactionDetailsProps,
   TxApprovalStatus,
 } from "@/components/transactions/transaction-details/types";
+import { ISO_TO_FULL_NAME } from "@/lib/admin-api/transaction-detail-mapper";
 
 function GiftcardImagePlaceholder() {
   return (
@@ -169,7 +170,8 @@ function splitTimestamp(value: string) {
 
 function countryCell(country: string) {
   const countryParts = country.split(" | ");
-  const countryLeft = countryParts[0] ?? "";
+  const countryBase = countryParts[0] ?? "";
+  const countryLeft = ISO_TO_FULL_NAME[countryBase.toUpperCase()] || countryBase;
   const countryRest = countryParts.length > 1 ? ` | ${countryParts.slice(1).join(" | ")}` : "";
   return (
     <span key="co" className="text-sm" style={{ color: TEXT }}>

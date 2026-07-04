@@ -239,15 +239,25 @@ export type AdminCustomerKycTier1 = {
   bvn: string;
   dateOfBirth: string;
   status: string;
+  gender?: string;
+  submittedAt?: string;
+  provider?: string;
+  errorMessage?: string;
 };
 
 /** Normalized Tier 2 row for customer KYC details UI. */
 export type AdminCustomerKycTier2 = {
+  name: string;
   idType: string;
   idNumber: string;
   dateIssued: string;
   dateOfExpiry: string;
   status: string;
+  dateOfBirth?: string;
+  gender?: string;
+  submittedAt?: string;
+  provider?: string;
+  errorMessage?: string;
 };
 
 export type AdminCustomerKycDetails = {

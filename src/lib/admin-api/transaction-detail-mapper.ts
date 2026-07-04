@@ -36,8 +36,9 @@ export type TransactionLogEntry = {
   date: string;
 };
 
-const ISO_TO_FULL_NAME: Record<string, string> = {
+export const ISO_TO_FULL_NAME: Record<string, string> = {
   US: "United States",
+  USA: "United States",
   DE: "Germany",
   NG: "Nigeria",
   GB: "United Kingdom",
@@ -531,8 +532,11 @@ function enrichGiftcardDetailModel(
     "submission",
     "giftCardSubmission",
     "gift_card_submission",
+    "giftcardSubmission",
+    "giftcard_submission",
     "giftCard",
     "gift_card",
+    "giftcard",
   ]);
   const blocks = submission ? [...detailBlocks, submission] : detailBlocks;
 
@@ -602,7 +606,21 @@ function enrichGiftcardDetailModel(
     model.amount = formatGiftcardAmountDisplay(faceCents, faceCurrency || "USD");
   }
 
-  const rateAppliedKobo = pickNumFromBlocks(o, blocks, ["rateApplied", "rate_applied"]);
+  const rateAppliedKobo = pickNumFromBlocks(o, blocks, [
+    "rateApplied",
+    "rate_applied",
+    "rate",
+    "rateGiven",
+    "rate_given",
+    "rateFee",
+    "rate_fee",
+    "vendorRate",
+    "vendor_rate",
+    "conversionRate",
+    "conversion_rate",
+    "exchangeRate",
+    "exchange_rate",
+  ]);
   const topLevelRateKobo = pickNum(o, ["rate"]);
   const bestRateKobo = rateAppliedKobo ?? topLevelRateKobo;
 
@@ -634,7 +652,15 @@ function enrichGiftcardDetailModel(
     }
   }
 
-  const countryRawTemp = pickScalarFromBlocks(o, blocks, ["country", "countryName", "country_name"]);
+  const countryRawTemp = pickScalarFromBlocks(o, blocks, [
+    "country",
+    "countryName",
+    "country_name",
+    "countryCode",
+    "country_code",
+    "brandCountry",
+    "brand_country",
+  ]);
   const countryParts = countryRawTemp.split("|").map((s) => s.trim());
   const countryBase = countryParts[0] || "";
   const countryRaw = ISO_TO_FULL_NAME[countryBase.toUpperCase()] || countryBase;
@@ -709,14 +735,34 @@ function enrichGiftcardDetailModel(
     "paidOut",
     "payoutAmount",
     "payout_amount",
+    "nairaEquivalent",
+    "naira_equivalent",
+    "amountPaid",
+    "amount_paid",
+    "paidAmount",
+    "paid_amount",
+    "payout",
+    "paid",
   ]);
   if (amountPaidOut) {
     model.amountPaidOut = amountPaidOut;
   }
 
-  const uploadedRaw = pickScalarFromBlocks(o, blocks, ["dateUploaded", "uploadedAt", "uploaded_at"]);
+  const uploadedRaw = pickScalarFromBlocks(o, blocks, [
+    "dateUploaded",
+    "uploadedAt",
+    "uploaded_at",
+    "submittedAt",
+    "submitted_at",
+    "createdAt",
+    "created_at",
+    "initiatedAt",
+    "initiated_at",
+  ]);
   if (uploadedRaw) {
     model.dateUploaded = formatDisplayDate(uploadedRaw);
+  } else if (model.datedInitiated) {
+    model.dateUploaded = model.datedInitiated;
   }
 }
 
@@ -969,7 +1015,17 @@ export function mapApiDetailToTransactionModel(
   const bankBlock = pickNestedRecord(o, ["bank", "bankAccount", "account", "beneficiary", "destination"]);
   const providerLogRequest = readProviderLogRequestPayload(o);
 
-  const uploadedRaw = pickString(o, ["dateUploaded", "uploadedAt", "uploaded_at"]);
+  const uploadedRaw = pickString(o, [
+    "dateUploaded",
+    "uploadedAt",
+    "uploaded_at",
+    "submittedAt",
+    "submitted_at",
+    "createdAt",
+    "created_at",
+    "initiatedAt",
+    "initiated_at",
+  ]);
   let product =
     pickString(o, ["product", "productName", "product_name", "productSlug", "product_slug"]) ||
     pickNestedString(o, [["product", "name"], ["product", "title"], ["service", "name"], ["product", "slug"]]) ||
@@ -1029,6 +1085,14 @@ export function mapApiDetailToTransactionModel(
       "paidOut",
       "payoutAmount",
       "payout_amount",
+      "nairaEquivalent",
+      "naira_equivalent",
+      "amountPaid",
+      "amount_paid",
+      "paidAmount",
+      "paid_amount",
+      "payout",
+      "paid",
     ]),
     datedInitiated,
     dateCompleted,
