@@ -10,17 +10,21 @@ import { ProviderHeader } from "@/components/provider/provider-header";
 import { ProviderRow, ProviderTable } from "@/components/provider/provider-table";
 import {
   TableFilterApplyClear,
+  TableFilterDatePanel,
   TableFilterDropdownCard,
   TableFilterModeBar,
   TableFilterOptionsList,
   TableFilterPanelTitle,
   TableFilterPill,
   TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import { matchesDateRangeFilter } from "@/lib/filters/date-range";
+import { useDateRangeFilter, useFilterBar } from "@/lib/filters/use-filter-bar";
 import { AdminApiError } from "@/lib/admin-api/client";
 import { getAdminProvidersList } from "@/lib/admin-api/providers-api";
 import type { AdminProviderListRow } from "@/lib/admin-api/types";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 const STATUS_FILTER_OPTIONS = ["All statuses", "Active", "Inactive"] as const;
 
@@ -57,17 +61,26 @@ function formatCount(n: number | undefined): string {
 export function ProviderView() {
   const [tableSearch, setTableSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "category" | "status" | "date">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"category" | "status" | "date">(openFilter, filterMode);
+  const {
+    filterMode,
+    openFilter,
+    setOpenFilter,
+    toggleFilter,
+    openFilterBar,
+    closeFilterBar,
+    filterBarRef,
+    filterScrollRef,
+    dropdownLeft,
+    registerPillRef,
+    syncDropdownLeft,
+  } = useFilterBar<"category" | "status" | "date">();
 
   const [draftCategory, setDraftCategory] = useState("All categories");
   const [draftStatus, setDraftStatus] = useState<string>("All statuses");
-  const [draftDateLabel, setDraftDateLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const dateFilter = useDateRangeFilter();
+  const { draft: draftDate, setDraft: setDraftDate, applied: appliedDate, applyDraft: applyDateDraft, clear: clearDateFilter, syncDraftFromApplied: syncDateDraft } = dateFilter;
   const [appliedCategory, setAppliedCategory] = useState<string | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
-  const [appliedDateLabel, setAppliedDateLabel] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
@@ -86,28 +99,23 @@ export function ProviderView() {
     return () => window.clearTimeout(t);
   }, [tableSearch]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const syncAllFilters = useCallback(() => {
+    setDraftCategory(appliedCategory ?? "All categories");
+    setDraftStatus(appliedStatus ?? "All statuses");
+    syncDateDraft();
+  }, [appliedCategory, appliedStatus, syncDateDraft]);
 
   const loadList = useCallback(async () => {
     setListError(null);
     setListLoading(true);
     try {
+      const needsClientDateFilter = Boolean(appliedDate?.from);
       const res = await getAdminProvidersList({
         search: debouncedSearch || undefined,
         status: appliedStatus ?? undefined,
         category: appliedCategory ?? undefined,
-        page,
-        pageSize,
+        page: needsClientDateFilter ? 1 : page,
+        pageSize: needsClientDateFilter ? 100 : pageSize,
       });
       setListRows(res.items);
       setListTotal(res.total);
@@ -140,18 +148,22 @@ export function ProviderView() {
     } finally {
       setListLoading(false);
     }
-  }, [appliedCategory, appliedStatus, debouncedSearch, page, pageSize]);
+  }, [appliedCategory, appliedDate, appliedStatus, debouncedSearch, page, pageSize]);
 
   useEffect(() => {
     void loadList();
   }, [loadList]);
 
-  const paginationTotal = listTotal;
+  const filteredRows = useMemo(() => {
+    return listRows.filter((row) => matchesDateRangeFilter(appliedDate, row.dateAdded));
+  }, [appliedDate, listRows]);
+
+  const paginationTotal = filteredRows.length;
   const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)));
   const paginatedRows = useMemo(() => {
     const start = (safePage - 1) * pageSize;
-    return listRows.slice(start, start + pageSize);
-  }, [listRows, safePage, pageSize]);
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, pageSize, safePage]);
 
   const totalDisplay = summaryTotal ?? paginationTotal;
   const activeDisplay = summaryActive;
@@ -219,29 +231,14 @@ export function ProviderView() {
               />
               <TableFilterPill
                 label="Date added"
-                summary={draftDateLabel}
+                summary={formatDateRangeLabel(draftDate, "All time")}
                 pillRef={registerPillRef("date")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "date" ? null : "date";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("date")}
               />
             </>
           }
           pillsTrailing={
-            <TableFilterTrailingIconButton
-              ariaLabel="Calendar"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "date" ? null : "date";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
+            <TableFilterTrailingIconButton ariaLabel="Calendar" onClick={() => toggleFilter("date")}>
               <CalendarDays size={14} />
             </TableFilterTrailingIconButton>
           }
@@ -272,19 +269,8 @@ export function ProviderView() {
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "date" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
-                  <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Jan 6, 2026 - Jan 6, 2026
-                    <CalendarDays size={16} />
-                  </button>
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
+                  <TableFilterDatePanel value={draftDate} onChange={setDraftDate} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -294,7 +280,7 @@ export function ProviderView() {
               onApply={() => {
                 setAppliedCategory(draftCategory === "All categories" ? null : draftCategory);
                 setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
-                setAppliedDateLabel(draftDateLabel);
+                applyDateDraft();
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -302,12 +288,11 @@ export function ProviderView() {
                 setTableSearch("");
                 setAppliedCategory(null);
                 setAppliedStatus(null);
-                setAppliedDateLabel(null);
+                clearDateFilter();
                 setDraftCategory("All categories");
                 setDraftStatus("All statuses");
-                setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
                 setOpenFilter(null);
-                setFilterMode(false);
+                closeFilterBar();
                 setPage(1);
               }}
             />
@@ -317,10 +302,7 @@ export function ProviderView() {
         <AuditTrailToolbar
           tableSearch={tableSearch}
           onTableSearchChange={setTableSearch}
-          onFilterClick={() => {
-            setTableSearch("");
-            setFilterMode(true);
-          }}
+          onFilterClick={() => openFilterBar(syncAllFilters)}
         />
       )}
 
@@ -331,7 +313,21 @@ export function ProviderView() {
       ) : null}
 
       {listLoading ? (
-        <p className="mt-4 text-sm text-zinc-500">Loading providers…</p>
+        <TableSkeleton
+          columns={7}
+          rows={8}
+          headers={[
+            "Providers Name",
+            "Category",
+            "Date Added",
+            "Last Updated",
+            "No of Products",
+            "Status",
+            "Action",
+          ]}
+          headerRowClassName="bg-outline text-zinc-500"
+          cellVariants={["text-wide", "text", "text", "text", "text-narrow", "badge", "icon"]}
+        />
       ) : (
         <ProviderTable rows={paginatedRows} />
       )}

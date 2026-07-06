@@ -9,6 +9,7 @@ import { getAdminSettingsPasswordResetRequests } from "@/lib/admin-api/settings-
 import { AdminApiError } from "@/lib/admin-api/client";
 import type { AdminSettingsPasswordResetRequestRow } from "@/lib/admin-api/types";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 export function ResetRequestsTable() {
   const [rows, setRows] = useState<AdminSettingsPasswordResetRequestRow[]>([]);
@@ -69,7 +70,16 @@ export function ResetRequestsTable() {
   };
 
   if (loading) {
-    return <p className="text-sm text-zinc-500">Loading reset requests…</p>;
+    return (
+      <TableSkeleton
+        columns={5}
+        rows={8}
+        className="overflow-x-auto rounded-[8px]"
+        headers={["Name", "Email", "Role", "Date requested", "Action"]}
+        headerRowClassName="bg-surface-subtle text-zinc-500"
+        cellVariants={["text-wide", "text-wide", "text", "text", "icon"]}
+      />
+    );
   }
 
   if (loadError) {

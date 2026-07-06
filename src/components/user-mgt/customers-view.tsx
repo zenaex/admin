@@ -11,23 +11,23 @@ import { ProviderHeader } from "@/components/provider/provider-header";
 import { StatCard } from "@/components/ui/stat-card";
 import {
   TableFilterApplyClear,
+  TableFilterDatePanel,
   TableFilterDropdownCard,
   TableFilterModeBar,
-  TableFilterOptionsList,
-  TableFilterPanelTitle,
   TableFilterPill,
+  TableFilterSelectOptions,
   TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
-  TableFilterCalendar,
   formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
-import type { DateRange } from "react-day-picker";
+import { toApiDateFrom, toApiDateTo } from "@/lib/filters/date-range";
+import { useDateRangeFilter, useFilterBar, useSelectFilter } from "@/lib/filters/use-filter-bar";
 import { getAdminCustomersList, getAdminCustomersSummary } from "@/lib/admin-api/customers-api";
 import { AdminApiError } from "@/lib/admin-api/client";
 import type { AdminCustomerListQuery, AdminCustomerListRow, AdminCustomersSummary } from "@/lib/admin-api/types";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
 const CUSTOMER_EXPORT_COLUMNS: ExportColumn<AdminCustomerListRow>[] = [
   { header: "Account ID", value: (r) => r.accountId },
@@ -129,15 +129,22 @@ export function CustomersView() {
   const [activeTab, setActiveTab] = useState<CustomerTab>("All");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "status" | "date">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"status" | "date">(openFilter, filterMode);
+  const {
+    filterMode,
+    openFilter,
+    setOpenFilter,
+    toggleFilter,
+    openFilterBar,
+    closeFilterBar,
+    filterBarRef,
+    filterScrollRef,
+    dropdownLeft,
+    registerPillRef,
+    syncDropdownLeft,
+  } = useFilterBar<"status" | "date">();
 
-  const [draftStatusValue, setDraftStatusValue] = useState<string>(FILTER_ACCOUNT_STATUSES[0].value);
-  const [draftDate, setDraftDate] = useState<DateRange | undefined>(undefined);
-  const [appliedAccountStatus, setAppliedAccountStatus] = useState<string | null>(null);
-  const [appliedDate, setAppliedDate] = useState<DateRange | undefined>(undefined);
+  const statusFilter = useSelectFilter<(typeof FILTER_ACCOUNT_STATUSES)[number]["value"]>("");
+  const dateFilter = useDateRangeFilter();
 
   const [summary, setSummary] = useState<AdminCustomersSummary | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -159,24 +166,20 @@ export function CustomersView() {
     return () => window.clearTimeout(t);
   }, [search]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
+  const { draft: draftStatusValue, setDraft: setDraftStatusValue, applied: appliedAccountStatus, applyDraft: applyStatusDraft, clear: clearStatusFilter, syncDraftFromApplied: syncStatusDraft } = statusFilter;
+  const { draft: draftDate, setDraft: setDraftDate, applied: appliedDate, applyDraft: applyDateDraft, clear: clearDateFilter, syncDraftFromApplied: syncDateDraft } = dateFilter;
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const syncAllFilters = useCallback(() => {
+    syncStatusDraft();
+    syncDateDraft();
+  }, [syncStatusDraft, syncDateDraft]);
 
   const loadSummary = useCallback(async () => {
     setSummaryError(null);
     try {
       const s = await getAdminCustomersSummary({
-        fromDate: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
-        toDate: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
+        fromDate: toApiDateFrom(appliedDate),
+        toDate: toApiDateTo(appliedDate),
       });
       setSummary(s);
     } catch (e) {
@@ -194,8 +197,7 @@ export function CustomersView() {
     setListLoading(true);
     try {
       const tabQ = tabToServerQuery(activeTab);
-      const pillStatus =
-        appliedAccountStatus && appliedAccountStatus !== ""
+      const pillStatus = appliedAccountStatus
           ? (appliedAccountStatus as NonNullable<AdminCustomerListQuery["accountStatus"]>)
           : tabQ.accountStatus;
       const q: AdminCustomerListQuery = {
@@ -206,8 +208,8 @@ export function CustomersView() {
         sortOrder: "desc",
         ...tabQ,
         accountStatus: pillStatus,
-        fromDate: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
-        toDate: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
+        fromDate: toApiDateFrom(appliedDate),
+        toDate: toApiDateTo(appliedDate),
       };
       const res = await getAdminCustomersList(q);
       setListRows(res.items);
@@ -248,8 +250,7 @@ export function CustomersView() {
     let rows = displayedRows;
     if (!clientTab) {
       const tabQ = tabToServerQuery(activeTab);
-      const pillStatus =
-        appliedAccountStatus && appliedAccountStatus !== ""
+      const pillStatus = appliedAccountStatus
           ? (appliedAccountStatus as NonNullable<AdminCustomerListQuery["accountStatus"]>)
           : tabQ.accountStatus;
       const res = await getAdminCustomersList({
@@ -260,8 +261,8 @@ export function CustomersView() {
         sortOrder: "desc",
         ...tabQ,
         accountStatus: pillStatus,
-        fromDate: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
-        toDate: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
+        fromDate: toApiDateFrom(appliedDate),
+        toDate: toApiDateTo(appliedDate),
       });
       rows = res.items;
     }
@@ -344,38 +345,20 @@ export function CustomersView() {
                 label="Status"
                 summary={draftStatusLabel}
                 pillRef={registerPillRef("status")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "status" ? null : "status";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("status")}
               />
-               <TableFilterPill
+              <TableFilterPill
                 label="Date onboarded"
                 summary={formatDateRangeLabel(draftDate, "All time")}
                 pillRef={registerPillRef("date")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "date" ? null : "date";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("date")}
               />
             </>
           }
           pillsTrailing={
             <TableFilterTrailingIconButton
               ariaLabel="Calendar"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "date" ? null : "date";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
+              onClick={() => toggleFilter("date")}
             >
               <CalendarDays size={14} />
             </TableFilterTrailingIconButton>
@@ -384,12 +367,11 @@ export function CustomersView() {
             <>
               {openFilter === "status" ? (
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[220px]">
-                  <TableFilterPanelTitle />
-                  <TableFilterOptionsList
-                    options={FILTER_ACCOUNT_STATUSES.map((o) => o.label)}
-                    onSelect={(label) => {
-                      const opt = FILTER_ACCOUNT_STATUSES.find((o) => o.label === label);
-                      setDraftStatusValue(opt?.value ?? "");
+                  <TableFilterSelectOptions
+                    options={FILTER_ACCOUNT_STATUSES}
+                    selectedValue={draftStatusValue}
+                    onSelect={(value) => {
+                      setDraftStatusValue(value);
                       setOpenFilter(null);
                     }}
                   />
@@ -397,8 +379,7 @@ export function CustomersView() {
               ) : null}
               {openFilter === "date" ? (
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
-                  <TableFilterPanelTitle />
-                  <TableFilterCalendar value={draftDate} onChange={setDraftDate} />
+                  <TableFilterDatePanel value={draftDate} onChange={setDraftDate} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -406,19 +387,17 @@ export function CustomersView() {
           actions={
             <TableFilterApplyClear
               onApply={() => {
-                setAppliedAccountStatus(draftStatusValue === "" ? null : draftStatusValue);
-                setAppliedDate(draftDate);
+                applyStatusDraft();
+                applyDateDraft();
                 setOpenFilter(null);
                 setPage(1);
               }}
               onClear={() => {
                 setSearch("");
-                setAppliedAccountStatus(null);
-                setAppliedDate(undefined);
-                setDraftStatusValue(FILTER_ACCOUNT_STATUSES[0].value);
-                setDraftDate(undefined);
+                clearStatusFilter();
+                clearDateFilter();
                 setOpenFilter(null);
-                setFilterMode(false);
+                closeFilterBar();
                 setPage(1);
               }}
             />
@@ -429,7 +408,8 @@ export function CustomersView() {
           tableSearch={search}
           onTableSearchChange={setSearch}
           onFilterClick={() => {
-            setFilterMode(true);
+            syncAllFilters();
+            openFilterBar();
           }}
           {...exportProps}
         />
@@ -450,11 +430,11 @@ export function CustomersView() {
           </thead>
           <tbody>
             {listLoading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
-                  Loading customers…
-                </td>
-              </tr>
+              <TableSkeletonRows
+                columns={5}
+                rows={8}
+                cellVariants={["avatar", "text-wide", "text", "badge", "text"]}
+              />
             ) : paginatedRows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">

@@ -34,6 +34,7 @@ import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
 const REFERRED_EXPORT_COLUMNS: ExportColumn<AdminReferredUserRow>[] = [
   { header: "Name", value: (r) => r.name },
@@ -454,11 +455,11 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
-                    Loading referred users…
-                  </td>
-                </tr>
+                <TableSkeletonRows
+                  columns={5}
+                  rows={8}
+                  cellVariants={["text-wide", "text-wide", "text", "text", "badge"]}
+                />
               ) : paginatedRows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">

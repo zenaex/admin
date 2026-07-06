@@ -9,17 +9,17 @@ import { ProviderHeader } from "@/components/provider/provider-header";
 import { SuccessModal } from "@/components/provider/provider-modals";
 import {
   TableFilterApplyClear,
+  TableFilterDatePanel,
   TableFilterDropdownCard,
   TableFilterModeBar,
   TableFilterOptionsList,
   TableFilterPanelTitle,
   TableFilterPill,
   TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
-  TableFilterCalendar,
   formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
-import type { DateRange } from "react-day-picker";
+import { toApiDateFrom, toApiDateTo } from "@/lib/filters/date-range";
+import { useDateRangeFilter, useFilterBar, useSelectFilter } from "@/lib/filters/use-filter-bar";
 import { ConfigureEarningsModal } from "@/components/user-mgt/referral-config-modal";
 import { AdminApiError } from "@/lib/admin-api/client";
 import { getAdminReferralsList } from "@/lib/admin-api/referrals-api";
@@ -30,6 +30,7 @@ import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
 const REFERRAL_EXPORT_COLUMNS: ExportColumn<AdminReferralListRow>[] = [
   { header: "Account ID", value: (r) => r.accountId },
@@ -75,19 +76,28 @@ export function ReferralView() {
   const canConfigureEarnings = isLikelySuperAdminFromToken(getAccessToken());
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "made" | "rewards" | "period" | "status">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"made" | "rewards" | "period" | "status">(openFilter, filterMode);
+  const {
+    filterMode,
+    openFilter,
+    setOpenFilter,
+    toggleFilter,
+    openFilterBar,
+    closeFilterBar,
+    filterBarRef,
+    filterScrollRef,
+    dropdownLeft,
+    registerPillRef,
+    syncDropdownLeft,
+  } = useFilterBar<"made" | "rewards" | "period" | "status">();
 
   const [draftMade, setDraftMade] = useState("All");
   const [draftRewards, setDraftRewards] = useState("All");
-  const [draftPeriod, setDraftPeriod] = useState<DateRange | undefined>(undefined);
-  const [draftStatus, setDraftStatus] = useState("");
+  const dateFilter = useDateRangeFilter();
+  const { draft: draftPeriod, setDraft: setDraftPeriod, applied: appliedPeriod, applyDraft: applyPeriodDraft, clear: clearPeriodFilter, syncDraftFromApplied: syncPeriodDraft } = dateFilter;
+  const statusFilter = useSelectFilter<"" | "qualified" | "pending">("");
+  const { draft: draftStatus, setDraft: setDraftStatus, applied: appliedStatus, applyDraft: applyStatusDraft, clear: clearStatusFilter, syncDraftFromApplied: syncStatusDraft } = statusFilter;
   const [appliedMade, setAppliedMade] = useState<string | null>(null);
   const [appliedRewards, setAppliedRewards] = useState<string | null>(null);
-  const [appliedStatus, setAppliedStatus] = useState<"" | "qualified" | "pending" | null>(null);
-  const [appliedPeriod, setAppliedPeriod] = useState<DateRange | undefined>(undefined);
 
   const [listRows, setListRows] = useState<AdminReferralListRow[]>([]);
   const [listTotal, setListTotal] = useState(0);
@@ -100,8 +110,18 @@ export function ReferralView() {
   const [showConfigSuccess, setShowConfigSuccess] = useState(false);
 
   const clientFiltersActive = Boolean(
-    (appliedMade && appliedMade !== "All") || (appliedRewards && appliedRewards !== "All") || debouncedSearch,
+    (appliedMade && appliedMade !== "All") ||
+      (appliedRewards && appliedRewards !== "All") ||
+      appliedPeriod?.from ||
+      debouncedSearch,
   );
+
+  const syncAllFilters = useCallback(() => {
+    setDraftMade(appliedMade ?? "All");
+    setDraftRewards(appliedRewards ?? "All");
+    syncPeriodDraft();
+    syncStatusDraft();
+  }, [appliedMade, appliedRewards, syncPeriodDraft, syncStatusDraft]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -110,19 +130,6 @@ export function ReferralView() {
     }, 320);
     return () => window.clearTimeout(t);
   }, [search]);
-
-  const toggleFilterMode = (active: boolean) => {
-    setFilterMode(active);
-    if (!active) setOpenFilter(null);
-  };
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
 
   const loadList = useCallback(async () => {
     setListError(null);
@@ -133,8 +140,8 @@ export function ReferralView() {
         pageSize: clientFiltersActive ? 200 : pageSize,
         search: undefined,
         status: appliedStatus ?? undefined,
-        fromDate: appliedPeriod?.from ? appliedPeriod.from.toISOString() : undefined,
-        toDate: appliedPeriod?.to ? appliedPeriod.to.toISOString() : undefined,
+        fromDate: toApiDateFrom(appliedPeriod),
+        toDate: toApiDateTo(appliedPeriod),
       });
       setListRows(res.items);
       setListTotal(res.total);
@@ -207,8 +214,8 @@ export function ReferralView() {
         pageSize: 200,
         search: undefined,
         status: appliedStatus ?? undefined,
-        fromDate: appliedPeriod?.from ? appliedPeriod.from.toISOString() : undefined,
-        toDate: appliedPeriod?.to ? appliedPeriod.to.toISOString() : undefined,
+        fromDate: toApiDateFrom(appliedPeriod),
+        toDate: toApiDateTo(appliedPeriod),
       });
       rows = res.items.filter((r) => matchesClientFilters(r, appliedMade, appliedRewards));
     }
@@ -341,8 +348,7 @@ export function ReferralView() {
               ) : null}
               {openFilter === "period" ? (
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
-                  <TableFilterPanelTitle />
-                  <TableFilterCalendar value={draftPeriod} onChange={setDraftPeriod} />
+                  <TableFilterDatePanel value={draftPeriod} onChange={setDraftPeriod} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -352,10 +358,8 @@ export function ReferralView() {
               onApply={() => {
                 setAppliedMade(draftMade === "All" ? null : draftMade);
                 setAppliedRewards(draftRewards === "All" ? null : draftRewards);
-                setAppliedStatus(
-                  draftStatus === "" ? null : (draftStatus as "qualified" | "pending"),
-                );
-                setAppliedPeriod(draftPeriod);
+                applyStatusDraft();
+                applyPeriodDraft();
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -363,14 +367,12 @@ export function ReferralView() {
                 setSearch("");
                 setAppliedMade(null);
                 setAppliedRewards(null);
-                setAppliedStatus(null);
-                setAppliedPeriod(undefined);
+                clearStatusFilter();
+                clearPeriodFilter();
                 setDraftMade("All");
                 setDraftRewards("All");
-                setDraftStatus("");
-                setDraftPeriod(undefined);
                 setOpenFilter(null);
-                toggleFilterMode(false);
+                closeFilterBar();
                 setPage(1);
               }}
             />
@@ -392,7 +394,7 @@ export function ReferralView() {
               type="button"
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-600 transition-colors hover:bg-surface-subtle"
               aria-label="Filter"
-              onClick={() => toggleFilterMode(true)}
+              onClick={() => openFilterBar(syncAllFilters)}
             >
               <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
             </button>
@@ -431,11 +433,11 @@ export function ReferralView() {
           </thead>
           <tbody>
             {listLoading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
-                  Loading referrals…
-                </td>
-              </tr>
+              <TableSkeletonRows
+                columns={6}
+                rows={8}
+                cellVariants={["avatar", "text-wide", "text", "text-narrow", "text-narrow", "text"]}
+              />
             ) : paginatedRows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">

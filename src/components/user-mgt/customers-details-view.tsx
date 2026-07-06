@@ -44,6 +44,7 @@ import {
 } from "@/lib/auth/jwt";
 import { getAccessToken } from "@/lib/auth/token-storage";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeleton, TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { StatCard } from "@/components/ui/stat-card";
 
 type CustomerDetailTab = "Customer Details" | "Transaction History" | "KYC Details" | "Wallet" | "Audit Log";
@@ -912,11 +913,11 @@ function TransactionHistoryTab({
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">
-                  Loading…
-                </td>
-              </tr>
+              <TableSkeletonRows
+                columns={9}
+                rows={8}
+                cellVariants={["text-narrow", "text", "text-narrow", "text", "text-narrow", "text", "badge", "text", "text-narrow"]}
+              />
             ) : visible.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">

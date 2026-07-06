@@ -14,6 +14,7 @@ import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 const AUDIT_LOG_EXPORT_COLUMNS: ExportColumn<AdminAuditActivityLogEntry>[] = [
   { header: "Time", value: (l) => l.time },
@@ -134,7 +135,25 @@ export function AuditTrailDetailsView({ subjectId, subjectType }: AuditTrailDeta
       </div>
 
       {loading ? (
-        <p className="text-sm text-zinc-500">Loading audit details…</p>
+        <div className="space-y-6">
+          <TableSkeleton
+            columns={5}
+            rows={1}
+            headers={["Name", "Role", "Phone Number", "Email Address", "Date Added"]}
+            className="overflow-x-auto rounded-xl border border-outline bg-white"
+            headerRowClassName="text-zinc-500"
+            headerCellClassName="border-b border-outline px-4 py-3 font-medium"
+            rowHeightClass="h-14"
+            cellClassName="px-4 py-4 align-middle"
+          />
+          <TableSkeleton
+            columns={3}
+            rows={6}
+            headers={["Activity", "Device", "IP Address"]}
+            className="overflow-x-auto rounded-xl border border-outline bg-white"
+            cellVariants={["text-wide", "text-wide", "text-narrow"]}
+          />
+        </div>
       ) : error ? (
         <ErrorAlert error={error} onRetry={() => void loadDetail()} className="">
           {" "}
