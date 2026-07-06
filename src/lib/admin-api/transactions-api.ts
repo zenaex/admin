@@ -1458,10 +1458,11 @@ export function uiStatusToApiStatus(status: string): string | undefined {
 }
 
 /** POST `/admin/transactions/{reference}/reverse` — reverse/refund a transaction. */
-export async function postAdminTransactionReverse(reference: string): Promise<unknown> {
+export async function postAdminTransactionReverse(reference: string, reason: string): Promise<unknown> {
   const ref = reference.trim();
   return adminRequest<unknown>(`/admin/transactions/${encodeURIComponent(ref)}/reverse`, {
     method: "POST",
     auth: true,
+    body: JSON.stringify({ reason }),
   });
 }

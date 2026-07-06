@@ -255,6 +255,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
   const [adjustError, setAdjustError] = useState<string | null>(null);
   const [showReversalConfirm, setShowReversalConfirm] = useState(false);
   const [reversalLoading, setReversalLoading] = useState(false);
+  const [reversalError, setReversalError] = useState<string | null>(null);
 
   const canRevealECode = isLikelySuperAdminFromToken(getAccessToken());
 
@@ -385,16 +386,16 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
     }
   };
 
-  const handleReversal = async () => {
+  const handleReversal = async (reason: string) => {
     setReversalLoading(true);
+    setReversalError(null);
     try {
-      await postAdminTransactionReverse(reference);
+      await postAdminTransactionReverse(reference, reason);
       setShowReversalConfirm(false);
       setSuccessMessage("Transaction has been successfully reversed");
       setShowSuccessModal(true);
     } catch (e) {
-      setShowReversalConfirm(false);
-      setActionError(e instanceof AdminApiError ? e.message : "Could not reverse transaction.");
+      setReversalError(e instanceof AdminApiError ? e.message : "Could not reverse transaction.");
     } finally {
       setReversalLoading(false);
     }
@@ -452,6 +453,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
                   className="flex w-full items-center gap-2.5 rounded-[10px] bg-transparent px-2.5 py-2.5 text-left text-[14px] text-primary-text hover:bg-zinc-100"
                   onClick={() => {
                     setActionOpen(false);
+                    setReversalError(null);
                     setShowReversalConfirm(true);
                   }}
                 >
@@ -576,17 +578,16 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
       )}
 
       {showReversalConfirm && (
-        <ConfirmModal
-          title="Reverse Transaction"
-          message="Are you sure you want to reverse this transaction? This action cannot be undone."
-          confirmLabel={reversalLoading ? "Reversing…" : "Reverse"}
-          cancelLabel="Cancel"
-          variant="danger"
-          disabled={reversalLoading}
-          onConfirm={() => void handleReversal()}
-          onCancel={() => {
-            if (!reversalLoading) setShowReversalConfirm(false);
+        <RefundTransactionModal
+          onClose={() => {
+            if (!reversalLoading) {
+              setShowReversalConfirm(false);
+              setReversalError(null);
+            }
           }}
+          onSubmit={handleReversal}
+          loading={reversalLoading}
+          error={reversalError}
         />
       )}
 
@@ -1711,4 +1712,75 @@ function RejectModal({
     </div>
   );
 }
+
+/* ── Refund Transaction Modal ─────────────────────────────────────── */
+function RefundTransactionModal({
+  onClose,
+  onSubmit,
+  loading,
+  error,
+}: {
+  onClose: () => void;
+  onSubmit: (reason: string) => void;
+  loading?: boolean;
+  error?: string | null;
+}) {
+  const [reason, setReason] = useState("");
+
+  const canSubmit = reason.trim() !== "";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-[420px] rounded-2xl bg-white px-6 pb-8 pt-6 shadow-xl">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <h2 className="text-[17px] font-bold text-primary-text">Refund Transaction</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg leading-none text-primary-text transition-colors hover:bg-zinc-200"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        {error ? (
+          <p className="mb-4 text-sm text-red-600" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!canSubmit) return;
+            void onSubmit(reason.trim());
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="mb-2 block text-sm font-medium text-zinc-600">Reason for Reversal</label>
+            <textarea
+              className="min-h-[110px] w-full resize-y rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-primary-text outline-none placeholder:text-zinc-400 focus:border-zinc-400"
+              rows={4}
+              placeholder="Type reason here"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !canSubmit}
+            className="w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {loading ? "Reversing…" : "Reverse Transaction"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 
