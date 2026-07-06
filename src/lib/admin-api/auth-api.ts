@@ -18,6 +18,7 @@ import type {
   AdminPasswordResetDeclineBody,
   AdminPasswordResetResetBody,
   AdminPasswordResetValidateResponse,
+  AdminRefreshBody,
   AdminResendOtpBody,
   AdminTokenPair,
   AdminVerifyOtpBody,
@@ -25,6 +26,21 @@ import type {
 
 export async function postAdminLogin(body: AdminLoginBody): Promise<AdminLoginResponse> {
   return adminRequest<AdminLoginResponse>("/admin/auth/login", {
+    method: "POST",
+    body: JSON.stringify(body),
+    auth: false,
+  });
+}
+
+export async function postAdminLogout(): Promise<unknown> {
+  return adminRequest("/admin/auth/logout", {
+    method: "POST",
+    auth: true,
+  });
+}
+
+export async function postAdminRefresh(body: AdminRefreshBody): Promise<AdminTokenPair> {
+  return adminRequest<AdminTokenPair>("/admin/auth/refresh", {
     method: "POST",
     body: JSON.stringify(body),
     auth: false,
