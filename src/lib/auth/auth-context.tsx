@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { postAdminLogin, postAdminVerifyOtp } from "@/lib/admin-api/auth-api";
+import { postAdminLogin, postAdminLogout, postAdminVerifyOtp } from "@/lib/admin-api/auth-api";
 import type { AdminTokenPair } from "@/lib/admin-api/types";
 import { tryRefreshSession } from "@/lib/admin-api/client";
 import { adminProfileHintsFromToken } from "@/lib/auth/jwt";
@@ -39,7 +39,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<"otp" | "dashboard">;
   verifyOtp: (otp: string) => Promise<void>;
   applyTokenPair: (pair: AdminTokenPair) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -124,14 +124,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [syncFromStorage],
   );
 
-  const logout = useCallback(() => {
-    clearAuthStorage();
-    setIsAuthenticated(false);
-    setDisplayEmail(null);
-    setDisplayName(null);
-    setDisplayRole(null);
-    setUserInitials("?");
-    setPendingOtpEmailState(null);
+  const logout = useCallback(async () => {
+    try {
+      await postAdminLogout();
+    } catch (e) {
+      console.error("Failed to call logout API:", e);
+    } finally {
+      clearAuthStorage();
+      setIsAuthenticated(false);
+      setDisplayEmail(null);
+      setDisplayName(null);
+      setDisplayRole(null);
+      setUserInitials("?");
+      setPendingOtpEmailState(null);
+    }
   }, []);
 
   const value = useMemo<AuthContextValue>(

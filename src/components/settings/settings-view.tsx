@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowDown2 } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { SettingsTabs, SettingsTabId } from "@/components/settings/settings-tabs";
 import { SettingsProfileTab } from "@/components/settings/settings-profile-tab";
 import { SettingsPasswordTab } from "@/components/settings/settings-password-tab";
-import { SettingsPasswordPolicyTab } from "@/components/settings/settings-password-policy-tab";
 import { SettingsAuthenticationTab } from "@/components/settings/settings-authentication-tab";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 import { getAccessToken } from "@/lib/auth/token-storage";
@@ -15,12 +14,6 @@ export function SettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTabId>("profile");
 
   const showSuperAdminSettings = isLikelySuperAdminFromToken(getAccessToken());
-
-  useEffect(() => {
-    if (activeTab === "password-policy" && !showSuperAdminSettings) {
-      setActiveTab("profile");
-    }
-  }, [activeTab, showSuperAdminSettings]);
 
   return (
     <div>
@@ -43,13 +36,12 @@ export function SettingsView() {
       </header>
 
       <div className="mt-8">
-        <SettingsTabs active={activeTab} onChange={setActiveTab} showPasswordPolicy={showSuperAdminSettings} />
+        <SettingsTabs active={activeTab} onChange={setActiveTab} />
       </div>
 
       <div className="mt-6">
         {activeTab === "profile" && <SettingsProfileTab />}
         {activeTab === "password" && <SettingsPasswordTab showResetRequests={showSuperAdminSettings} />}
-        {activeTab === "password-policy" && showSuperAdminSettings && <SettingsPasswordPolicyTab />}
         {activeTab === "authentication" && <SettingsAuthenticationTab />}
       </div>
     </div>

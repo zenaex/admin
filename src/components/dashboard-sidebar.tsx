@@ -453,8 +453,8 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
           message="You will need to sign in again to access the admin dashboard."
           confirmLabel="Log out"
           cancelLabel="Cancel"
-          onConfirm={() => {
-            logout();
+          onConfirm={async () => {
+            await logout();
             router.replace("/login");
             setLogoutOpen(false);
           }}
