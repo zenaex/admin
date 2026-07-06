@@ -6,7 +6,7 @@ import {
   mockGiftcardDecline,
   mockGiftcardECode,
 } from "@/lib/admin-api/giftcard-mock-transactions";
-import type { AdminGiftcardDeclineBody, AdminGiftcardECodeResult } from "@/lib/admin-api/types";
+import type { AdminGiftcardAdjustBody, AdminGiftcardDeclineBody, AdminGiftcardECodeResult } from "@/lib/admin-api/types";
 import {
   asRecord,
   pickNestedRecord,
@@ -103,4 +103,16 @@ export async function postGiftcardSubmissionECode(
     throw new Error("No e-code returned");
   }
   return { code };
+}
+
+export async function postGiftcardSubmissionAdjust(
+  submissionId: string,
+  body: AdminGiftcardAdjustBody,
+): Promise<unknown> {
+  const enc = encodeURIComponent(submissionId.trim());
+  return adminRequest<unknown>(`/admin/transactions/gift-cards/submissions/${enc}/adjust`, {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify(body),
+  });
 }

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown2, ArrowLeft2, ArrowRight2, DocumentUpload, DocumentDownload } from "iconsax-react";
+import { ArrowDown2, ArrowLeft2, ArrowRight2, DocumentUpload, DocumentDownload, Edit2, Refresh2 } from "iconsax-react";
 import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import { GiftcardTransactionDetails } from "@/components/transactions/transaction-details/giftcard-details";
@@ -17,10 +17,11 @@ import {
 import { AdminApiError } from "@/lib/admin-api/client";
 import {
   postGiftcardSubmissionApprove,
+  postGiftcardSubmissionAdjust,
   postGiftcardSubmissionDecline,
   postGiftcardSubmissionECode,
 } from "@/lib/admin-api/giftcard-submissions-api";
-import { getAdminTransactionDetail, getAdminTransactionLogs } from "@/lib/admin-api/transactions-api";
+import { getAdminTransactionDetail, getAdminTransactionLogs, postAdminTransactionReverse } from "@/lib/admin-api/transactions-api";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
 import { getAccessToken } from "@/lib/auth/token-storage";
 import type {
@@ -243,11 +244,17 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [revealedCode, setRevealedCode] = useState<string | null>(null);
   const [eCodeLoading, setECodeLoading] = useState(false);
   const [eCodeError, setECodeError] = useState<string | null>(null);
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustLoading, setAdjustLoading] = useState(false);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [showReversalConfirm, setShowReversalConfirm] = useState(false);
+  const [reversalLoading, setReversalLoading] = useState(false);
 
   const canRevealECode = isLikelySuperAdminFromToken(getAccessToken());
 
@@ -361,8 +368,41 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
     }
   };
 
+  const handleAdjustSubmit = async (amount: string, reason: string) => {
+    const submissionId = requireGiftcardSubmissionId();
+    if (!submissionId) return;
+    setAdjustError(null);
+    setAdjustLoading(true);
+    try {
+      await postGiftcardSubmissionAdjust(submissionId, { amount, reason });
+      setShowAdjustModal(false);
+      setSuccessMessage("Giftcard transaction has been successfully adjusted");
+      setShowSuccessModal(true);
+    } catch (e) {
+      setAdjustError(e instanceof AdminApiError ? e.message : "Could not adjust transaction.");
+    } finally {
+      setAdjustLoading(false);
+    }
+  };
+
+  const handleReversal = async () => {
+    setReversalLoading(true);
+    try {
+      await postAdminTransactionReverse(reference);
+      setShowReversalConfirm(false);
+      setSuccessMessage("Transaction has been successfully reversed");
+      setShowSuccessModal(true);
+    } catch (e) {
+      setShowReversalConfirm(false);
+      setActionError(e instanceof AdminApiError ? e.message : "Could not reverse transaction.");
+    } finally {
+      setReversalLoading(false);
+    }
+  };
+
   const handleSuccessDone = () => {
     setShowSuccessModal(false);
+    setSuccessMessage(null);
   };
 
   return (
@@ -392,10 +432,35 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
           {actionOpen ? (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setActionOpen(false)} />
-              <div className="absolute right-0 top-full z-50 mt-2 w-[200px] overflow-hidden rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg">
+              <div className="absolute right-0 top-full z-50 mt-2 w-[220px] overflow-hidden rounded-[12px] border border-zinc-200 bg-white p-2 shadow-lg">
+                {isGiftcard && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2.5 rounded-[10px] bg-transparent px-2.5 py-2.5 text-left text-[14px] text-primary-text hover:bg-zinc-100"
+                    onClick={() => {
+                      setActionOpen(false);
+                      setAdjustError(null);
+                      setShowAdjustModal(true);
+                    }}
+                  >
+                    <Edit2 size={16} variant="Outline" color="currentColor" />
+                    Adjust Transaction
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-[10px] bg-background px-2.5 py-2 text-left text-[14px] text-primary-text hover:bg-zinc-200"
+                  className="flex w-full items-center gap-2.5 rounded-[10px] bg-transparent px-2.5 py-2.5 text-left text-[14px] text-primary-text hover:bg-zinc-100"
+                  onClick={() => {
+                    setActionOpen(false);
+                    setShowReversalConfirm(true);
+                  }}
+                >
+                  <Refresh2 size={16} variant="Outline" color="currentColor" />
+                  Reversal
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2.5 rounded-[10px] bg-transparent px-2.5 py-2.5 text-left text-[14px] text-primary-text hover:bg-zinc-100"
                   onClick={() => {
                     setActionOpen(false);
                     printTransactionReceipt(tx!, approvalStatus);
@@ -510,12 +575,40 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
         />
       )}
 
+      {showReversalConfirm && (
+        <ConfirmModal
+          title="Reverse Transaction"
+          message="Are you sure you want to reverse this transaction? This action cannot be undone."
+          confirmLabel={reversalLoading ? "Reversing…" : "Reverse"}
+          cancelLabel="Cancel"
+          variant="danger"
+          disabled={reversalLoading}
+          onConfirm={() => void handleReversal()}
+          onCancel={() => {
+            if (!reversalLoading) setShowReversalConfirm(false);
+          }}
+        />
+      )}
+
+      {showAdjustModal && tx && (
+        <AdjustGiftcardModal
+          rate={tx.rateFeeGiven}
+          onClose={() => {
+            if (!adjustLoading) setShowAdjustModal(false);
+          }}
+          onSubmit={handleAdjustSubmit}
+          loading={adjustLoading}
+          error={adjustError}
+        />
+      )}
+
       {showSuccessModal && (
         <SuccessModal
           message={
-            approvalStatus === "Rejected"
+            successMessage ??
+            (approvalStatus === "Rejected"
               ? "Giftcard transaction has been rejected"
-              : "Giftcard transaction has been successfully approved"
+              : "Giftcard transaction has been successfully approved")
           }
           confirmLabel="Done"
           onContinue={handleSuccessDone}
@@ -1390,11 +1483,111 @@ function TransactionLogTab({ entries }: { entries: TransactionLogEntry[] }) {
   );
 }
 
+/* ── Adjust Giftcard Modal ─────────────────────────────────────── */
+function AdjustGiftcardModal({
+  rate,
+  onClose,
+  onSubmit,
+  loading,
+  error,
+}: {
+  rate: string;
+  onClose: () => void;
+  onSubmit: (amount: string, reason: string) => void;
+  loading?: boolean;
+  error?: string | null;
+}) {
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+
+  const canSubmit = amount.trim() !== "" && reason.trim() !== "";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-[420px] rounded-2xl bg-white px-6 pb-8 pt-6 shadow-xl">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <h2 className="text-[17px] font-bold text-primary-text">Adjust Giftcard Transaction</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg leading-none text-primary-text transition-colors hover:bg-zinc-200"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        {error ? (
+          <p className="mb-4 text-sm text-red-600" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!canSubmit) return;
+            void onSubmit(amount.trim(), reason.trim());
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="mb-2 block text-sm font-medium text-zinc-600">Amount</label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                className="w-full rounded-xl border border-zinc-300 bg-white py-3 pl-7 pr-3.5 text-sm text-primary-text outline-none placeholder:text-zinc-400 focus:border-zinc-400"
+                placeholder="20"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-zinc-600">Reason for Adjustment</label>
+            <textarea
+              className="min-h-[110px] w-full resize-y rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-primary-text outline-none placeholder:text-zinc-400 focus:border-zinc-400"
+              rows={4}
+              placeholder="Text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+
+          {rate.trim() ? (
+            <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+                <circle cx="8" cy="8" r="7" stroke="#f59e0b" strokeWidth="1.5" />
+                <path d="M8 7v4" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="8" cy="5" r="0.75" fill="#f59e0b" />
+              </svg>
+              <span className="text-sm font-medium text-amber-700">Rate: {rate}</span>
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={loading || !canSubmit}
+            className="w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {loading ? "Saving…" : "Save"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ── Reject Giftcard Modal ─────────────────────────────────────── */
 function RejectModal({
   onClose,
   onSubmit,
-  loading = false,
-  error = null,
+  loading,
+  error,
 }: {
   onClose: () => void;
   onSubmit: (reason: string) => void;
@@ -1425,7 +1618,7 @@ function RejectModal({
             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-lg leading-none text-primary-text transition-colors hover:bg-zinc-200"
             aria-label="Close"
           >
-            ??
+            ×
           </button>
         </div>
 
@@ -1518,3 +1711,4 @@ function RejectModal({
     </div>
   );
 }
+
