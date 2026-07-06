@@ -1456,3 +1456,12 @@ export function uiStatusToApiStatus(status: string): string | undefined {
   if (s.includes("fail")) return "failed";
   return status;
 }
+
+/** POST `/admin/transactions/{reference}/reverse` — reverse/refund a transaction. */
+export async function postAdminTransactionReverse(reference: string): Promise<unknown> {
+  const ref = reference.trim();
+  return adminRequest<unknown>(`/admin/transactions/${encodeURIComponent(ref)}/reverse`, {
+    method: "POST",
+    auth: true,
+  });
+}

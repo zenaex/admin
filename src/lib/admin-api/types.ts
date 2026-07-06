@@ -385,10 +385,17 @@ export type AdminGiftcardDeclineBody = {
   reason: string;
 };
 
+/** Body for `POST /admin/transactions/gift-cards/submissions/{id}/adjust`. */
+export type AdminGiftcardAdjustBody = {
+  amount: string | number;
+  reason: string;
+};
+
 /** Normalized decrypted e-code from `POST .../e-code`. */
 export type AdminGiftcardECodeResult = {
   code: string;
 };
+
 
 /** Normalized metrics for `GET /admin/transactions/summary`. */
 export type AdminTransactionsSummary = {
