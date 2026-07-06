@@ -32,6 +32,7 @@ import { getExchangeRates } from "@/lib/admin-api/exchange-rates-api";
 import { mergeSwapPairRows, readExtraSwapPairRows } from "@/lib/product-mgt/swap-pair-storage";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
 const TYPE_FILTER_OPTIONS = ["All types", "Flat", "Percentage", "% capped @", "—"] as const;
 
@@ -314,11 +315,13 @@ export function ExchangeRatesPanel() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={columnCount} className="px-4 py-8 text-center text-zinc-500">
-                      Loading…
-                    </td>
-                  </tr>
+                  <TableSkeletonRows
+                    columns={columnCount}
+                    rows={8}
+                    cellVariants={Array.from({ length: columnCount }, (_, i) =>
+                      i === columnCount - 1 ? "icon" : "text",
+                    )}
+                  />
                 ) : paginated.length === 0 ? (
                   <tr>
                     <td colSpan={columnCount} className="px-4 py-8 text-center text-zinc-500">

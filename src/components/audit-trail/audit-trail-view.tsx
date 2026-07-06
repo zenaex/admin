@@ -10,17 +10,17 @@ import { AuditTrailTabId, AuditTrailTabs } from "@/components/audit-trail/audit-
 import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar";
 import {
   TableFilterApplyClear,
+  TableFilterDatePanel,
   TableFilterDropdownCard,
   TableFilterModeBar,
   TableFilterOptionsList,
   TableFilterPanelTitle,
   TableFilterPill,
   TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
-  TableFilterCalendar,
   formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
-import type { DateRange } from "react-day-picker";
+import { matchesDateRangeFromRecord } from "@/lib/filters/date-range";
+import { useDateRangeFilter, useFilterBar } from "@/lib/filters/use-filter-bar";
 import { AdminApiError } from "@/lib/admin-api/client";
 import {
   getAdminAuditCustomerSessions,
@@ -34,6 +34,7 @@ import {
   exportViaAuditApi,
 } from "@/lib/export/export-handlers";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 const AUDIT_EXPORT_COLUMNS: ExportColumn<AdminAuditTrailRow>[] = [
   { header: "Name", value: (r) => r.name },
@@ -62,10 +63,19 @@ export function AuditTrailView() {
   const [tab, setTab] = useState<AuditTrailTabId>("internal");
   const [tableSearch, setTableSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "role" | "action" | "session">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"role" | "action" | "session">(openFilter, filterMode);
+  const {
+    filterMode,
+    openFilter,
+    setOpenFilter,
+    toggleFilter,
+    openFilterBar,
+    closeFilterBar,
+    filterBarRef,
+    filterScrollRef,
+    dropdownLeft,
+    registerPillRef,
+    syncDropdownLeft,
+  } = useFilterBar<"role" | "action" | "session">();
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
@@ -77,10 +87,10 @@ export function AuditTrailView() {
 
   const [draftRole, setDraftRole] = useState("All roles");
   const [draftAction, setDraftAction] = useState("All actions");
-  const [draftSession, setDraftSession] = useState<DateRange | undefined>(undefined);
+  const dateFilter = useDateRangeFilter();
+  const { draft: draftSession, setDraft: setDraftSession, applied: appliedSession, applyDraft: applySessionDraft, clear: clearSessionFilter, syncDraftFromApplied: syncSessionDraft } = dateFilter;
   const [appliedRole, setAppliedRole] = useState<string | null>(null);
   const [appliedAction, setAppliedAction] = useState<string | null>(null);
-  const [appliedSession, setAppliedSession] = useState<DateRange | undefined>(undefined);
 
   const activeApiRows = tab === "customers" ? customerRows : internalRows;
 
@@ -92,19 +102,16 @@ export function AuditTrailView() {
   useEffect(() => {
     setDraftRole("All roles");
     setDraftAction("All actions");
-  }, [tab]);
+    setAppliedRole(null);
+    setAppliedAction(null);
+    clearSessionFilter();
+  }, [tab, clearSessionFilter]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const syncAllFilters = useCallback(() => {
+    setDraftRole(appliedRole ?? "All roles");
+    setDraftAction(appliedAction ?? "All actions");
+    syncSessionDraft();
+  }, [appliedAction, appliedRole, syncSessionDraft]);
 
   const loadSessions = useCallback(async () => {
     setListError(null);
@@ -145,26 +152,26 @@ export function AuditTrailView() {
     return activeApiRows.filter((r) => {
       if (appliedRole && appliedRole !== "All roles" && r.role !== appliedRole) return false;
       if (appliedAction && appliedAction !== "All actions" && r.action !== appliedAction) return false;
-      if (appliedSession?.from) {
-        const rawDateStr =
-          r.raw?.sessionIn ??
-          r.raw?.session_in ??
-          r.raw?.startedAt ??
-          r.raw?.started_at ??
-          r.raw?.createdAt ??
-          r.raw?.created_at ??
-          r.raw?.sessionStart ??
-          r.raw?.session_start ??
-          r.raw?.loginAt ??
-          r.raw?.login_at;
-        const itemDate = rawDateStr ? new Date(rawDateStr as string) : null;
-        if (itemDate && !Number.isNaN(itemDate.getTime())) {
-          const start = new Date(appliedSession.from);
-          start.setHours(0, 0, 0, 0);
-          const end = appliedSession.to ? new Date(appliedSession.to) : new Date(appliedSession.from);
-          end.setHours(23, 59, 59, 999);
-          if (itemDate < start || itemDate > end) return false;
-        }
+      if (
+        !matchesDateRangeFromRecord(
+          appliedSession,
+          r.raw,
+          [
+            "sessionIn",
+            "session_in",
+            "startedAt",
+            "started_at",
+            "createdAt",
+            "created_at",
+            "sessionStart",
+            "session_start",
+            "loginAt",
+            "login_at",
+          ],
+          r.sessionIn,
+        )
+      ) {
+        return false;
       }
       if (!q) return true;
       return (
@@ -233,51 +240,24 @@ export function AuditTrailView() {
                 label="Role"
                 summary={draftRole}
                 pillRef={registerPillRef("role")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "role" ? null : "role";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("role")}
               />
               <TableFilterPill
                 label="Action"
                 summary={draftAction}
                 pillRef={registerPillRef("action")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "action" ? null : "action";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("action")}
               />
               <TableFilterPill
                 label="Session In"
                 summary={formatDateRangeLabel(draftSession, "All time")}
                 pillRef={registerPillRef("session")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "session" ? null : "session";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("session")}
               />
             </>
           }
           pillsTrailing={
-            <TableFilterTrailingIconButton
-              ariaLabel="Calendar"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "session" ? null : "session";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
+            <TableFilterTrailingIconButton ariaLabel="Calendar" onClick={() => toggleFilter("session")}>
               <CalendarDays size={14} />
             </TableFilterTrailingIconButton>
           }
@@ -309,8 +289,7 @@ export function AuditTrailView() {
               ) : null}
                {openFilter === "session" ? (
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
-                  <TableFilterPanelTitle />
-                  <TableFilterCalendar value={draftSession} onChange={setDraftSession} />
+                  <TableFilterDatePanel value={draftSession} onChange={setDraftSession} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -320,7 +299,7 @@ export function AuditTrailView() {
               onApply={() => {
                 setAppliedRole(draftRole);
                 setAppliedAction(draftAction);
-                setAppliedSession(draftSession);
+                applySessionDraft();
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -328,12 +307,11 @@ export function AuditTrailView() {
                 setTableSearch("");
                 setAppliedRole(null);
                 setAppliedAction(null);
-                setAppliedSession(undefined);
+                clearSessionFilter();
                 setDraftRole("All roles");
                 setDraftAction("All actions");
-                setDraftSession(undefined);
                 setOpenFilter(null);
-                setFilterMode(false);
+                closeFilterBar();
                 setPage(1);
               }}
             />
@@ -343,13 +321,19 @@ export function AuditTrailView() {
         <AuditTrailToolbar
           tableSearch={tableSearch}
           onTableSearchChange={setTableSearch}
-          onFilterClick={() => setFilterMode(true)}
+          onFilterClick={() => openFilterBar(syncAllFilters)}
           {...exportProps}
         />
       )}
 
       {listLoading ? (
-        <p className="mt-4 text-center text-sm text-zinc-500">Loading audit trail…</p>
+        <TableSkeleton
+          columns={6}
+          rows={8}
+          headers={["Name", "Email", "Role", "Action", "Session In", "Session Out"]}
+          headerRowClassName="bg-outline text-zinc-500"
+          cellVariants={["text", "text-wide", "text-narrow", "text-wide", "text", "text"]}
+        />
       ) : (
         <AuditTrailTable rows={paginatedRows} />
       )}
