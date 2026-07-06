@@ -1,13 +1,16 @@
 import type { ReactNode } from "react";
 
+import { MetricValue } from "@/components/ui/metric-value";
+
 export type StatCardProps = {
   label: string;
   value: string;
   accentColor: string;
   icon: ReactNode;
+  loading?: boolean;
 };
 
-export function StatCard({ label, value, accentColor, icon }: StatCardProps) {
+export function StatCard({ label, value, accentColor, icon, loading = false }: StatCardProps) {
   return (
     <div className="relative flex min-w-0 flex-1 basis-0 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-zinc-100 bg-white px-5 py-4">
       <div
@@ -20,8 +23,8 @@ export function StatCard({ label, value, accentColor, icon }: StatCardProps) {
           {icon}
         </span>
       </div>
-      <p className="mt-3 min-w-0 text-[28px] font-bold text-primary-text">
-        <span className="block truncate">{value}</span>
+      <p className="mt-3 flex min-h-[34px] min-w-0 items-center text-[28px] font-bold text-primary-text">
+        <MetricValue loading={loading} value={<span className="block truncate">{value}</span>} spinnerSize="md" />
       </p>
     </div>
   );

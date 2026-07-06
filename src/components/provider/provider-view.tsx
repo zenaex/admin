@@ -25,33 +25,9 @@ import { AdminApiError } from "@/lib/admin-api/client";
 import { getAdminProvidersList } from "@/lib/admin-api/providers-api";
 import type { AdminProviderListRow } from "@/lib/admin-api/types";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { StatCard } from "@/components/ui/stat-card";
 
 const STATUS_FILTER_OPTIONS = ["All statuses", "Active", "Inactive"] as const;
-
-type StatCardProps = {
-  label: string;
-  value: string;
-  accentColor: string;
-  icon: React.ReactNode;
-};
-
-function StatCard({ label, value, accentColor, icon }: StatCardProps) {
-  return (
-    <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-xl border gap-[13px] border-outline bg-white px-5 py-4">
-      <div
-        className="absolute left-0 h-full top-0 bottom-0 w-[4px] rounded-r-full"
-        style={{ backgroundColor: accentColor }}
-      />
-      <div className="flex items-start justify-between">
-        <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-outline text-zinc-400">
-          {icon}
-        </span>
-      </div>
-      <p className="mt-3 text-[28px] font-bold text-primary-text">{value}</p>
-    </div>
-  );
-}
 
 function formatCount(n: number | undefined): string {
   if (n === undefined || Number.isNaN(n)) return "—";
@@ -176,18 +152,21 @@ export function ProviderView() {
       <div className="mt-6 flex gap-3">
         <StatCard
           label="Total Providers"
+          loading={listLoading}
           value={formatCount(totalDisplay)}
           accentColor="var(--color-primary-green)"
           icon={<WalletMoney size="20" color="currentColor" variant="Outline" />}
         />
         <StatCard
           label="Active Providers"
+          loading={listLoading}
           value={formatCount(activeDisplay)}
           accentColor="var(--color-vivid-azure)"
           icon={<CardReceive size="20" color="currentColor" variant="Outline" />}
         />
         <StatCard
           label="Inactive Providers"
+          loading={listLoading}
           value={formatCount(inactiveDisplay)}
           accentColor="var(--color-failed)"
           icon={<CardSend size="20" color="currentColor" variant="Outline" />}

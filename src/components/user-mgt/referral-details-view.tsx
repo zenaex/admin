@@ -34,6 +34,7 @@ import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { StatCard } from "@/components/ui/stat-card";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
 const REFERRED_EXPORT_COLUMNS: ExportColumn<AdminReferredUserRow>[] = [
@@ -44,29 +45,9 @@ const REFERRED_EXPORT_COLUMNS: ExportColumn<AdminReferredUserRow>[] = [
   { header: "Status", value: (r) => r.status },
 ];
 
-function StatCard({
-  label,
-  value,
-  accentColor,
-  icon,
-}: {
-  label: string;
-  value: string;
-  accentColor: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="relative flex flex-1 flex-col justify-between gap-[13px] overflow-hidden rounded-xl border border-outline bg-white px-5 py-4">
-      <div className="absolute bottom-0 left-0 top-0 w-[4px] rounded-r-full" style={{ backgroundColor: accentColor }} />
-      <div className="flex items-start justify-between">
-        <span className="text-[13px] text-zinc-400">{label}</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] bg-outline text-zinc-400">
-          {icon}
-        </span>
-      </div>
-      <p className="mt-3 text-[28px] font-bold text-primary-text">{value}</p>
-    </div>
-  );
+function formatReferralStat(value: string | number | undefined): string {
+  if (value === undefined || value === null) return "—";
+  return String(value);
 }
 
 function ReferredStatusBadge({ status }: { status: string }) {
@@ -218,10 +199,6 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
     exportClientTable(`referral-${accountId}-referred`, format, rows, REFERRED_EXPORT_COLUMNS);
   };
 
-  if (loading && !detail) {
-    return <p className="text-sm text-zinc-500">Loading referral details…</p>;
-  }
-
   if (error && !detail) {
     return (
       <ErrorAlert error={error} onRetry={() => void loadDetail()}>
@@ -235,6 +212,7 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
 
   const referrer = detail?.referrer;
   const stats = detail?.stats;
+  const statsLoading = loading && !detail;
 
   return (
     <div>
@@ -263,25 +241,29 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
       <div className="flex gap-3">
         <StatCard
           label="Total Referrals Made"
-          value={stats?.totalReferralsMade ?? "0"}
+          loading={statsLoading}
+          value={formatReferralStat(stats?.totalReferralsMade)}
           accentColor="#BCEB0F"
           icon={<People size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Onboarded Referred Users"
-          value={stats?.onboardedReferredUsers ?? "0"}
+          loading={statsLoading}
+          value={formatReferralStat(stats?.onboardedReferredUsers)}
           accentColor="#3B82F6"
           icon={<UserTick size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Pending Referred Users"
-          value={stats?.pendingReferredUsers ?? "0"}
+          loading={statsLoading}
+          value={formatReferralStat(stats?.pendingReferredUsers)}
           accentColor="#EF4444"
           icon={<UserRemove size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Total Rewards Earned"
-          value={stats?.totalRewardsEarned ?? "0.00"}
+          loading={statsLoading}
+          value={formatReferralStat(stats?.totalRewardsEarned)}
           accentColor="#013220"
           icon={<WalletMoney size={20} variant="Outline" color="currentColor" />}
         />

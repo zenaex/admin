@@ -152,6 +152,7 @@ export function TransactionsView() {
   const [listError, setListError] = useState<string | null>(null);
 
   const [summary, setSummary] = useState<AdminTransactionsSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -167,6 +168,7 @@ export function TransactionsView() {
 
   const loadSummary = useCallback(async () => {
     setSummaryError(null);
+    setSummaryLoading(true);
     try {
       const s = await getAdminTransactionsSummary({
         fromDate: toApiDateFrom(appliedDate),
@@ -176,6 +178,8 @@ export function TransactionsView() {
     } catch (e) {
       setSummary(null);
       setSummaryError(e instanceof AdminApiError ? e.message : "Could not load transaction metrics.");
+    } finally {
+      setSummaryLoading(false);
     }
   }, [appliedDate]);
 
@@ -297,24 +301,28 @@ export function TransactionsView() {
       <div className="mt-6 flex min-w-0 gap-3">
         <StatCard
           label="Total Amount Deposited"
+          loading={summaryLoading}
           value={formatMetricAmount(summary?.totalAmountDeposited)}
           accentColor="#BCEB0F"
           icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Amount Withdrawn"
+          loading={summaryLoading}
           value={formatMetricAmount(summary?.totalAmountWithdrawn)}
           accentColor="#3B82F6"
           icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Number of Transactions"
+          loading={summaryLoading}
           value={formatCount(summary?.totalTransactions)}
           accentColor="#EF4444"
           icon={<ChartSquare size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Number of Users"
+          loading={summaryLoading}
           value={formatCount(summary?.totalUsers)}
           accentColor="#013220"
           icon={<ProfileTick size={20} variant="Outline" color="#0B294F" />}

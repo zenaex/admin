@@ -46,6 +46,7 @@ import { getAccessToken } from "@/lib/auth/token-storage";
 import { ErrorAlert } from "@/components/ui/error-alert";
 import { TableSkeleton, TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { StatCard } from "@/components/ui/stat-card";
+import { DataLoadingState } from "@/components/ui/data-loading-state";
 
 type CustomerDetailTab = "Customer Details" | "Transaction History" | "KYC Details" | "Wallet" | "Audit Log";
 const TABS: CustomerDetailTab[] = ["Customer Details", "Transaction History", "KYC Details", "Wallet", "Audit Log"];
@@ -583,7 +584,7 @@ function CustomerDetailsTab({
   loading: boolean;
 }) {
   if (loading) {
-    return <p className="mt-6 text-sm text-zinc-500">Loading customer details…</p>;
+    return <DataLoadingState label="Loading customer details…" />;
   }
   const p = profile ?? {};
   const name =
@@ -708,8 +709,7 @@ function TxStatusBadge({ status }: { status: string }) {
   );
 }
 
-function formatCustomerSummaryAmount(value: number | undefined, loading: boolean): string {
-  if (loading && value === undefined) return "—";
+function formatCustomerSummaryAmount(value: number | undefined): string {
   const n = value ?? 0;
   if (!Number.isFinite(n)) return "—";
   return `₦${n.toLocaleString()}`;
@@ -829,19 +829,22 @@ function TransactionHistoryTab({
       <div className="mt-6 flex min-w-0 gap-3">
         <StatCard
           label="Total Available Balance"
-          value={formatCustomerSummaryAmount(balance, loading)}
+          loading={loading}
+          value={formatCustomerSummaryAmount(balance)}
           accentColor="#8BE300"
           icon={<Wallet size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Amount Inflow"
-          value={formatCustomerSummaryAmount(inflow, loading)}
+          loading={loading}
+          value={formatCustomerSummaryAmount(inflow)}
           accentColor="#3B82F6"
           icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Amount Outflow"
-          value={formatCustomerSummaryAmount(outflow, loading)}
+          loading={loading}
+          value={formatCustomerSummaryAmount(outflow)}
           accentColor="#EF4444"
           icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
@@ -1062,7 +1065,7 @@ function WalletTab({ accountId }: { accountId: string }) {
     setTimeout(() => setCopiedIdx(null), 1500);
   };
 
-  if (loading) return <p className="mt-6 text-sm text-zinc-500">Loading wallets…</p>;
+  if (loading) return <DataLoadingState label="Loading wallets…" />;
   if (error)
     return (
       <p className="mt-6 text-sm text-red-700" role="alert">
@@ -1180,7 +1183,7 @@ function AuditLogTab({ accountId }: { accountId: string }) {
     };
   }, [accountId]);
 
-  if (loading) return <p className="mt-6 text-sm text-zinc-500">Loading audit log…</p>;
+  if (loading) return <DataLoadingState label="Loading audit log…" />;
   if (error)
     return (
       <p className="mt-6 text-sm text-red-700" role="alert">

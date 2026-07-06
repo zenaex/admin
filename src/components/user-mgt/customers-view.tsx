@@ -147,6 +147,7 @@ export function CustomersView() {
   const dateFilter = useDateRangeFilter();
 
   const [summary, setSummary] = useState<AdminCustomersSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const [listRows, setListRows] = useState<AdminCustomerListRow[]>([]);
@@ -176,6 +177,7 @@ export function CustomersView() {
 
   const loadSummary = useCallback(async () => {
     setSummaryError(null);
+    setSummaryLoading(true);
     try {
       const s = await getAdminCustomersSummary({
         fromDate: toApiDateFrom(appliedDate),
@@ -185,6 +187,8 @@ export function CustomersView() {
     } catch (e) {
       setSummary(null);
       setSummaryError(e instanceof AdminApiError ? e.message : "Could not load summary.");
+    } finally {
+      setSummaryLoading(false);
     }
   }, [appliedDate]);
 
@@ -289,24 +293,28 @@ export function CustomersView() {
       <div className="mt-6 flex min-w-0 gap-3">
         <StatCard
           label="Total Customers"
+          loading={summaryLoading}
           value={formatCount(summary?.totalUsers)}
           accentColor="#BCEB0F"
           icon={<Profile2User size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Active Customers"
+          loading={summaryLoading}
           value={formatCount(summary?.activeUsers)}
           accentColor="#3B82F6"
           icon={<img src="/metrics/green.svg" alt="Active customers" className="h-5 w-5 object-contain" width={20} height={20} />}
         />
         <StatCard
           label="Inactive Customers"
+          loading={summaryLoading}
           value={formatCount(summary?.inactiveUsers)}
           accentColor="#EF4444"
           icon={<img src="/metrics/red.svg" alt="Inactive customers" className="h-5 w-5 object-contain" width={20} height={20} />}
         />
         <StatCard
           label="New Sign ups"
+          loading={summaryLoading}
           value={formatCount(summary?.newSignupsThisMonth)}
           accentColor="#013220"
           icon={<UserAdd size={20} variant="Outline" color="#0B294F" />}

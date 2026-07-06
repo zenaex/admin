@@ -288,19 +288,22 @@ export function EtradeView() {
       <div className="mt-6 flex min-w-0 gap-3 flex-wrap sm:flex-nowrap">
         <StatCard
           label="Total Trade"
-          value={summaryLoading ? "…" : summary.totalTrades}
+          loading={summaryLoading}
+          value={summary.totalTrades}
           accentColor="#C1FF00"
           icon={<WalletMoney size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Trade Volume"
-          value={summaryLoading ? "…" : summary.totalTradeVolume}
+          loading={summaryLoading}
+          value={summary.totalTradeVolume}
           accentColor="#3B82F6"
           icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Awaiting Approval"
-          value={summaryLoading ? "…" : summary.awaitingApproval}
+          loading={summaryLoading}
+          value={summary.awaitingApproval}
           accentColor="#EF4444"
           icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
