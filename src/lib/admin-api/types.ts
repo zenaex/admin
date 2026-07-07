@@ -387,8 +387,7 @@ export type AdminGiftcardDeclineBody = {
 
 /** Body for `POST /admin/transactions/gift-cards/submissions/{id}/adjust`. */
 export type AdminGiftcardAdjustBody = {
-  amount: string | number;
-  reason: string;
+  faceValueCents: number;
 };
 
 /** Normalized decrypted e-code from `POST .../e-code`. */
