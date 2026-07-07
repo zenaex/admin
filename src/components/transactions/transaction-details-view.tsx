@@ -375,12 +375,17 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
     setAdjustError(null);
     setAdjustLoading(true);
     try {
-      await postGiftcardSubmissionAdjust(submissionId, { amount, reason });
+      const parsedAmount = parseFloat(amount);
+      const faceValueCents = Math.round(parsedAmount * 100);
+      if (Number.isNaN(faceValueCents) || faceValueCents <= 0) {
+        throw new Error("Please enter a valid amount");
+      }
+      await postGiftcardSubmissionAdjust(submissionId, { faceValueCents });
       setShowAdjustModal(false);
       setSuccessMessage("Giftcard transaction has been successfully adjusted");
       setShowSuccessModal(true);
     } catch (e) {
-      setAdjustError(e instanceof AdminApiError ? e.message : "Could not adjust transaction.");
+      setAdjustError(e instanceof Error ? e.message : "Could not adjust transaction.");
     } finally {
       setAdjustLoading(false);
     }
@@ -594,6 +599,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
       {showAdjustModal && tx && (
         <AdjustGiftcardModal
           rate={tx.rateFeeGiven}
+          initialAmount={tx.amount ? tx.amount.replace(/[^\d.]/g, "") : ""}
           onClose={() => {
             if (!adjustLoading) setShowAdjustModal(false);
           }}
@@ -1487,18 +1493,20 @@ function TransactionLogTab({ entries }: { entries: TransactionLogEntry[] }) {
 /* ── Adjust Giftcard Modal ─────────────────────────────────────── */
 function AdjustGiftcardModal({
   rate,
+  initialAmount = "",
   onClose,
   onSubmit,
   loading,
   error,
 }: {
   rate: string;
+  initialAmount?: string;
   onClose: () => void;
   onSubmit: (amount: string, reason: string) => void;
   loading?: boolean;
   error?: string | null;
 }) {
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(initialAmount);
   const [reason, setReason] = useState("");
 
   const canSubmit = amount.trim() !== "" && reason.trim() !== "";
