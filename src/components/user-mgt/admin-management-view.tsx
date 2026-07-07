@@ -1194,7 +1194,17 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
     setLoading(true);
     try {
       const res = await getAdminInvitations();
-      setInvites(res.items);
+      const pendingItems = res.items.filter((item) => {
+        const s = (item.status || "Pending").trim().toLowerCase();
+        return (
+          !s.includes("accept") &&
+          !s.includes("complete") &&
+          !s.includes("expir") &&
+          !s.includes("cancel") &&
+          !s.includes("reject")
+        );
+      });
+      setInvites(pendingItems);
     } catch (err) {
       setInvites([]);
       setLoadError(err instanceof AdminApiError ? err.message : "Could not load invitations.");
