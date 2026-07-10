@@ -374,7 +374,7 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
             type="button"
             disabled={actionLoading}
             onClick={() => setActionOpen((o) => !o)}
-            className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text disabled:opacity-50 hover:bg-surface-subtle transition-colors"
           >
             Action
             <ArrowDown2 size={12} variant="Outline" color="currentColor" className={`transition-transform ${actionOpen ? "rotate-180" : ""}`} />

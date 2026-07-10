@@ -730,7 +730,7 @@ export function RoleDetailView({
               <button
                 type="button"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-[#F7F7F7] px-3 text-xs font-semibold text-primary-text hover:bg-zinc-50 transition-colors"
+                className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text hover:bg-surface-subtle transition-colors"
               >
                 Action
                 <ArrowDown2 size={12} variant="Outline" color="currentColor" />

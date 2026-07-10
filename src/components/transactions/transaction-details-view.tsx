@@ -413,7 +413,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
 
   return (
     <div className="relative pb-28">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex h-[66px] items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
           <Link href="/dashboard/transactions" className="inline-flex items-center gap-1 text-primary-text hover:underline">
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
@@ -427,12 +427,12 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
           <button
             type="button"
             onClick={() => setActionOpen((o) => !o)}
-            className="inline-flex h-9 items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-primary-text shadow-sm hover:bg-surface-subtle"
+            className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text hover:bg-surface-subtle transition-colors"
             aria-expanded={actionOpen}
             aria-label="Action"
           >
             Action
-            <ArrowDown2 size={14} variant="Outline" color="currentColor" />
+            <ArrowDown2 size={12} variant="Outline" color="currentColor" />
           </button>
 
           {actionOpen ? (

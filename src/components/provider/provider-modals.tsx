@@ -28,7 +28,7 @@ export function ConfirmModal({
   onCancel,
   disabled = false,
 }: ConfirmModalProps) {
-  const iconColor = variant === "approve" ? "var(--color-secondary-green)" : "var(--color-failed)";
+  const iconColor = variant === "approve" ? "var(--color-success)" : "var(--color-failed)";
   const confirmCls =
     variant === "approve"
       ? "flex-1 rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -40,7 +40,7 @@ export function ConfirmModal({
       <div className="relative mx-4 w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl">
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-outline">
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
           <div
             className="flex h-14 w-14 items-center justify-center rounded-full border-[3px]"
             style={{ borderColor: iconColor }}
@@ -296,8 +296,8 @@ export function SuccessModal({
       <div className="relative mx-4 w-full max-w-sm rounded-3xl bg-white px-6 pb-8 pt-4 shadow-xl">
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-zinc-200" />
 
-        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-outline">
-          <TickCircle size={56} variant="Outline" color="var(--color-secondary-green)" />
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+          <TickCircle size={56} variant="Outline" color="var(--color-success)" />
         </div>
 
         <h2 className="mb-2 text-center text-[20px] font-bold text-primary-text">Successful</h2>
