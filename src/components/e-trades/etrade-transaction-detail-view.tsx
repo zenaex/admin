@@ -290,8 +290,8 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden relative">
-      <header className="sticky top-0 z-20 shrink-0 bg-background">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <header className="sticky top-0 z-20 shrink-0 bg-background mb-6">
+        <div className="flex h-[66px] items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
           <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
             <Link
               href="/dashboard/e-trades"
@@ -308,11 +308,11 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
             <button
               type="button"
               onClick={() => setActionOpen((o) => !o)}
-              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-primary-text transition-colors hover:bg-surface-subtle"
+              className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text transition-colors hover:bg-surface-subtle"
               aria-expanded={actionOpen}
             >
               Action
-              <ArrowDown2 size={16} variant="Outline" color="currentColor" />
+              <ArrowDown2 size={12} variant="Outline" color="currentColor" />
             </button>
             {actionOpen ? (
               <>

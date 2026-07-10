@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import { postAdminLogin, postAdminLogout, postAdminVerifyOtp } from "@/lib/admin-api/auth-api";
 import type { AdminTokenPair } from "@/lib/admin-api/types";
@@ -23,6 +24,8 @@ import {
   setPendingOtpEmail,
   setTokens,
 } from "@/lib/auth/token-storage";
+
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 type AuthContextValue = {
   ready: boolean;
@@ -45,6 +48,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [ready, setReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [displayEmail, setDisplayEmail] = useState<string | null>(null);
@@ -139,6 +143,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPendingOtpEmailState(null);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const handleLogout = async () => {
+      await logout();
+      router.push("/login");
+    };
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleLogout, INACTIVITY_TIMEOUT);
+    };
+
+    const activityEvents = ["mousemove", "keydown", "mousedown", "scroll", "touchstart"];
+
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    resetTimer();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [isAuthenticated, logout, router]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

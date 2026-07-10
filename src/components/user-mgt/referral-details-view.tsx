@@ -231,7 +231,7 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
 
         <button
           type="button"
-          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text"
+          className="inline-flex h-8 items-center gap-1 rounded-full border border-zinc-200 bg-grey-100 px-3 text-xs font-semibold text-primary-text hover:bg-surface-subtle transition-colors"
         >
           Action
           <ArrowDown2 size={12} variant="Outline" color="currentColor" />

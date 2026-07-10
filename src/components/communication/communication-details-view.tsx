@@ -647,7 +647,7 @@ export function CommunicationDetailsView({ id }: CommunicationDetailsViewProps) 
             <div className="mx-auto mt-2 h-1.5 w-20 rounded-full bg-zinc-200" />
 
             <div className="mt-6 flex flex-col items-center text-center">
-              <div className="flex h-22 w-22 items-center justify-center rounded-full bg-surface-subtle">
+              <div className="flex h-22 w-22 items-center justify-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
                 <TickCircle size={58} variant="Linear" color="var(--color-success)" />
               </div>
               <h3 className="mt-6 text-[32px] leading-none font-semibold text-primary-text">Successful</h3>

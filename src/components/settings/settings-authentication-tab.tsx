@@ -263,9 +263,9 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
 function SuccessScreen({ message, buttonLabel, onClose }: { message: string; buttonLabel: string; onClose: () => void }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-outline">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-secondary-green">
-          <TickCircle size={32} variant="Outline" color="var(--color-secondary-green)" />
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-success">
+          <TickCircle size={32} variant="Outline" color="var(--color-success)" />
         </div>
       </div>
       <h2 className="mb-2 text-lg font-bold text-primary-text">Successful</h2>

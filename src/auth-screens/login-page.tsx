@@ -11,19 +11,22 @@ import { AdminApiError, getAdminApiBaseUrlSnapshot } from "@/lib/admin-api/clien
 import { useAuth } from "@/lib/auth/auth-context";
 
 function formatLoginApiError(e: unknown): string {
-  if (!(e instanceof AdminApiError)) return "Something went wrong. Try again.";
-  const lines: string[] = [e.message];
-  if (e.requestUrl) lines.push(`Request: ${e.requestMethod ?? "?"} ${e.requestUrl}`);
-  if (e.status === 404) {
-    lines.push(
-      "404: the server has no route at that URL—compare this Request URL with your backend/Postman. If the path matches, ask backend whether 404 is used for blocked or non-provisioned accounts.",
-    );
-  } else if (e.status === 403) {
-    lines.push("403: the server rejected credentials or this account is not allowed to sign in here.");
+  if (!(e instanceof AdminApiError)) return "Something went wrong. Please try again.";
+  
+  if (e.status === 401) {
+    return e.message || "Invalid credentials. Please check your email and password.";
   }
-  const base = getAdminApiBaseUrlSnapshot();
-  if (base && e.status === 0) lines.push(`Configured base: ${base}`);
-  return lines.join("\n\n");
+  if (e.status === 403) {
+    return "Access denied. Your account does not have permission to access this area.";
+  }
+  if (e.status === 404) {
+    return "The login service is temporarily unavailable. Please try again later.";
+  }
+  if (e.status === 0) {
+    return "Unable to connect to the server. Please check your internet connection and try again.";
+  }
+  
+  return e.message || "Something went wrong. Please try again.";
 }
 
 export function LoginPage() {
