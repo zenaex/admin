@@ -539,7 +539,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
               setActionError(null);
               setShowRejectModal(true);
             }}
-            className="h-12 min-w-[160px] rounded-full border border-zinc-200 bg-white px-8 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-50 disabled:opacity-50"
+            className="h-12 min-w-[160px] rounded-full bg-white px-8 text-sm font-semibold text-primary-text transition-colors hover:bg-zinc-50 disabled:opacity-50"
           >
             No, Reject
           </button>
