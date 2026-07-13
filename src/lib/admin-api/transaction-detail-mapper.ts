@@ -948,6 +948,7 @@ export function mapApiDetailToTransactionModel(
     reference;
 
   const customerName =
+    (customerBlock ? formatPersonName(customerBlock) : "") ||
     pickString(o, ["customerName", "customer_name"]) ||
     pickNestedString(o, [
       ["customer", "name"],
@@ -955,7 +956,6 @@ export function mapApiDetailToTransactionModel(
       ["user", "name"],
       ["user", "fullName"],
     ]) ||
-    (customerBlock ? formatPersonName(customerBlock) : "") ||
     formatPersonName(o);
 
   const customerId =
@@ -1045,8 +1045,8 @@ export function mapApiDetailToTransactionModel(
     else if (searchStr.includes("glo")) product = "GLO";
     else if (searchStr.includes("airtel")) product = "Airtel";
     else if (searchStr.includes("9mobile")) product = "9mobile";
-    else if (searchStr.includes("ikedec") || searchStr.includes("ikeja")) product = "Ikedec";
-    else if (searchStr.includes("ekedp") || searchStr.includes("eko")) product = "Ekedp";
+    else if (searchStr.includes("ikedc") || searchStr.includes("ikedec") || searchStr.includes("ikeja")) product = "IKEDC";
+    else if (searchStr.includes("ekedp") || searchStr.includes("eko")) product = "EKEDC";
     else if (searchStr.includes("dstv")) product = "DSTV";
     else if (searchStr.includes("gotv")) product = "GOTV";
     else if (searchStr.includes("sporty")) product = "Sporty Bet";
@@ -1191,6 +1191,12 @@ export function mapApiDetailToTransactionModel(
     network: pickFromBlocks(o, detailBlocks, ["network", "chain", "blockchain"]),
     networkFee: pickFromBlocks(o, detailBlocks, ["networkFee", "network_fee", "gasFee", "gas_fee"]),
     meterNumber: pickFromBlocks(o, detailBlocks, ["meterNumber", "meter_number", "meterNo", "meter_no"]),
+    meterType: pickFromBlocks(o, detailBlocks, ["meterType", "meter_type"]),
+    electricityToken: pickFromBlocks(o, detailBlocks, ["electricityToken", "electricity_token"]),
+    electricityUnits: pickFromBlocks(o, detailBlocks, ["electricityUnits", "electricity_units"]),
+    walletTransactionId: pickFromBlocks(o, detailBlocks, ["walletTransactionId", "wallet_transaction_id"]),
+    providerReference: pickFromBlocks(o, detailBlocks, ["providerReference", "provider_reference"]),
+    balanceBefore: pickAndFormatMoneyFromBlocks(o, detailBlocks, ["balanceBefore", "balance_before"]),
     address: pickFromBlocks(o, detailBlocks, ["address", "streetAddress", "street_address", "location"]),
     accountName:
       (providerLogRequest
@@ -1203,7 +1209,14 @@ export function mapApiDetailToTransactionModel(
             "recipient_name",
           ])
         : "") ||
-      pickFromBlocks(o, detailBlocks, ["accountName", "account_name", "recipientName", "recipient_name"]),
+      pickFromBlocks(o, detailBlocks, [
+        "accountName",
+        "account_name",
+        "customerName",
+        "customer_name",
+        "recipientName",
+        "recipient_name",
+      ]),
     accountNumber: pickFromBlocks(o, detailBlocks, ["accountNumber", "account_number", "number", "recipientNumber"]),
     phoneNumber: pickFromBlocks(o, detailBlocks, ["phoneNumber", "phone_number", "phone", "msisdn"]),
     smartcardNo: pickFromBlocks(o, detailBlocks, ["smartcardNo", "smartcard_no", "smartCard", "cardNumber"]),

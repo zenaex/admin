@@ -112,6 +112,12 @@ export type TransactionDetailModel = {
   network: string;
   networkFee: string;
   meterNumber: string;
+  meterType: string;
+  electricityToken: string;
+  electricityUnits: string;
+  walletTransactionId: string;
+  providerReference: string;
+  balanceBefore: string;
   address: string;
   accountName: string;
   accountNumber: string;
@@ -202,6 +208,12 @@ export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
   network: "",
   networkFee: "",
   meterNumber: "",
+  meterType: "",
+  electricityToken: "",
+  electricityUnits: "",
+  walletTransactionId: "",
+  providerReference: "",
+  balanceBefore: "",
   address: "",
   accountName: "",
   accountNumber: "",

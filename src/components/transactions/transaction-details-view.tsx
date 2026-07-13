@@ -499,7 +499,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
             ? { variant: "giftcard" as const, status: approvalStatus }
             : tx.channel === "Esim"
               ? { variant: "esim" as const, outcome: tx.esimOutcome }
-              : { variant: "default" as const, outcome: tx.defaultOutcome })}
+              : { variant: "default" as const, outcome: tx.defaultOutcome, isUtility: tx.channel === "Deposit" && tx.depositDetailVariant === "utility" })}
         />
       ) : null}
 
@@ -630,9 +630,9 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
 type StatusBannerProps =
   | { variant: "giftcard"; status: TxApprovalStatus }
   | { variant: "esim"; outcome: EsimTransactionOutcome }
-  | { variant: "default"; outcome: EsimTransactionOutcome };
+  | { variant: "default"; outcome: EsimTransactionOutcome; isUtility?: boolean };
 
-function OutcomeStatusBanner({ outcome }: { outcome: EsimTransactionOutcome }) {
+function OutcomeStatusBanner({ outcome, isUtility }: { outcome: EsimTransactionOutcome; isUtility?: boolean }) {
   if (outcome === "Failed") {
     return (
       <div className="flex items-center justify-center rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -649,14 +649,14 @@ function OutcomeStatusBanner({ outcome }: { outcome: EsimTransactionOutcome }) {
   }
   return (
     <div className="flex items-center justify-center rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-[#166534]">
-      {outcome}
+      {isUtility ? "Approved!" : outcome}
     </div>
   );
 }
 
 function StatusBanner(props: StatusBannerProps) {
   if (props.variant === "esim" || props.variant === "default") {
-    return <OutcomeStatusBanner outcome={props.outcome} />;
+    return <OutcomeStatusBanner outcome={props.outcome} isUtility={props.variant === "default" ? props.isUtility : undefined} />;
   }
   const { status } = props;
   if (status === "Rejected") {
@@ -1081,9 +1081,10 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
       tx.depositDetailVariant === "utility_betting" ||
       tx.bettingId.trim() !== "";
     const dataLike =
-      /data|airtime/i.test(
+      (/data|airtime/i.test(
         [tx.displayCategory, tx.productSlug, tx.product, tx.categorySlug, tx.plan].join(" "),
-      ) || Boolean(tx.phoneNumber.trim());
+      ) || Boolean(tx.phoneNumber.trim())) &&
+      !tx.meterNumber.trim();
 
     if (u === "electricity" && dataLike && !bettingLike) {
       return (
@@ -1140,7 +1141,7 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               headers={[
                 "Transaction ID",
                 "Customer Names",
-                "Channel",
+                "Channnel",
                 "Type",
                 "Product",
                 "Amount",
@@ -1177,11 +1178,38 @@ function DepositTransactionDetailsContent({ tx }: { tx: TransactionDetailModel }
               />
             ) : (
               <TxDataBlockTable
-                headers={["Address", "Meter Number", "Account Name"]}
-                row={[tx.address, tx.meterNumber, tx.accountName]}
+                headers={["Address", "Meter Type", "Meter Number", "Account Name"]}
+                row={[
+                  tx.address || "—",
+                  tx.meterType ? (tx.meterType.charAt(0).toUpperCase() + tx.meterType.slice(1).toLowerCase()) : "—",
+                  tx.meterNumber || "—",
+                  tx.accountName || "—",
+                ]}
               />
             )}
           </section>
+
+          {(tx.electricityToken || tx.electricityUnits || tx.phoneNumber || tx.balanceBefore) && (
+            <section className="mt-8">
+              <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+                Electricity Token & Payment Details
+              </h2>
+              <TxDataBlockTable
+                headers={[
+                  "Token",
+                  "Units",
+                  "Phone Number",
+                  "Balance Before",
+                ]}
+                row={[
+                  tx.electricityToken || "—",
+                  tx.electricityUnits || "—",
+                  tx.phoneNumber || "—",
+                  tx.balanceBefore || "—",
+                ]}
+              />
+            </section>
+          )}
 
           <DepositDeviceSection tx={tx} />
         </>
