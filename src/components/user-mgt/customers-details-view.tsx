@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowDown2, ArrowLeft2, ArrowRight2, Copy, DocumentDownload, Forbidden, MoneyForbidden, Refresh, Wallet, CardReceive, CardSend } from "iconsax-react";
 import { ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
@@ -121,6 +122,11 @@ const ACTION_COPY: Record<
 };
 
 export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps) {
+  const searchParams = useSearchParams();
+  const fromTx = searchParams.get("fromTx");
+  const backHref = fromTx ? `/dashboard/transactions/${encodeURIComponent(fromTx)}` : "/dashboard/user-mgt/customers";
+  const backLabel = fromTx ? "Transaction" : "Customers";
+
   const [activeTab, setActiveTab] = useState<CustomerDetailTab>("Customer Details");
   const [actionOpen, setActionOpen] = useState(false);
 
@@ -361,9 +367,9 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
     <div>
       <div className="mb-6 flex h-[66px] items-center justify-between rounded-xl border border-outline bg-white px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
-          <Link href="/dashboard/user-mgt/customers" className="inline-flex items-center gap-1 text-primary-text">
+          <Link href={backHref} className="inline-flex items-center gap-1 text-primary-text">
             <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
-            Customers
+            {backLabel}
           </Link>
           <ArrowRight2 size={14} variant="Outline" color="currentColor" />
           <span className="text-primary-text">Customer Details</span>

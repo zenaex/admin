@@ -705,9 +705,16 @@ function CustomerNameLink({ id, name }: { id?: string; name: string }) {
   if (!id?.trim()) {
     return <span className="text-sm" style={{ color: TEXT }}>{name}</span>;
   }
+  let href = `/dashboard/user-mgt/customers/${encodeURIComponent(id.trim())}`;
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard/transactions/")) {
+    const txId = window.location.pathname.split("/").pop();
+    if (txId) {
+      href += `?fromTx=${encodeURIComponent(txId)}`;
+    }
+  }
   return (
     <Link
-      href={`/dashboard/user-mgt/customers/${encodeURIComponent(id.trim())}`}
+      href={href}
       className="underline underline-offset-2 hover:opacity-80"
       style={{ color: LINK }}
     >
