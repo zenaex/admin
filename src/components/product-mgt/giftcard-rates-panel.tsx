@@ -9,6 +9,7 @@ import { GiftcardBrandCell } from "@/components/product-mgt/giftcard-brand-cell"
 import { GiftcardRateUpdateFlow } from "@/components/product-mgt/giftcard-rate-update-flow";
 import type { GiftcardBrand, GiftcardDenomination } from "@/components/product-mgt/product-mgt-types";
 import { getGiftcardRates, toggleGiftcardCategoryActive } from "@/lib/admin-api/exchange-rates-api";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
 function StatusToggle({
   checked,
@@ -188,11 +189,7 @@ export function GiftcardRatesPanel() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
-                  Loading…
-                </td>
-              </tr>
+              <TableSkeletonRows columns={5} rows={8} cellVariants={["text-wide", "text-narrow", "text-narrow", "text", "icon"]} />
             ) : paginatedBrands.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">

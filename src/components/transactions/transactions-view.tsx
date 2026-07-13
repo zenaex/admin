@@ -11,17 +11,17 @@ import { ProviderHeader } from "@/components/provider/provider-header";
 import { StatCard } from "@/components/ui/stat-card";
 import {
   TableFilterApplyClear,
+  TableFilterDatePanel,
   TableFilterDropdownCard,
   TableFilterModeBar,
   TableFilterOptionsList,
   TableFilterPanelTitle,
   TableFilterPill,
   TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
-  TableFilterCalendar,
   formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
-import type { DateRange } from "react-day-picker";
+import { toApiDateFrom, toApiDateTo } from "@/lib/filters/date-range";
+import { useDateRangeFilter, useFilterBar } from "@/lib/filters/use-filter-bar";
 import { AdminApiError } from "@/lib/admin-api/client";
 import {
   getAdminTransactionsList,
@@ -37,6 +37,7 @@ import {
   exportViaTransactionsApi,
 } from "@/lib/export/export-handlers";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
 const TX_EXPORT_COLUMNS: ExportColumn<AdminTransactionListRow>[] = [
   { header: "Reference", value: (r) => r.refNo },
@@ -113,34 +114,37 @@ function formatMetricAmount(v: number | string | undefined): string {
   return "—";
 }
 
-function matchesStatusFilter(row: AdminTransactionListRow, applied: TxStatusFilter | null): boolean {
-  if (!applied) return true;
-  const key = row.status.toLowerCase();
-  if (applied === "Successful") return key.includes("success");
-  if (applied === "Pending") return key.includes("pending");
-  if (applied === "Failed") return key.includes("fail");
-  return row.status === applied;
-}
+const TX_STATUS_OPTIONS: TxStatusFilter[] = ["Successful", "Pending", "Failed"];
+const AMOUNT_OPTIONS: AmountFilter[] = ["Less than ₦20,000", "Less than ₦100,000", "Greater than ₦100,000"];
 
 export function TransactionsView() {
   const [activeTab, setActiveTab] = useState<TxTab>("All");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterMode, setFilterMode] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
 
-  const [openFilter, setOpenFilter] = useState<null | "date" | "amount" | "status">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"date" | "amount" | "status">(openFilter, filterMode);
+  const {
+    filterMode,
+    openFilter,
+    setOpenFilter,
+    toggleFilter,
+    openFilterBar,
+    closeFilterBar,
+    filterBarRef,
+    filterScrollRef,
+    dropdownLeft,
+    registerPillRef,
+    syncDropdownLeft,
+  } = useFilterBar<"date" | "amount" | "status">();
 
-  const [draftAmount, setDraftAmount] = useState<AmountFilter>("Less than ₦20,000");
-  const [draftStatus, setDraftStatus] = useState<TxStatusFilter>("Successful");
-  const [draftDate, setDraftDate] = useState<DateRange | undefined>(undefined);
+  const dateFilter = useDateRangeFilter();
+  const { draft: draftDate, setDraft: setDraftDate, applied: appliedDate, applyDraft: applyDateDraft, clear: clearDateFilter, syncDraftFromApplied: syncDateDraft } = dateFilter;
 
+  const [draftAmount, setDraftAmount] = useState<AmountFilter>(AMOUNT_OPTIONS[0]);
+  const [draftStatus, setDraftStatus] = useState<TxStatusFilter>(TX_STATUS_OPTIONS[0]);
   const [appliedAmount, setAppliedAmount] = useState<AmountFilter | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<TxStatusFilter | null>(null);
-  const [appliedDate, setAppliedDate] = useState<DateRange | undefined>(undefined);
 
   const [listRows, setListRows] = useState<AdminTransactionListRow[]>([]);
   const [listTotal, setListTotal] = useState(0);
@@ -148,6 +152,7 @@ export function TransactionsView() {
   const [listError, setListError] = useState<string | null>(null);
 
   const [summary, setSummary] = useState<AdminTransactionsSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -155,29 +160,26 @@ export function TransactionsView() {
     return () => window.clearTimeout(t);
   }, [search]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const syncAllFilters = useCallback(() => {
+    syncDateDraft();
+    setDraftAmount(appliedAmount ?? AMOUNT_OPTIONS[0]);
+    setDraftStatus(appliedStatus ?? TX_STATUS_OPTIONS[0]);
+  }, [appliedAmount, appliedStatus, syncDateDraft]);
 
   const loadSummary = useCallback(async () => {
     setSummaryError(null);
+    setSummaryLoading(true);
     try {
       const s = await getAdminTransactionsSummary({
-        fromDate: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
-        toDate: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
+        fromDate: toApiDateFrom(appliedDate),
+        toDate: toApiDateTo(appliedDate),
       });
       setSummary(s);
     } catch (e) {
       setSummary(null);
       setSummaryError(e instanceof AdminApiError ? e.message : "Could not load transaction metrics.");
+    } finally {
+      setSummaryLoading(false);
     }
   }, [appliedDate]);
 
@@ -199,8 +201,8 @@ export function TransactionsView() {
         tab,
         page,
         pageSize,
-        dateFrom: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
-        dateTo: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
+        dateFrom: toApiDateFrom(appliedDate),
+        dateTo: toApiDateTo(appliedDate),
       });
       setListRows(res.items);
       setListTotal(res.total);
@@ -230,12 +232,8 @@ export function TransactionsView() {
     if (activeTab !== "All") {
       rows = filterRowsByChannelTab(rows, activeTab);
     }
-    return rows.filter((row) => {
-      const matchAmount = matchesAmountFilter(row, appliedAmount);
-      const matchStatus = matchesStatusFilter(row, appliedStatus);
-      return matchAmount && matchStatus;
-    });
-  }, [listRows, activeTab, appliedAmount, appliedStatus]);
+    return rows.filter((row) => matchesAmountFilter(row, appliedAmount));
+  }, [listRows, activeTab, appliedAmount]);
 
   const paginationTotal = listTotal;
   const paginatedRows = clientFiltered;
@@ -258,8 +256,8 @@ export function TransactionsView() {
       search: debouncedSearch || undefined,
       productSlug: tab,
       statuses: status ? [status] : undefined,
-      dateFrom: appliedDate?.from ? appliedDate.from.toISOString() : undefined,
-      dateTo: appliedDate?.to ? appliedDate.to.toISOString() : undefined,
+      dateFrom: toApiDateFrom(appliedDate),
+      dateTo: toApiDateTo(appliedDate),
     };
   }, [activeTab, appliedStatus, debouncedSearch, appliedDate]);
 
@@ -303,24 +301,28 @@ export function TransactionsView() {
       <div className="mt-6 flex min-w-0 gap-3">
         <StatCard
           label="Total Amount Deposited"
+          loading={summaryLoading}
           value={formatMetricAmount(summary?.totalAmountDeposited)}
           accentColor="#BCEB0F"
           icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Amount Withdrawn"
+          loading={summaryLoading}
           value={formatMetricAmount(summary?.totalAmountWithdrawn)}
           accentColor="#3B82F6"
           icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Number of Transactions"
+          loading={summaryLoading}
           value={formatCount(summary?.totalTransactions)}
           accentColor="#EF4444"
           icon={<ChartSquare size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Number of Users"
+          loading={summaryLoading}
           value={formatCount(summary?.totalUsers)}
           accentColor="#013220"
           icon={<ProfileTick size={20} variant="Outline" color="#0B294F" />}
@@ -346,51 +348,24 @@ export function TransactionsView() {
                 label="Date"
                 summary={formatDateRangeLabel(draftDate, "All time")}
                 pillRef={registerPillRef("date")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "date" ? null : "date";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("date")}
               />
               <TableFilterPill
                 label="Amount"
-                summary={draftAmount}
+                summary={appliedAmount ?? draftAmount}
                 pillRef={registerPillRef("amount")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "amount" ? null : "amount";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("amount")}
               />
               <TableFilterPill
                 label="Status"
-                summary={draftStatus}
+                summary={appliedStatus ?? draftStatus}
                 pillRef={registerPillRef("status")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "status" ? null : "status";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("status")}
               />
             </>
           }
           pillsTrailing={
-            <TableFilterTrailingIconButton
-              ariaLabel="Calendar"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "date" ? null : "date";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
+            <TableFilterTrailingIconButton ariaLabel="Calendar" onClick={() => toggleFilter("date")}>
               <CalendarDays size={14} />
             </TableFilterTrailingIconButton>
           }
@@ -398,15 +373,14 @@ export function TransactionsView() {
             <>
               {openFilter === "date" ? (
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
-                  <TableFilterPanelTitle />
-                  <TableFilterCalendar value={draftDate} onChange={setDraftDate} />
+                  <TableFilterDatePanel value={draftDate} onChange={setDraftDate} />
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "amount" ? (
                 <TableFilterDropdownCard left={dropdownLeft}>
                   <TableFilterPanelTitle />
                   <TableFilterOptionsList
-                    options={["Less than ₦100,000", "Greater than ₦100,000"] as AmountFilter[]}
+                    options={AMOUNT_OPTIONS}
                     onSelect={(opt) => {
                       setDraftAmount(opt as AmountFilter);
                       setOpenFilter(null);
@@ -418,7 +392,7 @@ export function TransactionsView() {
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[160px]">
                   <TableFilterPanelTitle />
                   <TableFilterOptionsList
-                    options={["Successful", "Pending", "Failed"] as TxStatusFilter[]}
+                    options={TX_STATUS_OPTIONS}
                     onSelect={(opt) => {
                       setDraftStatus(opt as TxStatusFilter);
                       setOpenFilter(null);
@@ -433,7 +407,7 @@ export function TransactionsView() {
               onApply={() => {
                 setAppliedAmount(draftAmount);
                 setAppliedStatus(draftStatus);
-                setAppliedDate(draftDate);
+                applyDateDraft();
                 setOpenFilter(null);
                 setPage(1);
               }}
@@ -441,12 +415,11 @@ export function TransactionsView() {
                 setSearch("");
                 setAppliedAmount(null);
                 setAppliedStatus(null);
-                setAppliedDate(undefined);
-                setDraftAmount("Less than ₦20,000");
-                setDraftStatus("Successful");
-                setDraftDate(undefined);
+                clearDateFilter();
+                setDraftAmount(AMOUNT_OPTIONS[0]);
+                setDraftStatus(TX_STATUS_OPTIONS[0]);
                 setOpenFilter(null);
-                setFilterMode(false);
+                closeFilterBar();
                 setPage(1);
               }}
             />
@@ -456,7 +429,7 @@ export function TransactionsView() {
         <AuditTrailToolbar
           tableSearch={search}
           onTableSearchChange={setSearch}
-          onFilterClick={() => setFilterMode(true)}
+          onFilterClick={() => openFilterBar(syncAllFilters)}
           {...exportProps}
         />
       )}
@@ -479,11 +452,12 @@ export function TransactionsView() {
           </thead>
           <tbody>
             {listLoading ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
-                  Loading transactions…
-                </td>
-              </tr>
+              <TableSkeletonRows
+                columns={8}
+                rows={8}
+                cellVariants={["text-narrow", "text", "text-narrow", "text", "text-narrow", "text", "badge", "text"]}
+                cellClassName="h-16 px-4 py-0 align-middle"
+              />
             ) : paginatedRows.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">

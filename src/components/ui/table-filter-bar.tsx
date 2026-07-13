@@ -10,17 +10,12 @@ import {
 } from "react";
 import { X, ChevronDown } from "lucide-react";
 import { DayPicker, type DateRange } from "react-day-picker";
-import { format } from "date-fns";
 import { ArrowLeft2, ArrowRight2 } from "iconsax-react";
 import "react-day-picker/dist/style.css";
 
-export function formatDateRangeLabel(range: DateRange | undefined, fallback = "All time"): string {
-  if (!range?.from) return fallback;
-  const fmt = (d: Date) =>
-    d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  if (!range.to) return `${fmt(range.from)} – ...`;
-  return `${fmt(range.from)} – ${fmt(range.to)}`;
-}
+import { formatDateRangeLabel } from "@/lib/filters/date-range";
+
+export { formatDateRangeLabel };
 
 export function TableFilterCalendar({
   value,
@@ -276,6 +271,53 @@ export function TableFilterOptionsList({
         </button>
       ))}
     </div>
+  );
+}
+
+export type TableFilterSelectOption<V extends string = string> = {
+  value: V;
+  label: string;
+};
+
+export function TableFilterSelectOptions<V extends string>({
+  options,
+  selectedValue,
+  onSelect,
+}: {
+  options: readonly TableFilterSelectOption<V>[];
+  selectedValue: V;
+  onSelect: (value: V) => void;
+}) {
+  return (
+    <div className="mt-2 overflow-hidden rounded-[10px]">
+      {options.map((opt) => (
+        <button
+          key={opt.value || "__all__"}
+          type="button"
+          className={`flex w-full items-center px-2.5 py-2 text-left text-[14px] hover:bg-zinc-50 ${
+            selectedValue === opt.value ? "bg-zinc-50 font-medium text-primary-text" : "text-primary-text"
+          }`}
+          onClick={() => onSelect(opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function TableFilterDatePanel({
+  value,
+  onChange,
+}: {
+  value: DateRange | undefined;
+  onChange: (range: DateRange | undefined) => void;
+}) {
+  return (
+    <>
+      <TableFilterPanelTitle />
+      <TableFilterCalendar value={value} onChange={onChange} />
+    </>
   );
 }
 

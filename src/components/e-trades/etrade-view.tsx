@@ -17,19 +17,23 @@ import { EtradeLogFlow } from "@/components/e-trades/etrade-log-flow";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import {
   TableFilterApplyClear,
+  TableFilterDatePanel,
   TableFilterDropdownCard,
   TableFilterModeBar,
   TableFilterOptionsList,
   TableFilterPanelTitle,
   TableFilterPill,
   TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import { toApiDateFrom, toApiDateTo } from "@/lib/filters/date-range";
+import { useDateRangeFilter, useFilterBar } from "@/lib/filters/use-filter-bar";
 import { formatAdminApiError } from "@/lib/admin-api/client";
 import {
   downloadExportPayload,
   extractExportRecords,
 } from "@/lib/admin-api/export-api";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import {
   getAdminEtradesExport,
   getAdminEtradesList,
@@ -75,17 +79,26 @@ export function EtradeView() {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "type" | "status" | "date">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"type" | "status" | "date">(openFilter, filterMode);
+  const {
+    filterMode,
+    openFilter,
+    setOpenFilter,
+    toggleFilter,
+    openFilterBar,
+    closeFilterBar,
+    filterBarRef,
+    filterScrollRef,
+    dropdownLeft,
+    registerPillRef,
+    syncDropdownLeft,
+  } = useFilterBar<"type" | "status" | "date">();
 
   const [draftType, setDraftType] = useState("All types");
   const [draftStatus, setDraftStatus] = useState("All statuses");
-  const [draftDateLabel, setDraftDateLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const dateFilter = useDateRangeFilter();
+  const { draft: draftDate, setDraft: setDraftDate, applied: appliedDate, applyDraft: applyDateDraft, clear: clearDateFilter, syncDraftFromApplied: syncDateDraft } = dateFilter;
   const [appliedType, setAppliedType] = useState<string | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
-  const [appliedDateLabel, setAppliedDateLabel] = useState<string | null>(null);
 
   useEffect(() => {
     if (tabFromUrl === "transaction-details") {
@@ -96,26 +109,19 @@ export function EtradeView() {
   }, [tabFromUrl]);
 
   useEffect(() => {
-    setFilterMode(false);
-    setOpenFilter(null);
+    closeFilterBar();
     setDraftType("All types");
     setDraftStatus("All statuses");
     setAppliedType(null);
     setAppliedStatus(null);
-    setAppliedDateLabel(null);
-  }, [activeTab]);
+    clearDateFilter();
+  }, [activeTab, clearDateFilter, closeFilterBar]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const syncAllFilters = useCallback(() => {
+    setDraftType(appliedType ?? "All types");
+    setDraftStatus(appliedStatus ?? "All statuses");
+    syncDateDraft();
+  }, [appliedStatus, appliedType, syncDateDraft]);
 
   const loadSummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -148,6 +154,8 @@ export function EtradeView() {
         search,
         status: apiStatus,
         tradeType,
+        fromDate: toApiDateFrom(appliedDate),
+        toDate: toApiDateTo(appliedDate),
       });
 
       if (activeTab === "requests") {
@@ -162,7 +170,7 @@ export function EtradeView() {
     } finally {
       setListLoading(false);
     }
-  }, [activeTab, appliedStatus, appliedType, page, pageSize, tableSearch, txnPage]);
+  }, [activeTab, appliedDate, appliedStatus, appliedType, page, pageSize, tableSearch, txnPage]);
 
   useEffect(() => {
     void loadSummary();
@@ -231,9 +239,7 @@ export function EtradeView() {
           type="button"
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle"
           aria-label="Filter"
-          onClick={() => {
-            setFilterMode(true);
-          }}
+          onClick={() => openFilterBar(syncAllFilters)}
         >
           <ListFilter size={18} strokeWidth={2} color="var(--color-brand-navy)" />
           Filter
@@ -282,19 +288,22 @@ export function EtradeView() {
       <div className="mt-6 flex min-w-0 gap-3 flex-wrap sm:flex-nowrap">
         <StatCard
           label="Total Trade"
-          value={summaryLoading ? "…" : summary.totalTrades}
+          loading={summaryLoading}
+          value={summary.totalTrades}
           accentColor="#C1FF00"
           icon={<WalletMoney size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Total Trade Volume"
-          value={summaryLoading ? "…" : summary.totalTradeVolume}
+          loading={summaryLoading}
+          value={summary.totalTradeVolume}
           accentColor="#3B82F6"
           icon={<CardSend size={20} variant="Outline" color="#0B294F" />}
         />
         <StatCard
           label="Awaiting Approval"
-          value={summaryLoading ? "…" : summary.awaitingApproval}
+          loading={summaryLoading}
+          value={summary.awaitingApproval}
           accentColor="#EF4444"
           icon={<CardReceive size={20} variant="Outline" color="#0B294F" />}
         />
@@ -368,29 +377,14 @@ export function EtradeView() {
               />
               <TableFilterPill
                 label="Date"
-                summary={draftDateLabel}
+                summary={formatDateRangeLabel(draftDate, "All time")}
                 pillRef={registerPillRef("date")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "date" ? null : "date";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("date")}
               />
             </>
           }
           pillsTrailing={
-            <TableFilterTrailingIconButton
-              ariaLabel="Calendar"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "date" ? null : "date";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
+            <TableFilterTrailingIconButton ariaLabel="Calendar" onClick={() => toggleFilter("date")}>
               <CalendarDays size={14} />
             </TableFilterTrailingIconButton>
           }
@@ -421,19 +415,8 @@ export function EtradeView() {
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "date" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
-                  <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Jan 6, 2026 - Jan 6, 2026
-                    <CalendarDays size={16} />
-                  </button>
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
+                  <TableFilterDatePanel value={draftDate} onChange={setDraftDate} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -443,7 +426,7 @@ export function EtradeView() {
               onApply={() => {
                 setAppliedType(draftType === "All types" ? null : draftType);
                 setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
-                setAppliedDateLabel(draftDateLabel);
+                applyDateDraft();
                 setOpenFilter(null);
                 setPage(1);
                 setTxnPage(1);
@@ -452,12 +435,11 @@ export function EtradeView() {
                 setTableSearch("");
                 setAppliedType(null);
                 setAppliedStatus(null);
-                setAppliedDateLabel(null);
+                clearDateFilter();
                 setDraftType("All types");
                 setDraftStatus("All statuses");
-                setDraftDateLabel("From Jan 6, 2026 - To Jan 6, 2026");
                 setOpenFilter(null);
-                setFilterMode(false);
+                closeFilterBar();
                 setPage(1);
                 setTxnPage(1);
               }}
@@ -475,7 +457,32 @@ export function EtradeView() {
       ) : null}
 
       {listLoading ? (
-        <p className="mt-8 text-center text-sm text-zinc-500">Loading e-trades…</p>
+        <TableSkeleton
+          columns={activeTab === "requests" ? 7 : 8}
+          rows={8}
+          headers={
+            activeTab === "requests"
+              ? ["Trade ID", "Customer", "Request", "Date Created", "Trade Value", "Status", "Action"]
+              : [
+                  "Trade ID",
+                  "Customer",
+                  "Request",
+                  "Date Created",
+                  "Trade Value",
+                  "Ops-in-charge",
+                  "Status",
+                  "Action",
+                ]
+          }
+          className="mt-4 overflow-x-auto rounded-[8px] bg-white border border-zinc-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]"
+          headerRowClassName="bg-[#F9F9F9] text-zinc-400 border-b border-zinc-100"
+          headerCellClassName="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle"
+          cellVariants={
+            activeTab === "requests"
+              ? ["text-narrow", "text", "text-wide", "text", "text-narrow", "badge", "icon"]
+              : ["text-narrow", "text", "text-wide", "text", "text-narrow", "text", "badge", "icon"]
+          }
+        />
       ) : activeTab === "requests" ? (
         <EtradeRequestList rows={paginatedRequests} />
       ) : (

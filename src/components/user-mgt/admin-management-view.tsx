@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/table-filter-bar";
 import type { DateRange } from "react-day-picker";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
+import { TableSkeleton, TableSkeletonRows } from "@/components/ui/table-skeleton";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { ErrorAlert } from "@/components/ui/error-alert";
@@ -588,7 +589,14 @@ export function AdminManagementView() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedRows.map((row) => (
+                {teamLoading ? (
+                  <TableSkeletonRows
+                    columns={7}
+                    rows={8}
+                    cellVariants={["avatar", "text-wide", "text", "text", "badge", "text", "icon"]}
+                  />
+                ) : (
+                paginatedRows.map((row) => (
                   <tr key={row.id} className="transition-colors hover:bg-zinc-50">
                     <td className="h-16 border-b border-zinc-100 px-4 py-0 align-middle">
                       <div className="flex items-center gap-3">
@@ -742,7 +750,7 @@ export function AdminManagementView() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>
@@ -1305,7 +1313,16 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
   };
 
   if (loading) {
-    return <p className="mt-6 text-sm text-zinc-500">Loading pending invites…</p>;
+    return (
+      <TableSkeleton
+        columns={5}
+        rows={8}
+        headers={["Email", "Role", "Status", "Date Onboarded", "Action"]}
+        headerRowClassName="bg-outline text-xs text-zinc-400"
+        cellVariants={["text-wide", "text", "badge", "text", "text-narrow"]}
+        className="mt-6 overflow-x-auto rounded-[8px]"
+      />
+    );
   }
 
   if (loadError) {

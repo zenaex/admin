@@ -28,15 +28,18 @@ export function ProductMgtView() {
   const tabFromUrl = searchParams?.get("tab") ?? null;
   const [mainTab, setMainTab] = useState<ProductMgtMainTab>(() => parseMainTab(tabFromUrl));
   const [stats, setStats] = useState<ProductMgtStats>(PRODUCT_MGT_STATS);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     setMainTab(parseMainTab(tabFromUrl));
   }, [tabFromUrl]);
 
   useEffect(() => {
+    setStatsLoading(true);
     getAdminProductsSummary()
       .then((data) => setStats(data))
-      .catch((err) => console.error("Error loading product stats summary:", err));
+      .catch((err) => console.error("Error loading product stats summary:", err))
+      .finally(() => setStatsLoading(false));
   }, []);
 
   const setTab = (id: ProductMgtMainTab) => {
@@ -52,24 +55,28 @@ export function ProductMgtView() {
       <div className="flex gap-3">
         <StatCard
           label="Total Products"
+          loading={statsLoading}
           value={stats.totalProducts}
           accentColor="var(--color-primary-green)"
           icon={<WalletMoney size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Active Products"
+          loading={statsLoading}
           value={stats.activeProducts}
           accentColor="var(--color-vivid-azure)"
           icon={<CardReceive size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Total Crypto"
+          loading={statsLoading}
           value={stats.totalCrypto}
           accentColor="var(--color-primary-green)"
           icon={<ChartSquare size={20} variant="Outline" color="currentColor" />}
         />
         <StatCard
           label="Total Currencies"
+          loading={statsLoading}
           value={stats.totalCurrencies}
           accentColor="var(--color-failed)"
           icon={<CardSend size={20} variant="Outline" color="currentColor" />}

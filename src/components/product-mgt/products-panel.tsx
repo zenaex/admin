@@ -29,6 +29,7 @@ import {
   UTILITY_PRODUCT_CATEGORY,
 } from "@/lib/admin-api/products-api";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
 function StatusToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -379,11 +380,7 @@ export function ProductsPanel() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
-                  Loading...
-                </td>
-              </tr>
+              <TableSkeletonRows columns={8} rows={8} cellVariants={["text-wide", "text", "text", "text", "text", "text", "badge", "icon"]} />
             ) : products.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">

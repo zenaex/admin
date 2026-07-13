@@ -16,14 +16,16 @@ import { ProviderHeader } from "@/components/provider/provider-header";
 import { getAdminDashboardKpis, type NormalizedDashboardKpis, type NormalizedDashboardExtras } from "@/lib/admin-api/dashboard-api";
 import {
   TableFilterApplyClear,
+  TableFilterDatePanel,
   TableFilterDropdownCard,
   TableFilterModeBar,
   TableFilterOptionsList,
   TableFilterPanelTitle,
   TableFilterPill,
   TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
 } from "@/components/ui/table-filter-bar";
+import { formatDateRangeLabel as formatDashboardDateLabel, normalizeDateRange } from "@/lib/filters/date-range";
+import { useFilterBar } from "@/lib/filters/use-filter-bar";
 import { TransactionTrendChart } from "@/components/dashboard/transaction-trend-chart";
 import { ProductCategoryChart } from "@/components/dashboard/product-category-chart";
 import { CryptoExchangeChart } from "@/components/dashboard/crypto-exchange-chart";
@@ -136,14 +138,6 @@ function SmallStatCard({
   );
 }
 
-function formatDateRangeLabel(range: DateRange | undefined): string {
-  if (!range?.from) return "Select period";
-  const fmt = (d: Date) =>
-    d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  const to = range.to ?? range.from;
-  return `From ${fmt(range.from)} - To ${fmt(to)}`;
-}
-
 function DashboardGreetingToolbar({
   dateRange,
   onDateRangeChange,
@@ -152,7 +146,7 @@ function DashboardGreetingToolbar({
   onDateRangeChange: (range: DateRange | undefined) => void;
 }) {
   const runDashboardExport = (format: "csv" | "json" | "pdf") => {
-    const label = formatDateRangeLabel(dateRange);
+    const label = formatDashboardDateLabel(dateRange, "All time");
     const rows = [
       { metric: "Total Transaction (NGN)", value: "₦140,813,000.00", period: label },
       { metric: "Transaction Count", value: "50,000", period: label },
@@ -166,29 +160,32 @@ function DashboardGreetingToolbar({
     exportClientTable("dashboard-summary", format, rows, columns);
   };
 
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "period" | "currency">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"period" | "currency">(openFilter, filterMode);
+  const {
+    filterMode,
+    openFilter,
+    setOpenFilter,
+    toggleFilter,
+    openFilterBar,
+    closeFilterBar,
+    filterBarRef,
+    filterScrollRef,
+    dropdownLeft,
+    registerPillRef,
+    syncDropdownLeft,
+  } = useFilterBar<"period" | "currency">();
 
   const [draftCurrency, setDraftCurrency] = useState("NGN (default)");
-  const [draftPeriodLabel, setDraftPeriodLabel] = useState(() => formatDateRangeLabel(dateRange));
+  const [draftPeriod, setDraftPeriod] = useState<DateRange | undefined>(dateRange);
+  const [appliedCurrency, setAppliedCurrency] = useState("NGN (default)");
 
   useEffect(() => {
-    setDraftPeriodLabel(formatDateRangeLabel(dateRange));
+    setDraftPeriod(dateRange);
   }, [dateRange]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  const syncAllFilters = () => {
+    setDraftPeriod(dateRange);
+    setDraftCurrency(appliedCurrency);
+  };
 
   return (
     <>
@@ -206,7 +203,7 @@ function DashboardGreetingToolbar({
                 type="button"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-zinc-500 transition-colors"
                 aria-label="Filter"
-                onClick={() => setFilterMode(true)}
+                onClick={() => openFilterBar(syncAllFilters)}
               >
                 <ListFilter size={16} strokeWidth={2} color="currentColor" />
               </button>
@@ -235,60 +232,28 @@ function DashboardGreetingToolbar({
             <>
               <TableFilterPill
                 label="Period"
-                summary={draftPeriodLabel}
+                summary={formatDashboardDateLabel(draftPeriod, "All time")}
                 pillRef={registerPillRef("period")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "period" ? null : "period";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("period")}
               />
               <TableFilterPill
                 label="Currency view"
                 summary={draftCurrency}
                 pillRef={registerPillRef("currency")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "currency" ? null : "currency";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("currency")}
               />
             </>
           }
           pillsTrailing={
-            <TableFilterTrailingIconButton
-              ariaLabel="Calendar"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "period" ? null : "period";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
+            <TableFilterTrailingIconButton ariaLabel="Calendar" onClick={() => toggleFilter("period")}>
               <CalendarDays size={14} />
             </TableFilterTrailingIconButton>
           }
           dropdownLayer={
             <>
               {openFilter === "period" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
-                  <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftPeriodLabel(formatDateRangeLabel(dateRange));
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Match date picker
-                    <CalendarDays size={16} />
-                  </button>
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
+                  <TableFilterDatePanel value={draftPeriod} onChange={setDraftPeriod} />
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "currency" ? (
@@ -308,14 +273,17 @@ function DashboardGreetingToolbar({
           actions={
             <TableFilterApplyClear
               onApply={() => {
-                setDraftPeriodLabel(formatDateRangeLabel(dateRange));
+                onDateRangeChange(normalizeDateRange(draftPeriod));
+                setAppliedCurrency(draftCurrency);
                 setOpenFilter(null);
               }}
               onClear={() => {
                 setDraftCurrency("NGN (default)");
-                setDraftPeriodLabel(formatDateRangeLabel(dateRange));
+                setAppliedCurrency("NGN (default)");
+                setDraftPeriod(undefined);
+                onDateRangeChange(undefined);
                 setOpenFilter(null);
-                setFilterMode(false);
+                closeFilterBar();
               }}
             />
           }
@@ -327,51 +295,7 @@ function DashboardGreetingToolbar({
 
 /* ── Main Dashboard View ── */
 export function DashboardView() {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const to = new Date();
-    const from = new Date();
-    from.setMonth(from.getMonth() - 1);
-    setDateRange({ from, to });
-    setMounted(true);
-  }, []);
-
-  const [kpis, setKpis] = useState<NormalizedDashboardKpis | null>(null);
-  const [extras, setExtras] = useState<NormalizedDashboardExtras | null>(null);
-  const [kpisLoading, setKpisLoading] = useState(true);
-  const [kpisError, setKpisError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!mounted || !dateRange) return;
-    let active = true;
-    const load = async () => {
-      setKpisLoading(true);
-      setKpisError(null);
-      try {
-        const fromStr = dateRange.from ? dateRange.from.toISOString() : undefined;
-        const toStr = dateRange.to ? dateRange.to.toISOString() : undefined;
-        const res = await getAdminDashboardKpis(fromStr, toStr);
-        if (active) {
-          setKpis(res.kpis);
-          setExtras(res.extras);
-        }
-      } catch (err) {
-        if (active) {
-          setKpisError(err instanceof Error ? err.message : "Failed to load dashboard KPIs.");
-        }
-      } finally {
-        if (active) {
-          setKpisLoading(false);
-        }
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [dateRange, mounted]);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   return (
     <div>

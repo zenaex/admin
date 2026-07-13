@@ -19,6 +19,7 @@ import {
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import {
   getAdminProductDetails,
   getAdminProductProviders,
@@ -396,9 +397,11 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Loading providers...</td>
-                </tr>
+                <TableSkeletonRows
+                  columns={6}
+                  rows={6}
+                  cellVariants={["text-wide", "text", "text", "text-narrow", "badge", "icon"]}
+                />
               ) : filteredProviders.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">No providers found.</td>

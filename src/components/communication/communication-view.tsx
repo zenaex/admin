@@ -20,6 +20,7 @@ import {
   publishAdminCampaign,
 } from "@/lib/admin-api/communications-api";
 import { ErrorAlert } from "@/components/ui/error-alert";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import type { AdminCampaign } from "@/lib/admin-api/types";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
@@ -33,14 +34,17 @@ const COMMUNICATION_EXPORT_COLUMNS: ExportColumn<AdminCampaign>[] = [
 ];
 import {
   TableFilterApplyClear,
+  TableFilterDatePanel,
   TableFilterDropdownCard,
   TableFilterModeBar,
   TableFilterOptionsList,
   TableFilterPanelTitle,
   TableFilterPill,
   TableFilterTrailingIconButton,
-  useTableFilterBarAnchor,
+  formatDateRangeLabel,
 } from "@/components/ui/table-filter-bar";
+import { matchesDateRangeFilter } from "@/lib/filters/date-range";
+import { useDateRangeFilter, useFilterBar } from "@/lib/filters/use-filter-bar";
 
 const STATUS_OPTIONS = ["All statuses", "Publish", "Unpublished", "Pending"] as const;
 
@@ -48,15 +52,24 @@ export function CommunicationView() {
   const router = useRouter();
   const [tableSearch, setTableSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterMode, setFilterMode] = useState(false);
-  const [openFilter, setOpenFilter] = useState<null | "status" | "start">(null);
-  const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
-    useTableFilterBarAnchor<"status" | "start">(openFilter, filterMode);
+  const {
+    filterMode,
+    openFilter,
+    setOpenFilter,
+    toggleFilter,
+    openFilterBar,
+    closeFilterBar,
+    filterBarRef,
+    filterScrollRef,
+    dropdownLeft,
+    registerPillRef,
+    syncDropdownLeft,
+  } = useFilterBar<"status" | "start">();
 
   const [draftStatus, setDraftStatus] = useState<string>("All statuses");
-  const [draftStartLabel, setDraftStartLabel] = useState("From Jan 6, 2026 - To Jan 6, 2026");
+  const dateFilter = useDateRangeFilter();
+  const { draft: draftStartDate, setDraft: setDraftStartDate, applied: appliedStartDate, applyDraft: applyStartDateDraft, clear: clearStartDateFilter, syncDraftFromApplied: syncStartDateDraft } = dateFilter;
   const [appliedStatus, setAppliedStatus] = useState<string | null>(null);
-  const [appliedStartLabel, setAppliedStartLabel] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
@@ -79,7 +92,14 @@ export function CommunicationView() {
 
   useEffect(() => {
     setPage(1);
-  }, [appliedStatus, debouncedSearch]);
+  }, [appliedStatus, appliedStartDate, debouncedSearch]);
+
+  const dateFilterActive = Boolean(appliedStartDate?.from);
+
+  const syncAllFilters = useCallback(() => {
+    setDraftStatus(appliedStatus ?? "All statuses");
+    syncStartDateDraft();
+  }, [appliedStatus, syncStartDateDraft]);
 
   const loadCampaigns = useCallback(async () => {
     setLoading(true);
@@ -87,8 +107,8 @@ export function CommunicationView() {
     try {
       const res = await getAdminCampaigns({
         status: appliedStatus ?? undefined,
-        page,
-        limit: pageSize,
+        page: dateFilterActive ? 1 : page,
+        limit: dateFilterActive ? 200 : pageSize,
         search: debouncedSearch || undefined,
       });
       setCampaigns(res.items);
@@ -98,26 +118,27 @@ export function CommunicationView() {
     } finally {
       setLoading(false);
     }
-  }, [appliedStatus, page, pageSize, debouncedSearch]);
+  }, [appliedStatus, dateFilterActive, page, pageSize, debouncedSearch]);
+
+  const filteredCampaigns = useMemo(
+    () =>
+      campaigns.filter((campaign) => matchesDateRangeFilter(appliedStartDate, campaign.startDate)),
+    [appliedStartDate, campaigns],
+  );
+
+  const displayTotal = dateFilterActive ? filteredCampaigns.length : totalItems;
+  const paginatedCampaigns = useMemo(() => {
+    if (!dateFilterActive) return filteredCampaigns;
+    const start = (page - 1) * pageSize;
+    return filteredCampaigns.slice(start, start + pageSize);
+  }, [dateFilterActive, filteredCampaigns, page, pageSize]);
 
   useEffect(() => {
     void loadCampaigns();
   }, [loadCampaigns]);
 
-  useEffect(() => {
-    if (!filterMode) setOpenFilter(null);
-  }, [filterMode]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenFilter(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
   const runExport = (format: "csv" | "json" | "pdf") => {
-    exportClientTable("communications", format, campaigns, COMMUNICATION_EXPORT_COLUMNS);
+    exportClientTable("communications", format, filteredCampaigns, COMMUNICATION_EXPORT_COLUMNS);
   };
 
   const handleTableAction = (action: CommunicationListAction, row: AdminCampaign) => {
@@ -188,7 +209,7 @@ export function CommunicationView() {
   };
 
   const exportProps = {
-    exportDisabled: campaigns.length === 0,
+    exportDisabled: filteredCampaigns.length === 0,
     onExportCsv: () => runExport("csv"),
     onExportPdf: () => runExport("pdf"),
     onExportJson: () => runExport("json"),
@@ -222,29 +243,14 @@ export function CommunicationView() {
               />
               <TableFilterPill
                 label="Start date"
-                summary={draftStartLabel}
+                summary={formatDateRangeLabel(draftStartDate, "All time")}
                 pillRef={registerPillRef("start")}
-                onClick={() =>
-                  setOpenFilter((v) => {
-                    const next = v === "start" ? null : "start";
-                    syncDropdownLeft(next);
-                    return next;
-                  })
-                }
+                onClick={() => toggleFilter("start")}
               />
             </>
           }
           pillsTrailing={
-            <TableFilterTrailingIconButton
-              ariaLabel="Calendar"
-              onClick={() =>
-                setOpenFilter((v) => {
-                  const next = v === "start" ? null : "start";
-                  syncDropdownLeft(next);
-                  return next;
-                })
-              }
-            >
+            <TableFilterTrailingIconButton ariaLabel="Calendar" onClick={() => toggleFilter("start")}>
               <CalendarDays size={14} />
             </TableFilterTrailingIconButton>
           }
@@ -263,19 +269,8 @@ export function CommunicationView() {
                 </TableFilterDropdownCard>
               ) : null}
               {openFilter === "start" ? (
-                <TableFilterDropdownCard left={dropdownLeft}>
-                  <TableFilterPanelTitle />
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full items-center justify-between rounded-[10px] px-2.5 py-2 text-[13px] text-primary-text hover:bg-zinc-50"
-                    onClick={() => {
-                      setDraftStartLabel("From Jan 6, 2026 - To Jan 6, 2026");
-                      setOpenFilter(null);
-                    }}
-                  >
-                    Jan 6, 2026 - Jan 6, 2026
-                    <CalendarDays size={16} />
-                  </button>
+                <TableFilterDropdownCard left={dropdownLeft} widthClass="w-auto">
+                  <TableFilterDatePanel value={draftStartDate} onChange={setDraftStartDate} />
                 </TableFilterDropdownCard>
               ) : null}
             </>
@@ -284,18 +279,17 @@ export function CommunicationView() {
             <TableFilterApplyClear
               onApply={() => {
                 setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
-                setAppliedStartLabel(draftStartLabel);
+                applyStartDateDraft();
                 setOpenFilter(null);
                 setPage(1);
               }}
               onClear={() => {
                 setTableSearch("");
                 setAppliedStatus(null);
-                setAppliedStartLabel(null);
+                clearStartDateFilter();
                 setDraftStatus("All statuses");
-                setDraftStartLabel("From Jan 6, 2026 - To Jan 6, 2026");
                 setOpenFilter(null);
-                setFilterMode(false);
+                closeFilterBar();
                 setPage(1);
               }}
             />
@@ -305,10 +299,7 @@ export function CommunicationView() {
         <CommunicationToolbar
           tableSearch={tableSearch}
           onTableSearchChange={setTableSearch}
-          onFilterClick={() => {
-            setTableSearch("");
-            setFilterMode(true);
-          }}
+          onFilterClick={() => openFilterBar(syncAllFilters)}
           createHref="/dashboard/communication/new"
           {...exportProps}
         />
@@ -319,12 +310,16 @@ export function CommunicationView() {
       {error ? (
         <ErrorAlert error={error} onRetry={() => void loadCampaigns()} className="mt-6" />
       ) : loading ? (
-        <div className="flex h-48 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-green border-t-transparent" />
-        </div>
+        <TableSkeleton
+          columns={6}
+          rows={8}
+          headers={["Campaign", "Start Date", "End Date", "Last Modified", "Status", "Action"]}
+          headerRowClassName="bg-outline text-zinc-500"
+          cellVariants={["text-wide", "text", "text", "text", "badge", "icon"]}
+        />
       ) : (
         <CommunicationTable
-          rows={campaigns}
+          rows={paginatedCampaigns}
           actionLoading={actionLoading}
           onAction={handleTableAction}
         />
@@ -332,7 +327,7 @@ export function CommunicationView() {
       <CommunicationPagination
         page={page}
         pageSize={pageSize}
-        totalItems={totalItems}
+        totalItems={displayTotal}
         onPageChange={setPage}
         onPageSizeChange={(size) => {
           setPageSize(size);
