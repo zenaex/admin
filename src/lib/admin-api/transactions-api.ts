@@ -1253,6 +1253,7 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
   }
   const dateRaw = readDateRaw(o) || parseDateFromReference(referenceNo);
   const customerName =
+    (customerBlock ? formatPersonName(customerBlock) : "") ||
     pickString(o, ["customerName", "customer_name", "accountHolderName", "account_holder_name", "ownerName", "owner_name", "accountName", "account_name", "userFullName", "user_full_name", "displayName", "display_name"]) ||
     pickNestedString(o, [
       ["customer", "name"],
@@ -1264,7 +1265,6 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
       ["beneficiary", "name"],
       ["payer", "name"],
     ]) ||
-    (customerBlock ? formatPersonName(customerBlock) : "") ||
     formatPersonName(o) ||
     "—";
 
