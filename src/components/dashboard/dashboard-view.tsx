@@ -295,7 +295,51 @@ function DashboardGreetingToolbar({
 
 /* ── Main Dashboard View ── */
 export function DashboardView() {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setMonth(from.getMonth() - 1);
+    setDateRange({ from, to });
+    setMounted(true);
+  }, []);
+
+  const [kpis, setKpis] = useState<NormalizedDashboardKpis | null>(null);
+  const [extras, setExtras] = useState<NormalizedDashboardExtras | null>(null);
+  const [kpisLoading, setKpisLoading] = useState(true);
+  const [kpisError, setKpisError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mounted || !dateRange) return;
+    let active = true;
+    const load = async () => {
+      setKpisLoading(true);
+      setKpisError(null);
+      try {
+        const fromStr = dateRange.from ? dateRange.from.toISOString() : undefined;
+        const toStr = dateRange.to ? dateRange.to.toISOString() : undefined;
+        const res = await getAdminDashboardKpis(fromStr, toStr);
+        if (active) {
+          setKpis(res.kpis);
+          setExtras(res.extras);
+        }
+      } catch (err) {
+        if (active) {
+          setKpisError(err instanceof Error ? err.message : "Failed to load dashboard KPIs.");
+        }
+      } finally {
+        if (active) {
+          setKpisLoading(false);
+        }
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [dateRange, mounted]);
 
   return (
     <div>
