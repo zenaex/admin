@@ -13,6 +13,7 @@ type Props = {
 
 export function DateRangePicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  const [draftRange, setDraftRange] = useState<DateRange | undefined>(value);
   const ref = useRef<HTMLDivElement>(null);
 
   /* Close on outside click */
@@ -25,6 +26,13 @@ export function DateRangePicker({ value, onChange }: Props) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Sync draft range with active value when opening the picker
+  useEffect(() => {
+    if (open) {
+      setDraftRange(value);
+    }
+  }, [open, value]);
 
   const label =
     value?.from && value?.to
@@ -54,10 +62,9 @@ export function DateRangePicker({ value, onChange }: Props) {
         <div className="absolute right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-outline bg-white shadow-xl">
           <DayPicker
             mode="range"
-            selected={value}
+            selected={draftRange}
             onSelect={(range) => {
-              onChange(range);
-              if (range?.from && range?.to) setOpen(false);
+              setDraftRange(range);
             }}
             numberOfMonths={2}
             components={{
@@ -96,14 +103,14 @@ export function DateRangePicker({ value, onChange }: Props) {
           <div className="flex items-center justify-end gap-2 border-t border-outline px-4 py-3">
             <button
               type="button"
-              onClick={() => { onChange(undefined); setOpen(false); }}
+              onClick={() => { setDraftRange(undefined); onChange(undefined); setOpen(false); }}
               className="rounded-full border border-outline px-4 py-1.5 text-xs font-medium text-zinc-500 hover:bg-surface-subtle transition-colors"
             >
               Clear
             </button>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => { onChange(draftRange); setOpen(false); }}
               className="rounded-full bg-primary-green px-4 py-1.5 text-xs font-semibold text-primary-text hover:opacity-90 transition-opacity"
             >
               Apply

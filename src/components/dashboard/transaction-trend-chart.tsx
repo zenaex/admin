@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getAdminDashboardTrend, type NormalizedTrendItem } from "@/lib/admin-api/dashboard-api";
 import {
   LineChart,
   Line,
@@ -78,26 +79,78 @@ const X_LABEL_MAP: Record<TimeFrame, string> = {
 /* ── Custom tooltip ── */
 interface CustomTooltipProps {
   active?: boolean;
-  payload?: Array<{ value: number }>;
+  payload?: Array<{ name: string; value: number; color?: string }>;
   label?: string;
 }
 
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-outline bg-white px-4 py-3 shadow-lg text-center">
-      <p className="text-[10px] text-zinc-400">This Month</p>
-      <p className="text-lg font-bold text-primary-text">
-        {payload[0]?.value?.toLocaleString()}
-      </p>
-      <p className="text-xs text-zinc-400">{label}</p>
+    <div className="rounded-xl border border-outline bg-white px-4 py-3 shadow-lg text-left text-xs gap-1.5 flex flex-col min-w-[140px]">
+      <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">{label}</p>
+      {payload.map((item, i) => (
+        <div key={i} className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color || (item.name === "inflows" ? "#2E7D32" : "#F5222D") }} />
+            <span className="text-zinc-500 font-medium capitalize">{item.name}</span>
+          </div>
+          <span className="font-bold text-primary-text">
+            ₦{Number(item.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
+function yTickFormatter(v: number) {
+  if (v === 0) return "0";
+  if (v >= 1e9) return `₦${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `₦${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `₦${(v / 1e3).toFixed(0)}k`;
+  return `₦${v}`;
+}
+
+const TIMEFRAME_TO_API_PERIOD = {
+  "12 months": "12M",
+  "3 months": "3M",
+  "30 days": "30D",
+  "7 days": "7D",
+  "24 hours": "24H",
+};
+
 export function TransactionTrendChart() {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("12 months");
-  const data = DATA_MAP[timeFrame];
+  const [data, setData] = useState<NormalizedTrendItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadTrend = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const periodCode = TIMEFRAME_TO_API_PERIOD[timeFrame];
+        const res = await getAdminDashboardTrend(periodCode);
+        if (active) {
+          setData(res);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Failed to load trend data.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    void loadTrend();
+    return () => {
+      active = false;
+    };
+  }, [timeFrame]);
 
   return (
     <div className="flex flex-col gap-4 rounded-[12px] bg-white p-5 w-full min-w-0">
@@ -141,41 +194,51 @@ export function TransactionTrendChart() {
       </div>
 
       {/* Chart */}
-      <div className="h-[220px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E8EBEE" vertical={false} />
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 11, fill: "#0A0A0A" }}
-              axisLine={false}
-              tickLine={false}
-              label={{ value: X_LABEL_MAP[timeFrame], position: "insideBottom", offset: -2, style: { fontSize: 11, fill: "#0A0A0A" } }}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "#0A0A0A" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#2E7D32", strokeWidth: 1, strokeDasharray: "4 4" }} />
-            <Line
-              type="monotone"
-              dataKey="inflows"
-              stroke="#2E7D32"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 5, fill: "#2E7D32", strokeWidth: 0 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="outflows"
-              stroke="#F5222D"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 5, fill: "#F5222D", strokeWidth: 0 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+      <div className="h-[220px] w-full flex items-center justify-center relative">
+        {loading ? (
+          <p className="text-sm text-zinc-400">Loading trend data...</p>
+        ) : error ? (
+          <p className="text-sm text-red-500">{error}</p>
+        ) : data.length === 0 ? (
+          <p className="text-sm text-zinc-400">No trend data available.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E8EBEE" vertical={false} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: "#0A0A0A" }}
+                axisLine={false}
+                tickLine={false}
+                label={{ value: X_LABEL_MAP[timeFrame], position: "insideBottom", offset: -2, style: { fontSize: 11, fill: "#0A0A0A" } }}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#0A0A0A" }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={yTickFormatter}
+                width={65}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#2E7D32", strokeWidth: 1, strokeDasharray: "4 4" }} />
+              <Line
+                type="monotone"
+                dataKey="inflows"
+                stroke="#2E7D32"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5, fill: "#2E7D32", strokeWidth: 0 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="outflows"
+                stroke="#F5222D"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5, fill: "#F5222D", strokeWidth: 0 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
