@@ -1,16 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import type { DateRange } from "react-day-picker";
+import Image from "next/image";
 import { ExportSquare } from "iconsax-react";
-import type { NormalizedTopCustomer } from "@/lib/admin-api/dashboard-api";
+import { getAdminDashboardTopCustomers, type NormalizedTopCustomer } from "@/lib/admin-api/dashboard-api";
 
-const FALLBACK_CUSTOMERS: NormalizedTopCustomer[] = [
-  { name: "Roscoly Jibola",    handle: "@roscolyla",      initials: "RJ" },
-  { name: "Adunni Salu",       handle: "@adunnidollars",  initials: "AS" },
-  { name: "Samochino Tunde",   handle: "@Sammooooooo",    initials: "ST" },
-  { name: "Okunola Eleniyan",  handle: "@Okunmoneyyy",    initials: "OE" },
-  { name: "Adesubomi Fetuga",  handle: "@oloweeko",       initials: "AF" },
-  { name: "Wonuola Fetuga",    handle: "@swankyyyyyyy",   initials: "WF" },
-];
+function getBadgePath(index: number): string {
+  if (index === 0) return "/1F3C6_Trophy_01_01.svg";
+  if (index === 1) return "/1F3C5_SportsMedal_01_02.svg";
+  if (index === 2) return "/image 1.svg";
+  return "/Image.svg";
+}
 
 function Avatar({ customer }: { customer: NormalizedTopCustomer }) {
   return (
@@ -22,8 +23,39 @@ function Avatar({ customer }: { customer: NormalizedTopCustomer }) {
   );
 }
 
-export function TopCustomers({ apiData }: { apiData?: NormalizedTopCustomer[] | null }) {
-  const customers = apiData && apiData.length > 0 ? apiData : FALLBACK_CUSTOMERS;
+export function TopCustomers({ dateRange }: { dateRange?: DateRange }) {
+  const [customers, setCustomers] = useState<NormalizedTopCustomer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dateRange) return;
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const fromStr = dateRange.from ? dateRange.from.toISOString() : undefined;
+        const toStr = dateRange.to ? dateRange.to.toISOString() : undefined;
+        const res = await getAdminDashboardTopCustomers(fromStr, toStr);
+        if (active) {
+          setCustomers(res);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Failed to load top customers.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [dateRange]);
 
   return (
     <div
@@ -42,22 +74,45 @@ export function TopCustomers({ apiData }: { apiData?: NormalizedTopCustomer[] | 
         </button>
       </div>
 
-      {/* List */}
-      <ul className="flex flex-col divide-y divide-outline">
-        {customers.map((customer) => (
-          <li key={customer.handle} className="flex items-center justify-between gap-3 py-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <Avatar customer={customer} />
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold text-primary-text leading-tight">
-                  {customer.name}
-                </p>
-                <p className="truncate text-[11px] text-zinc-400 mt-0.5">{customer.handle}</p>
+      {/* List / states */}
+      {loading ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-zinc-400 min-h-[300px]">
+          Loading customers...
+        </div>
+      ) : error ? (
+        <div className="flex flex-1 items-center justify-center text-center p-4 text-xs text-red-500 min-h-[300px]">
+          {error}
+        </div>
+      ) : customers.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-zinc-400 min-h-[300px]">
+          No customers found.
+        </div>
+      ) : (
+        <ul className="flex flex-col divide-y divide-outline">
+          {customers.map((customer, index) => (
+            <li key={customer.handle} className="flex items-center justify-between gap-3 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar customer={customer} />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-primary-text leading-tight">
+                    {customer.name}
+                  </p>
+                  <p className="truncate text-[11px] text-zinc-400 mt-0.5">{customer.handle}</p>
+                </div>
               </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+              <div className="shrink-0">
+                <Image
+                  src={getBadgePath(index)}
+                  alt="rank badge"
+                  width={24}
+                  height={24}
+                  className="object-contain"
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

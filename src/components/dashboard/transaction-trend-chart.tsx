@@ -79,21 +79,36 @@ const X_LABEL_MAP: Record<TimeFrame, string> = {
 /* ── Custom tooltip ── */
 interface CustomTooltipProps {
   active?: boolean;
-  payload?: Array<{ value: number }>;
+  payload?: Array<{ name: string; value: number; color?: string }>;
   label?: string;
 }
 
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-outline bg-white px-4 py-3 shadow-lg text-center">
-      <p className="text-[10px] text-zinc-400">This Month</p>
-      <p className="text-lg font-bold text-primary-text">
-        {payload[0]?.value?.toLocaleString()}
-      </p>
-      <p className="text-xs text-zinc-400">{label}</p>
+    <div className="rounded-xl border border-outline bg-white px-4 py-3 shadow-lg text-left text-xs gap-1.5 flex flex-col min-w-[140px]">
+      <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">{label}</p>
+      {payload.map((item, i) => (
+        <div key={i} className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color || (item.name === "inflows" ? "#2E7D32" : "#F5222D") }} />
+            <span className="text-zinc-500 font-medium capitalize">{item.name}</span>
+          </div>
+          <span className="font-bold text-primary-text">
+            ₦{Number(item.value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+      ))}
     </div>
   );
+}
+
+function yTickFormatter(v: number) {
+  if (v === 0) return "0";
+  if (v >= 1e9) return `₦${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `₦${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `₦${(v / 1e3).toFixed(0)}k`;
+  return `₦${v}`;
 }
 
 const TIMEFRAME_TO_API_PERIOD = {
@@ -188,7 +203,7 @@ export function TransactionTrendChart() {
           <p className="text-sm text-zinc-400">No trend data available.</p>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+            <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E8EBEE" vertical={false} />
               <XAxis
                 dataKey="month"
@@ -201,6 +216,8 @@ export function TransactionTrendChart() {
                 tick={{ fontSize: 11, fill: "#0A0A0A" }}
                 axisLine={false}
                 tickLine={false}
+                tickFormatter={yTickFormatter}
+                width={65}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#2E7D32", strokeWidth: 1, strokeDasharray: "4 4" }} />
               <Line

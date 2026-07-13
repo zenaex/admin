@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import type { DateRange } from "react-day-picker";
 import {
   BarChart,
   Bar,
@@ -11,17 +13,7 @@ import {
   Cell,
 } from "recharts";
 import { ExportSquare } from "iconsax-react";
-import type { NormalizedCryptoVolume } from "@/lib/admin-api/dashboard-api";
-
-const FALLBACK_DATA: NormalizedCryptoVolume[] = [
-  { coin: "ETH",  value: 65000 },
-  { coin: "BTC",  value: 85000 },
-  { coin: "DOGE", value: 12000 },
-  { coin: "USDT", value: 80000 },
-  { coin: "BNB",  value: 25000 },
-  { coin: "SOL",  value: 60000 },
-  { coin: "YEN",  value: 15000 },
-];
+import { getAdminDashboardCrypto, type NormalizedCryptoVolume } from "@/lib/admin-api/dashboard-api";
 
 function yTickFormatter(v: number) {
   if (v === 0) return "0";
@@ -40,9 +32,41 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   );
 }
 
-export function CryptoExchangeChart({ apiData }: { apiData?: NormalizedCryptoVolume[] | null }) {
-  const data = apiData && apiData.length > 0 ? apiData : FALLBACK_DATA;
-  const maxVal = Math.max(...data.map((d) => d.value), 100);
+export function CryptoExchangeChart({ dateRange }: { dateRange?: DateRange }) {
+  const [data, setData] = useState<NormalizedCryptoVolume[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dateRange) return;
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const fromStr = dateRange.from ? dateRange.from.toISOString() : undefined;
+        const toStr = dateRange.to ? dateRange.to.toISOString() : undefined;
+        const res = await getAdminDashboardCrypto(fromStr, toStr);
+        if (active) {
+          setData(res);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Failed to load crypto data.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [dateRange]);
+
+  const maxVal = data.length > 0 ? Math.max(...data.map((d) => d.value), 100) : 100;
   const domainMax = Math.ceil(maxVal / 20000) * 20000 || 100000;
   const ticks = Array.from({ length: 6 }, (_, i) => Math.round((domainMax / 5) * i));
 
@@ -65,37 +89,51 @@ export function CryptoExchangeChart({ apiData }: { apiData?: NormalizedCryptoVol
         </button>
       </div>
 
-      {/* Chart */}
+      {/* Chart / Loading states */}
       <div className="flex-1 min-h-55 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={data}
-            barCategoryGap="35%"
-            margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="#E8EBEE" vertical={false} />
-            <XAxis
-              dataKey="coin"
-              tick={{ fontSize: 11, fill: "#0A0A0A" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tickFormatter={yTickFormatter}
-              tick={{ fontSize: 11, fill: "#0A0A0A" }}
-              axisLine={false}
-              tickLine={false}
-              ticks={ticks}
-              domain={[0, domainMax]}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(188,235,15,0.08)" }} />
-            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-              {data.map((_, i) => (
-                <Cell key={i} fill="#BCEB0F" />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        {loading ? (
+          <div className="flex h-55 w-full items-center justify-center">
+            <p className="text-sm text-zinc-400">Loading crypto volumes...</p>
+          </div>
+        ) : error ? (
+          <div className="flex h-55 w-full items-center justify-center text-center px-4">
+            <p className="text-sm text-red-500">{error}</p>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex h-55 w-full items-center justify-center text-center">
+            <p className="text-sm text-zinc-400">No crypto volume data.</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={data}
+              barCategoryGap="35%"
+              margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#E8EBEE" vertical={false} />
+              <XAxis
+                dataKey="coin"
+                tick={{ fontSize: 11, fill: "#0A0A0A" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={yTickFormatter}
+                tick={{ fontSize: 11, fill: "#0A0A0A" }}
+                axisLine={false}
+                tickLine={false}
+                ticks={ticks}
+                domain={[0, domainMax]}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(188,235,15,0.08)" }} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {data.map((_, i) => (
+                  <Cell key={i} fill="#BCEB0F" />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

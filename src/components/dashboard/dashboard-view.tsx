@@ -327,10 +327,16 @@ function DashboardGreetingToolbar({
 
 /* ── Main Dashboard View ── */
 export function DashboardView() {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(2024, 0, 6),
-    to: new Date(2024, 0, 6),
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const to = new Date();
+    const from = new Date();
+    from.setMonth(from.getMonth() - 1);
+    setDateRange({ from, to });
+    setMounted(true);
+  }, []);
 
   const [kpis, setKpis] = useState<NormalizedDashboardKpis | null>(null);
   const [extras, setExtras] = useState<NormalizedDashboardExtras | null>(null);
@@ -338,13 +344,14 @@ export function DashboardView() {
   const [kpisError, setKpisError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!mounted || !dateRange) return;
     let active = true;
     const load = async () => {
       setKpisLoading(true);
       setKpisError(null);
       try {
-        const fromStr = dateRange?.from ? dateRange.from.toISOString() : undefined;
-        const toStr = dateRange?.to ? dateRange.to.toISOString() : undefined;
+        const fromStr = dateRange.from ? dateRange.from.toISOString() : undefined;
+        const toStr = dateRange.to ? dateRange.to.toISOString() : undefined;
         const res = await getAdminDashboardKpis(fromStr, toStr);
         if (active) {
           setKpis(res.kpis);
@@ -364,7 +371,7 @@ export function DashboardView() {
     return () => {
       active = false;
     };
-  }, [dateRange]);
+  }, [dateRange, mounted]);
 
   return (
     <div>
@@ -437,22 +444,18 @@ export function DashboardView() {
         {/* Left column — two charts stacked */}
         <div className="col-span-3 flex flex-col gap-4">
           <TransactionTrendChart />
-          <CryptoExchangeChart apiData={extras?.cryptoVolumes ?? null} />
+          <CryptoExchangeChart dateRange={dateRange} />
         </div>
 
         {/* Right column — donut on top, top customers below, full height */}
         <div className="col-span-1 flex flex-col gap-4">
-          <ProductCategoryChart apiData={extras?.productCategories ?? null} />
-          <TopCustomers apiData={extras?.topCustomers ?? null} />
+          <ProductCategoryChart dateRange={dateRange} />
+          <TopCustomers dateRange={dateRange} />
         </div>
       </div>
 
       {/* Payment Processed + Top Selling Giftcards + Top Utility Product */}
-      <DashboardStatsSection
-        paymentProcessed={extras?.paymentProcessed ?? null}
-        topGiftcards={extras?.topGiftcards ?? null}
-        topUtility={extras?.topUtility ?? null}
-      />
+      <DashboardStatsSection dateRange={dateRange} />
 
     </div>
   );

@@ -1,29 +1,63 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import type { DateRange } from "react-day-picker";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { ExportSquare } from "iconsax-react";
-import type { NormalizedProductCategory } from "@/lib/admin-api/dashboard-api";
+import { getAdminDashboardCategories, type NormalizedProductCategory } from "@/lib/admin-api/dashboard-api";
 
-const FALLBACK_DATA: NormalizedProductCategory[] = [
-  { name: "Crypto",   value: 45, color: "#BCEB0F" },
-  { name: "Giftcard", value: 30, color: "#FF6A6C" },
-  { name: "Utility",  value: 20, color: "#6A82FF" },
-  { name: "Others",   value: 5,  color: "#013220" },
-];
-
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: NormalizedProductCategory }> }) {
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: NormalizedProductCategory & { displayValue?: number } }> }) {
   if (!active || !payload?.length) return null;
-  const { name, value } = payload[0].payload;
+  const { name, displayValue, value } = payload[0].payload;
+  const valToShow = displayValue !== undefined ? displayValue : value;
   return (
     <div className="rounded-xl border border-outline bg-white px-3 py-2 shadow-lg text-xs">
       <span className="font-semibold text-primary-text">{name}</span>
-      <span className="ml-1 text-zinc-400">{value}%</span>
+      <span className="ml-1 text-zinc-400">{valToShow}%</span>
     </div>
   );
 }
 
-export function ProductCategoryChart({ apiData }: { apiData?: NormalizedProductCategory[] | null }) {
-  const data = apiData && apiData.length > 0 ? apiData : FALLBACK_DATA;
+export function ProductCategoryChart({ dateRange }: { dateRange?: DateRange }) {
+  const [data, setData] = useState<NormalizedProductCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dateRange) return;
+    let active = true;
+    const loadCategories = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const fromStr = dateRange.from ? dateRange.from.toISOString() : undefined;
+        const toStr = dateRange.to ? dateRange.to.toISOString() : undefined;
+        const res = await getAdminDashboardCategories(fromStr, toStr);
+        if (active) {
+          const sorted = [...res].sort((a, b) => b.value - a.value);
+          setData(sorted);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Failed to load categories.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    void loadCategories();
+    return () => {
+      active = false;
+    };
+  }, [dateRange]);
+
+  const chartData = data.map((item) => ({
+    ...item,
+    value: Math.max(item.value, 12),
+    displayValue: item.value,
+  }));
 
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-white p-5 w-full min-w-0">
@@ -39,26 +73,36 @@ export function ProductCategoryChart({ apiData }: { apiData?: NormalizedProductC
       {/* Donut chart */}
       <div className="flex items-center justify-center">
         <div className="h-45 w-45">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={65}
-                outerRadius={90}
-                paddingAngle={-15}
-                dataKey="value"
-                strokeWidth={0}
-                cornerRadius={12}
-              >
-                {data.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="flex h-full w-full items-center justify-center">
+              <p className="text-sm text-zinc-400">Loading...</p>
+            </div>
+          ) : error ? (
+            <div className="flex h-full w-full items-center justify-center text-center px-2">
+              <p className="text-xs text-red-500">{error}</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={65}
+                  outerRadius={90}
+                  paddingAngle={-15}
+                  dataKey="value"
+                  strokeWidth={0}
+                  cornerRadius={12}
+                >
+                  {chartData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
