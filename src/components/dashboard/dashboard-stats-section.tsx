@@ -1,47 +1,54 @@
 "use client";
 
-import { ArrowUp, ArrowDown, Cards, BitcoinConvert, TicketStar, ReceiptItem } from "iconsax-react";
+import { Cards, BitcoinConvert, TicketStar, ReceiptItem } from "iconsax-react";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import type { NormalizedPaymentItem, NormalizedTableItem } from "@/lib/admin-api/dashboard-api";
 
-/* ── Payment Processed ── */
-type PaymentItem = {
-  label: string;
-  amount: string;
-  trend: "up" | "down";
-  icon: React.ReactNode;
-};
-
-const PAYMENTS: PaymentItem[] = [
-  {
-    label: "Deposit",
-    amount: "₦100,000,000",
-    trend: "up",
-    icon: <Cards size={24} variant="Outline" color="currentColor" />,
-  },
-  {
-    label: "Crypto",
-    amount: "₦100,000,000",
-    trend: "down",
-    icon: <BitcoinConvert size={24} variant="Outline" color="currentColor" />,
-  },
-  {
-    label: "Giftcard",
-    amount: "₦100,000,000",
-    trend: "up",
-    icon: <TicketStar size={24} variant="Outline" color="currentColor" />,
-  },
-  {
-    label: "Utility/ VAS",
-    amount: "₦100,000,000",
-    trend: "down",
-    icon: <ReceiptItem size={24} variant="Outline" color="currentColor" />,
-  },
+/* ── Fallback data ── */
+const FALLBACK_PAYMENTS: NormalizedPaymentItem[] = [
+  { label: "Deposit",    amount: "₦100,000,000", trend: "up" },
+  { label: "Crypto",     amount: "₦100,000,000", trend: "down" },
+  { label: "Giftcard",   amount: "₦100,000,000", trend: "up" },
+  { label: "Utility/ VAS", amount: "₦100,000,000", trend: "down" },
 ];
 
+const FALLBACK_GIFTCARDS: NormalizedTableItem[] = [
+  { name: "Amazon",    quantity: 1200 },
+  { name: "Apple",     quantity: 1200 },
+  { name: "Walmart",   quantity: 1200 },
+  { name: "Googleplay", quantity: 1200 },
+  { name: "Xbox",      quantity: 1200 },
+];
+
+const FALLBACK_UTILITY: NormalizedTableItem[] = [
+  { name: "MTN",       quantity: 1200 },
+  { name: "EKEDC",     quantity: 1200 },
+  { name: "Airtel",    quantity: 1200 },
+  { name: "IKEDC",     quantity: 1200 },
+  { name: "Sporty Bet", quantity: 1200 },
+];
+
+const PAYMENT_ICONS: Record<string, React.ReactNode> = {
+  deposit:  <Cards size={24} variant="Outline" color="currentColor" />,
+  crypto:   <BitcoinConvert size={24} variant="Outline" color="currentColor" />,
+  giftcard: <TicketStar size={24} variant="Outline" color="currentColor" />,
+  gift_card: <TicketStar size={24} variant="Outline" color="currentColor" />,
+  "gift-card": <TicketStar size={24} variant="Outline" color="currentColor" />,
+  utility:  <ReceiptItem size={24} variant="Outline" color="currentColor" />,
+  vas:      <ReceiptItem size={24} variant="Outline" color="currentColor" />,
+};
+
+function iconForLabel(label: string): React.ReactNode {
+  return PAYMENT_ICONS[label.toLowerCase()] ?? <Cards size={24} variant="Outline" color="currentColor" />;
+}
+
+/* ── Payment Processed ── */
 function PaymentProcessed({
+  items,
   className = "",
   style,
 }: {
+  items: NormalizedPaymentItem[];
   className?: string;
   style?: React.CSSProperties;
 }) {
@@ -53,14 +60,14 @@ function PaymentProcessed({
       <h3 className="text-[18px] font-semibold text-primary-text">Payment Processed</h3>
 
       <ul className="flex flex-col gap-[10px] flex-1">
-        {PAYMENTS.map((item) => (
+        {items.map((item) => (
           <li
             key={item.label}
             className="flex items-center gap-[10px] rounded-[20px] bg-surface-subtle px-[24px] py-[20px] h-[80px] w-full"
           >
             {/* Icon box */}
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-primary-text shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
-              {item.icon}
+              {iconForLabel(item.label)}
             </span>
 
             {/* Label */}
@@ -72,8 +79,9 @@ function PaymentProcessed({
             <div className="flex items-center gap-3">
               <span className="text-[20px] font-bold text-primary-text">{item.amount}</span>
               <span
-                className={`flex h-[32px] w-[44px] items-center justify-center rounded-[20px] px-[10px] py-[4px] ${item.trend === "up" ? "bg-[#E8F5E9]" : "bg-[#FFEBEE]"
-                  }`}
+                className={`flex h-[32px] w-[44px] items-center justify-center rounded-[20px] px-[10px] py-[4px] ${
+                  item.trend === "up" ? "bg-[#E8F5E9]" : "bg-[#FFEBEE]"
+                }`}
               >
                 {item.trend === "up" ? (
                   <TrendingUp size={20} color="#2E7D32" />
@@ -90,8 +98,6 @@ function PaymentProcessed({
 }
 
 /* ── Reusable ranked table ── */
-type TableItem = { name: string; quantity: number };
-
 function SimpleTable({
   title,
   items,
@@ -99,7 +105,7 @@ function SimpleTable({
   className = "",
 }: {
   title: string;
-  items: TableItem[];
+  items: NormalizedTableItem[];
   style?: React.CSSProperties;
   className?: string;
 }) {
@@ -124,8 +130,9 @@ function SimpleTable({
         {items.map((item, i) => (
           <li
             key={item.name}
-            className={`flex items-center justify-between px-5 py-5 border-b border-outline ${i === items.length - 1 ? "border-b-0" : ""
-              }`}
+            className={`flex items-center justify-between px-5 py-5 border-b border-outline ${
+              i === items.length - 1 ? "border-b-0" : ""
+            }`}
           >
             <span
               className="text-[15px] font-semibold text-primary-text"
@@ -146,24 +153,16 @@ function SimpleTable({
   );
 }
 
-const GIFTCARDS: TableItem[] = [
-  { name: "Amazon", quantity: 1200 },
-  { name: "Apple", quantity: 1200 },
-  { name: "Walmart", quantity: 1200 },
-  { name: "Googleplay", quantity: 1200 },
-  { name: "Xbox", quantity: 1200 },
-];
-
-const UTILITY: TableItem[] = [
-  { name: "MTN", quantity: 1200 },
-  { name: "EKEDC", quantity: 1200 },
-  { name: "Airtel", quantity: 1200 },
-  { name: "IKEDC", quantity: 1200 },
-  { name: "Sporty Bet", quantity: 1200 },
-];
-
 /* ── Exported section ── */
-export function DashboardStatsSection() {
+export function DashboardStatsSection({
+  paymentProcessed,
+  topGiftcards,
+  topUtility,
+}: {
+  paymentProcessed?: NormalizedPaymentItem[] | null;
+  topGiftcards?: NormalizedTableItem[] | null;
+  topUtility?: NormalizedTableItem[] | null;
+}) {
   const cardStyle: React.CSSProperties = {
     height: "450px",
     opacity: 1,
@@ -174,11 +173,15 @@ export function DashboardStatsSection() {
     width: "292px",
   };
 
+  const payments = paymentProcessed && paymentProcessed.length > 0 ? paymentProcessed : FALLBACK_PAYMENTS;
+  const giftcards = topGiftcards && topGiftcards.length > 0 ? topGiftcards : FALLBACK_GIFTCARDS;
+  const utility = topUtility && topUtility.length > 0 ? topUtility : FALLBACK_UTILITY;
+
   return (
     <div className="mt-4 flex flex-wrap gap-4 items-stretch">
-      <PaymentProcessed className="flex-1 min-w-[320px]" style={cardStyle} />
-      <SimpleTable title="Top Selling Giftcards" className="flex-1 min-w-[292px] max-w-[400px]" items={GIFTCARDS} style={tableStyle} />
-      <SimpleTable title="Top Utility Product" className="flex-1 min-w-[292px] max-w-[400px]" items={UTILITY} style={tableStyle} />
+      <PaymentProcessed className="flex-1 min-w-[320px]" style={cardStyle} items={payments} />
+      <SimpleTable title="Top Selling Giftcards" className="flex-1 min-w-[292px] max-w-[400px]" items={giftcards} style={tableStyle} />
+      <SimpleTable title="Top Utility Product" className="flex-1 min-w-[292px] max-w-[400px]" items={utility} style={tableStyle} />
     </div>
   );
 }

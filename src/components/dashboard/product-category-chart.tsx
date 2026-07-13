@@ -2,15 +2,16 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { ExportSquare } from "iconsax-react";
+import type { NormalizedProductCategory } from "@/lib/admin-api/dashboard-api";
 
-const DATA = [
+const FALLBACK_DATA: NormalizedProductCategory[] = [
   { name: "Crypto",   value: 45, color: "#BCEB0F" },
   { name: "Giftcard", value: 30, color: "#FF6A6C" },
   { name: "Utility",  value: 20, color: "#6A82FF" },
   { name: "Others",   value: 5,  color: "#013220" },
 ];
 
-function CustomTooltip({ active, payload }: any) {
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: NormalizedProductCategory }> }) {
   if (!active || !payload?.length) return null;
   const { name, value } = payload[0].payload;
   return (
@@ -21,7 +22,9 @@ function CustomTooltip({ active, payload }: any) {
   );
 }
 
-export function ProductCategoryChart() {
+export function ProductCategoryChart({ apiData }: { apiData?: NormalizedProductCategory[] | null }) {
+  const data = apiData && apiData.length > 0 ? apiData : FALLBACK_DATA;
+
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-white p-5 w-full min-w-0">
       {/* Header */}
@@ -38,9 +41,8 @@ export function ProductCategoryChart() {
         <div className="h-45 w-45">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-        
               <Pie
-                data={DATA}
+                data={data}
                 cx="50%"
                 cy="50%"
                 innerRadius={65}
@@ -50,7 +52,7 @@ export function ProductCategoryChart() {
                 strokeWidth={0}
                 cornerRadius={12}
               >
-                {DATA.map((entry, i) => (
+                {data.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
@@ -62,7 +64,7 @@ export function ProductCategoryChart() {
 
       {/* Legend */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-        {DATA.map((item) => (
+        {data.map((item) => (
           <span key={item.name} className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
             {item.name} ({item.value}%)

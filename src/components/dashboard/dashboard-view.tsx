@@ -13,6 +13,7 @@ import {
 } from "iconsax-react";
 import { CalendarDays, ListFilter, TrendingUp } from "lucide-react";
 import { ProviderHeader } from "@/components/provider/provider-header";
+import { getAdminDashboardKpis, type NormalizedDashboardKpis, type NormalizedDashboardExtras } from "@/lib/admin-api/dashboard-api";
 import {
   TableFilterApplyClear,
   TableFilterDropdownCard,
@@ -331,6 +332,40 @@ export function DashboardView() {
     to: new Date(2024, 0, 6),
   });
 
+  const [kpis, setKpis] = useState<NormalizedDashboardKpis | null>(null);
+  const [extras, setExtras] = useState<NormalizedDashboardExtras | null>(null);
+  const [kpisLoading, setKpisLoading] = useState(true);
+  const [kpisError, setKpisError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setKpisLoading(true);
+      setKpisError(null);
+      try {
+        const fromStr = dateRange?.from ? dateRange.from.toISOString() : undefined;
+        const toStr = dateRange?.to ? dateRange.to.toISOString() : undefined;
+        const res = await getAdminDashboardKpis(fromStr, toStr);
+        if (active) {
+          setKpis(res.kpis);
+          setExtras(res.extras);
+        }
+      } catch (err) {
+        if (active) {
+          setKpisError(err instanceof Error ? err.message : "Failed to load dashboard KPIs.");
+        }
+      } finally {
+        if (active) {
+          setKpisLoading(false);
+        }
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [dateRange]);
+
   return (
     <div>
       {/* Header */}
@@ -350,38 +385,46 @@ export function DashboardView() {
           </span>
         </div>
         <p className="mt-2 text-[40px] font-semibold text-primary-text">
-          ₦140,813,000.00
+          {kpisLoading ? "Loading..." : kpis?.totalTransactionVolume || "₦0.00"}
         </p>
-        <p className="mt-1 text-[18px]" style={{ color: "#777F89" }}>
-          Yeay! transactions have surged by{" "}
-          <span className="font-semibold text-primary-text">$1,000,000</span> from Last month!
-        </p>
+        {!kpisLoading && kpis ? (
+          <p className="mt-1 text-[18px]" style={{ color: "#777F89" }}>
+            Yeay! transactions have surged by{" "}
+            <span className="font-semibold text-primary-text">{kpis.totalTransactionVolumeChange}</span> from last month!
+          </p>
+        ) : kpisError ? (
+          <p className="mt-1 text-sm text-red-500 m-0">{kpisError}</p>
+        ) : (
+          <p className="mt-1 text-[18px]" style={{ color: "#777F89" }}>
+            Fetching stats...
+          </p>
+        )}
 
         {/* Small stat cards row */}
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <SmallStatCard
             label="Transaction Count"
-            value="50,000"
-            trend="3.7%"
-            trendVariant="up"
+            value={kpisLoading ? "..." : kpis?.transactionCount || "0"}
+            trend={kpisLoading ? "" : kpis?.transactionCountTrend || "0%"}
+            trendVariant={kpis?.transactionCountTrendVariant || "up"}
             subtext="+1.01% within {5days}"
             accentClass="bg-primary-green"
             icon={<ChartSquare size={24} variant="Outline" color="currentColor" className="text-primary-text" />}
           />
           <SmallStatCard
             label="Active Users"
-            value="50,000"
-            trend="3.7%"
-            trendVariant="down"
+            value={kpisLoading ? "..." : kpis?.activeUsers || "0"}
+            trend={kpisLoading ? "" : kpis?.activeUsersTrend || "0%"}
+            trendVariant={kpis?.activeUsersTrendVariant || "up"}
             subtext="+1.01% within {5days}"
             accentClass="bg-vivid-azure"
             icon={<ProfileTick size={24} variant="Outline" color="currentColor" className="text-primary-text" />}
           />
           <SmallStatCard
             label="New Signups"
-            value="50,000"
-            trend="3.7%"
-            trendVariant="up"
+            value={kpisLoading ? "..." : kpis?.newSignups || "0"}
+            trend={kpisLoading ? "" : kpis?.newSignupsTrend || "0%"}
+            trendVariant={kpis?.newSignupsTrendVariant || "up"}
             subtext="+1.01% within {5days}"
             accentClass="bg-coral-red"
             icon={<ProfileAdd size={24} variant="Outline" color="currentColor" className="text-primary-text" />}
@@ -394,18 +437,22 @@ export function DashboardView() {
         {/* Left column — two charts stacked */}
         <div className="col-span-3 flex flex-col gap-4">
           <TransactionTrendChart />
-          <CryptoExchangeChart />
+          <CryptoExchangeChart apiData={extras?.cryptoVolumes ?? null} />
         </div>
 
         {/* Right column — donut on top, top customers below, full height */}
         <div className="col-span-1 flex flex-col gap-4">
-          <ProductCategoryChart />
-          <TopCustomers />
+          <ProductCategoryChart apiData={extras?.productCategories ?? null} />
+          <TopCustomers apiData={extras?.topCustomers ?? null} />
         </div>
       </div>
 
       {/* Payment Processed + Top Selling Giftcards + Top Utility Product */}
-      <DashboardStatsSection />
+      <DashboardStatsSection
+        paymentProcessed={extras?.paymentProcessed ?? null}
+        topGiftcards={extras?.topGiftcards ?? null}
+        topUtility={extras?.topUtility ?? null}
+      />
 
     </div>
   );
