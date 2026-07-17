@@ -13,6 +13,7 @@ export type NormalizedDashboardKpis = {
   newSignups: string;
   newSignupsTrend: string;
   newSignupsTrendVariant: "up" | "down";
+  rawVolume?: number;
 };
 
 export type NormalizedTrendItem = {
@@ -160,6 +161,7 @@ export function normalizeDashboardKpis(data: unknown): NormalizedDashboardKpis {
     newSignups: rawSignups.toLocaleString(),
     newSignupsTrend: signupTrend,
     newSignupsTrendVariant: signupVariant,
+    rawVolume: rawVolume !== undefined ? rawVolume / 100 : undefined,
   };
 }
 

@@ -42,7 +42,7 @@ export function UnderlineTabs({ tabs, active, onChange }: UnderlineTabsProps) {
               className={[
                 "text-sm font-medium leading-5 transition-colors",
                 isActive
-                  ? "mb-2 rounded-full border border-white bg-white px-5 py-2.5 text-secondary-green"
+                  ? "mb-2 rounded-full border border-zinc-200 bg-white px-5 py-2.5 text-secondary-green font-semibold shadow-sm"
                   : "border-b-2 border-transparent pb-3 pt-2.5 text-zinc-500 hover:text-zinc-700",
               ].join(" ")}
             >
