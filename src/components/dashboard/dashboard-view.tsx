@@ -14,6 +14,10 @@ import {
 import { CalendarDays, ListFilter, TrendingUp } from "lucide-react";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { getAdminDashboardKpis, type NormalizedDashboardKpis, type NormalizedDashboardExtras } from "@/lib/admin-api/dashboard-api";
+import { getAdminSettingsProfile } from "@/lib/admin-api/settings-api";
+import { getPublicFiatRate } from "@/lib/admin-api/exchange-rates-api";
+import type { AdminSettingsProfile } from "@/lib/admin-api/types";
+import { MetricValue } from "@/components/ui/metric-value";
 import {
   TableFilterApplyClear,
   TableFilterDatePanel,
@@ -88,6 +92,7 @@ type SmallCardProps = {
   subtext: string;
   accentClass: string;
   icon: React.ReactNode;
+  loading?: boolean;
 };
 
 function SmallStatCard({
@@ -98,6 +103,7 @@ function SmallStatCard({
   subtext,
   accentClass,
   icon,
+  loading = false,
 }: SmallCardProps) {
   return (
     <div className="relative w-full h-[176px] flex flex-col justify-between overflow-hidden rounded-[8px] bg-white">
@@ -112,18 +118,22 @@ function SmallStatCard({
           </span>
         </div>
         <div className="flex items-center justify-between mt-1">
-          <p className="text-[36px] font-bold leading-none text-primary-text">{value}</p>
-          <div
-            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[13px] font-semibold ${trendVariant === "up" ? "bg-green-100/50 text-green-600" : "bg-red-100/50 text-red-600"
-              }`}
-          >
-            {trendVariant === "up" ? (
-              <TrendingUp size={16} strokeWidth={2.5} />
-            ) : (
-              <TrendingUp size={16} strokeWidth={2.5} className="rotate-180" />
-            )}
-            {trend}
-          </div>
+          <p className="text-[36px] font-bold leading-none text-primary-text">
+            <MetricValue loading={loading} value={value} spinnerSize="md" />
+          </p>
+          {!loading && (
+            <div
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[13px] font-semibold ${trendVariant === "up" ? "bg-green-100/50 text-green-600" : "bg-red-100/50 text-red-600"
+                }`}
+            >
+              {trendVariant === "up" ? (
+                <TrendingUp size={16} strokeWidth={2.5} />
+              ) : (
+                <TrendingUp size={16} strokeWidth={2.5} className="rotate-180" />
+              )}
+              {trend}
+            </div>
+          )}
         </div>
       </div>
 
@@ -141,9 +151,15 @@ function SmallStatCard({
 function DashboardGreetingToolbar({
   dateRange,
   onDateRangeChange,
+  appliedCurrency,
+  onCurrencyChange,
+  profile,
 }: {
   dateRange: DateRange | undefined;
   onDateRangeChange: (range: DateRange | undefined) => void;
+  appliedCurrency: string;
+  onCurrencyChange: (currency: string) => void;
+  profile: AdminSettingsProfile | null;
 }) {
   const runDashboardExport = (format: "csv" | "json" | "pdf") => {
     const label = formatDashboardDateLabel(dateRange, "All time");
@@ -174,24 +190,35 @@ function DashboardGreetingToolbar({
     syncDropdownLeft,
   } = useFilterBar<"period" | "currency">();
 
-  const [draftCurrency, setDraftCurrency] = useState("NGN (default)");
+  const [draftCurrency, setDraftCurrency] = useState(appliedCurrency);
   const [draftPeriod, setDraftPeriod] = useState<DateRange | undefined>(dateRange);
-  const [appliedCurrency, setAppliedCurrency] = useState("NGN (default)");
 
   useEffect(() => {
     setDraftPeriod(dateRange);
   }, [dateRange]);
+
+  useEffect(() => {
+    setDraftCurrency(appliedCurrency);
+  }, [appliedCurrency]);
 
   const syncAllFilters = () => {
     setDraftPeriod(dateRange);
     setDraftCurrency(appliedCurrency);
   };
 
+  const greetingName = profile?.firstName?.trim() || "Shakur";
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return "Good Morning";
+    if (hr < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
   return (
     <>
       <div className="mt-6 flex w-full flex-wrap items-center justify-between gap-4 rounded-xl bg-white px-[30px] pb-4 pt-[18px]">
         <div>
-          <h2 className="text-[24px] font-semibold text-primary-text">Good Morning, Shakur 👋</h2>
+          <h2 className="text-[24px] font-semibold text-primary-text">{getGreeting()}, {greetingName} 👋</h2>
           <p className="mt-0.5 text-[16px]" style={{ color: "#494A53" }}>
             Here are your activities for the day
           </p>
@@ -274,12 +301,12 @@ function DashboardGreetingToolbar({
             <TableFilterApplyClear
               onApply={() => {
                 onDateRangeChange(normalizeDateRange(draftPeriod));
-                setAppliedCurrency(draftCurrency);
+                onCurrencyChange(draftCurrency);
                 setOpenFilter(null);
               }}
               onClear={() => {
                 setDraftCurrency("NGN (default)");
-                setAppliedCurrency("NGN (default)");
+                onCurrencyChange("NGN (default)");
                 setDraftPeriod(undefined);
                 onDateRangeChange(undefined);
                 setOpenFilter(null);
@@ -310,6 +337,118 @@ export function DashboardView() {
   const [extras, setExtras] = useState<NormalizedDashboardExtras | null>(null);
   const [kpisLoading, setKpisLoading] = useState(true);
   const [kpisError, setKpisError] = useState<string | null>(null);
+
+  const [profile, setProfile] = useState<AdminSettingsProfile | null>(null);
+  const [appliedCurrency, setAppliedCurrency] = useState("NGN (default)");
+  const [usdVolume, setUsdVolume] = useState<string | null>(null);
+  const [conversionLoading, setConversionLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const loadProfile = async () => {
+      try {
+        const p = await getAdminSettingsProfile();
+        if (active) setProfile(p);
+      } catch (e) {
+        console.error("Failed to load admin profile for greeting:", e);
+      }
+    };
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (appliedCurrency !== "USD view" || !kpis) {
+      setUsdVolume(null);
+      return;
+    }
+
+    const parseFormattedVolume = (vStr: string): number => {
+      const clean = vStr.replace(/[^0-9.]/g, "");
+      return parseFloat(clean) || 0;
+    };
+
+    const rawVolumeNaira = kpis.rawVolume ?? parseFormattedVolume(kpis.totalTransactionVolume);
+
+    let active = true;
+    const convert = async () => {
+      setConversionLoading(true);
+      try {
+        const res = await getPublicFiatRate({ amount: rawVolumeNaira, base: "NGN", quote: "USD" });
+        if (!active) return;
+        
+        let usdAmount = 0;
+        if (res && typeof res === "object") {
+          const obj = res as Record<string, unknown>;
+          
+          // Try to extract converted amount
+          const possibleAmountKeys = ["convertedAmount", "converted_amount", "amount", "total"];
+          for (const key of possibleAmountKeys) {
+            const val = obj[key];
+            if (typeof val === "number" && val > 0) {
+              usdAmount = val;
+              break;
+            }
+            if (typeof val === "string") {
+              const num = parseFloat(val);
+              if (!isNaN(num) && num > 0) {
+                usdAmount = num;
+                break;
+              }
+            }
+          }
+          
+          // If no converted amount, try to extract rate and calculate
+          if (usdAmount === 0) {
+            const possibleRateKeys = ["rate", "exchangeRate", "baseRate", "finalRate"];
+            for (const key of possibleRateKeys) {
+              const val = obj[key];
+              if (typeof val === "number" && val > 0) {
+                usdAmount = rawVolumeNaira * val;
+                break;
+              }
+              if (typeof val === "string") {
+                const num = parseFloat(val);
+                if (!isNaN(num) && num > 0) {
+                  usdAmount = rawVolumeNaira * num;
+                  break;
+                }
+              }
+            }
+          }
+        }
+        
+        // Fallback default conversion if API returned nothing valid
+        if (usdAmount === 0) {
+          usdAmount = rawVolumeNaira * 0.001; // $1 = 1000 NGN fallback
+        }
+
+        const formatted = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(usdAmount);
+
+        setUsdVolume(formatted);
+      } catch (err) {
+        console.error("Failed NGN to USD conversion via GET/rates/fiat:", err);
+        const fallbackAmount = rawVolumeNaira * 0.001;
+        const formatted = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(fallbackAmount);
+        if (active) setUsdVolume(formatted);
+      } finally {
+        if (active) setConversionLoading(false);
+      }
+    };
+
+    void convert();
+    return () => {
+      active = false;
+    };
+  }, [kpis, appliedCurrency]);
 
   useEffect(() => {
     if (!mounted || !dateRange) return;
@@ -346,21 +485,38 @@ export function DashboardView() {
       {/* Header */}
       <ProviderHeader title="Dashboard" />
 
-      <DashboardGreetingToolbar dateRange={dateRange} onDateRangeChange={setDateRange} />
+      <DashboardGreetingToolbar
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        appliedCurrency={appliedCurrency}
+        onCurrencyChange={setAppliedCurrency}
+        profile={profile}
+      />
 
       {/* Total transaction hero card */}
       <div className="mt-4 rounded-xl bg-white px-5 py-5 w-full">
         <div className="flex items-center gap-2">
-          <p className="m-0 text-[20px] font-medium text-primary-text">
+          <p className="m-0 text-[20px] font-medium text-primary-text flex items-center gap-1.5">
             Total Transaction{" "}
-            <span className="font-semibold text-success">in NGN</span>
+            <button
+              type="button"
+              onClick={() => {
+                setAppliedCurrency(prev => prev === "USD view" ? "NGN (default)" : "USD view");
+              }}
+              className="font-semibold text-success inline-flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity focus:outline-none"
+              title="Toggle currency view"
+            >
+              {appliedCurrency === "USD view" ? "in USD" : "in NGN"}
+              <RefreshCircle size={16.67} variant="Outline" color="currentColor" />
+            </button>
           </p>
-          <span className="flex items-center">
-            <RefreshCircle size={16.67} variant="Outline" className="text-success" color="currentColor" />
-          </span>
         </div>
-        <p className="mt-2 text-[40px] font-semibold text-primary-text">
-          {kpisLoading ? "Loading..." : kpis?.totalTransactionVolume || "₦0.00"}
+        <p className="mt-2 text-[40px] font-semibold text-primary-text flex items-center min-h-[48px]">
+          <MetricValue
+            loading={kpisLoading || conversionLoading}
+            value={appliedCurrency === "USD view" ? usdVolume || "$0.00" : kpis?.totalTransactionVolume || "₦0.00"}
+            spinnerSize="lg"
+          />
         </p>
         {!kpisLoading && kpis ? (
           <p className="mt-1 text-[18px]" style={{ color: "#777F89" }}>
@@ -379,8 +535,9 @@ export function DashboardView() {
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <SmallStatCard
             label="Transaction Count"
-            value={kpisLoading ? "..." : kpis?.transactionCount || "0"}
-            trend={kpisLoading ? "" : kpis?.transactionCountTrend || "0%"}
+            loading={kpisLoading}
+            value={kpis?.transactionCount || "0"}
+            trend={kpis?.transactionCountTrend || "0%"}
             trendVariant={kpis?.transactionCountTrendVariant || "up"}
             subtext="+1.01% within {5days}"
             accentClass="bg-primary-green"
@@ -388,8 +545,9 @@ export function DashboardView() {
           />
           <SmallStatCard
             label="Active Users"
-            value={kpisLoading ? "..." : kpis?.activeUsers || "0"}
-            trend={kpisLoading ? "" : kpis?.activeUsersTrend || "0%"}
+            loading={kpisLoading}
+            value={kpis?.activeUsers || "0"}
+            trend={kpis?.activeUsersTrend || "0%"}
             trendVariant={kpis?.activeUsersTrendVariant || "up"}
             subtext="+1.01% within {5days}"
             accentClass="bg-vivid-azure"
@@ -397,8 +555,9 @@ export function DashboardView() {
           />
           <SmallStatCard
             label="New Signups"
-            value={kpisLoading ? "..." : kpis?.newSignups || "0"}
-            trend={kpisLoading ? "" : kpis?.newSignupsTrend || "0%"}
+            loading={kpisLoading}
+            value={kpis?.newSignups || "0"}
+            trend={kpis?.newSignupsTrend || "0%"}
             trendVariant={kpis?.newSignupsTrendVariant || "up"}
             subtext="+1.01% within {5days}"
             accentClass="bg-coral-red"

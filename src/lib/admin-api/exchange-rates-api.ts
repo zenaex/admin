@@ -802,7 +802,7 @@ export async function getPublicFiatRate(query: { amount: number; base: string; q
     quote: query.quote,
   });
   // Strip '/admin' if the client or URL base has it, to target public path safely
-  return adminRequest<unknown>(`/rates/fiat${qs}`, { method: "GET", auth: false });
+  return adminRequest<unknown>(`/rates/fiat${qs}`, { method: "GET" });
 }
 
 /** `GET /rates/crypto` — Get the swap rate for a given amount and crypto asset pair */

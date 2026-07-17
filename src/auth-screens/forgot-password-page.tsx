@@ -65,7 +65,7 @@ export function ForgotPasswordPage() {
 
         <section className="flex items-center justify-center">
           <div className="w-full max-w-[760px] rounded-2xl bg-background px-6 py-10 sm:px-10 lg:px-14">
-            <div className="mx-auto w-full max-w-[470px] rounded-md bg-white px-8 py-9">
+            <div className="mx-auto w-full max-w-[660px] h-[553px] rounded-md bg-white px-8 py-9">
               <button
                 type="button"
                 onClick={() => router.push("/login")}
@@ -75,10 +75,10 @@ export function ForgotPasswordPage() {
                 <ArrowLeft size="16" color="currentColor" variant="Outline" />
               </button>
 
-              <h1 className="text-primary-text text-[40px] font-semibold leading-[0.98] tracking-[-0.01em]">
+              <h1 className="text-primary-text text-[30px] font-semibold leading-[0.98] tracking-[-0.01em]">
                 Forget Password?
               </h1>
-              <p className="mt-2 text-sm text-zinc-500">
+              <p className="mt-2 text-[16px] text-zinc-500">
                 {done
                   ? "If an account exists for this email, a reset request was sent. A super admin must approve it before you receive a reset link."
                   : "Enter your registered email address. A super admin will be notified to approve your reset request."}

@@ -152,6 +152,10 @@ export function TransactionTrendChart() {
     };
   }, [timeFrame]);
 
+  const chartData = data && data.length > 0
+    ? data
+    : DATA_MAP[timeFrame].map((item) => ({ ...item, inflows: 0, outflows: 0 }));
+
   return (
     <div className="flex flex-col gap-4 rounded-[12px] bg-white p-5 w-full min-w-0">
       {/* Header */}
@@ -199,11 +203,9 @@ export function TransactionTrendChart() {
           <p className="text-sm text-zinc-400">Loading trend data...</p>
         ) : error ? (
           <p className="text-sm text-red-500">{error}</p>
-        ) : data.length === 0 ? (
-          <p className="text-sm text-zinc-400">No trend data available.</p>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+            <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E8EBEE" vertical={false} />
               <XAxis
                 dataKey="month"

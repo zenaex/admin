@@ -8,6 +8,7 @@ import { WalletMoney, CardSend, CardReceive } from "iconsax-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
 import { StatCard } from "@/components/ui/stat-card";
+import { UnderlineTabs } from "@/components/audit-trail/audit-trail-tabs";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import { ErrorAlert } from "@/components/ui/error-alert";
 import { EtradeRequestList } from "@/components/e-trades/etrade-request-list";
@@ -309,35 +310,15 @@ export function EtradeView() {
         />
       </div>
 
-      <div className="mt-6 flex items-baseline gap-8 border-b border-zinc-200">
-        <div className="relative inline-flex w-fit flex-col">
-          <button
-            type="button"
-            onClick={() => setTab("requests")}
-            className={`text-sm font-semibold transition-colors pb-3 pt-2.5 px-1 ${
-              activeTab === "requests" ? "text-zinc-950 font-bold" : "text-zinc-400 hover:text-zinc-600"
-            }`}
-          >
-            Active Trades
-          </button>
-          {activeTab === "requests" && (
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-secondary-green rounded-t-full" />
-          )}
-        </div>
-        <div className="relative inline-flex w-fit flex-col">
-          <button
-            type="button"
-            onClick={() => setTab("transaction-details")}
-            className={`text-sm font-semibold transition-colors pb-3 pt-2.5 px-1 ${
-              activeTab === "transaction-details" ? "text-zinc-950 font-bold" : "text-zinc-400 hover:text-zinc-600"
-            }`}
-          >
-            Completed
-          </button>
-          {activeTab === "transaction-details" && (
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-secondary-green rounded-t-full" />
-          )}
-        </div>
+      <div className="mt-6">
+        <UnderlineTabs
+          tabs={[
+            { id: "requests", label: "Active Trades" },
+            { id: "transaction-details", label: "Completed" },
+          ]}
+          active={activeTab}
+          onChange={(id) => setTab(id as "requests" | "transaction-details")}
+        />
       </div>
 
       {filterMode ? (
