@@ -1,0 +1,38 @@
+name: Dev Deployment
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: dev-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Hetzner
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: SSH & deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          script: |
+            set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            cd /home/jonathan/dev/admin
+            git pull
+            nvm use
+            corepack enable
+            pnpm install --frozen-lockfile
+            pnpm build
+
+            PM2_NODE=$(dirname "$(readlink -f /proc/$(cat $HOME/.pm2/pm2.pid)/exe)" 2>/dev/null)
+            "${PM2_NODE:+$PM2_NODE/pm2}" list
+            "${PM2_NODE:+$PM2_NODE/pm2}" reload zena-dev-admin
