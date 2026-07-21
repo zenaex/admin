@@ -352,13 +352,13 @@ export function TransactionsView() {
               />
               <TableFilterPill
                 label="Amount"
-                summary={appliedAmount ?? draftAmount}
+                summary={draftAmount}
                 pillRef={registerPillRef("amount")}
                 onClick={() => toggleFilter("amount")}
               />
               <TableFilterPill
                 label="Status"
-                summary={appliedStatus ?? draftStatus}
+                summary={draftStatus}
                 pillRef={registerPillRef("status")}
                 onClick={() => toggleFilter("status")}
               />
@@ -409,6 +409,7 @@ export function TransactionsView() {
                 setAppliedStatus(draftStatus);
                 applyDateDraft();
                 setOpenFilter(null);
+                closeFilterBar();
                 setPage(1);
               }}
               onClear={() => {

@@ -512,6 +512,7 @@ export function AdminManagementView() {
                     setAppliedTeamStatus(draftTeamStatus === "All statuses" ? null : draftTeamStatus);
                     setAppliedTeamDate(draftTeamDate);
                     setTeamOpenFilter(null);
+                    setTeamFilterMode(false);
                     setPage(1);
                   }}
                   onClear={() => {
@@ -1410,6 +1411,7 @@ function PendingInvitesTab({ showInvite }: { showInvite: boolean }) {
                 setAppliedRole(draftRole === "All roles" ? null : draftRole);
                 setAppliedDate(draftDate);
                 setOpenFilter(null);
+                setFilterMode(false);
                 setPage(1);
               }}
               onClear={() => {

@@ -33,10 +33,10 @@ export function EtradeLogFlow({ onBack, onSuccess }: EtradeLogFlowProps) {
   const [isCustomerOpen, setIsCustomerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const customerDropdownRef = useRef<HTMLDivElement>(null);
-  const [requestType, setRequestType] = useState("Bank of America");
-  const [tradeAmount, setTradeAmount] = useState("$100,000.00");
-  const [vendorRate, setVendorRate] = useState("$1/₦1200");
-  const [markupRate, setMarkupRate] = useState("₦50");
+  const [requestType, setRequestType] = useState("");
+  const [tradeAmount, setTradeAmount] = useState("");
+  const [vendorRate, setVendorRate] = useState("");
+  const [markupRate, setMarkupRate] = useState("");
 
   // Calculated values
   const { customerRate, amountEquivalent, profitMarkup } = useMemo(() => {

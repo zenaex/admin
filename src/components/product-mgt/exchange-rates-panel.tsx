@@ -243,6 +243,7 @@ export function ExchangeRatesPanel() {
                   onApply={() => {
                     setAppliedType(draftType === "All types" ? null : draftType);
                     setOpenFilter(null);
+                    setFilterMode(false);
                     setPage(1);
                   }}
                   onClear={() => {

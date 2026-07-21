@@ -312,6 +312,7 @@ export function AdminRolesTab({ canManage, onRolesChanged, onSelectionChange }: 
               onApply={() => {
                 setAppliedRoleTemplate(draftRoleTemplate === "All templates" ? null : draftRoleTemplate);
                 setOpenFilter(null);
+                setFilterMode(false);
               }}
               onClear={() => {
                 setRoleSearch("");

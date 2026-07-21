@@ -361,6 +361,7 @@ export function ReferralView() {
                 applyStatusDraft();
                 applyPeriodDraft();
                 setOpenFilter(null);
+                closeFilterBar();
                 setPage(1);
               }}
               onClear={() => {

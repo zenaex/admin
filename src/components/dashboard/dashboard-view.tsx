@@ -303,6 +303,7 @@ function DashboardGreetingToolbar({
                 onDateRangeChange(normalizeDateRange(draftPeriod));
                 onCurrencyChange(draftCurrency);
                 setOpenFilter(null);
+                closeFilterBar();
               }}
               onClear={() => {
                 setDraftCurrency("NGN (default)");
