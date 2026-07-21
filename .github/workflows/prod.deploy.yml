@@ -1,0 +1,41 @@
+name: Prod Deployment
+
+on:
+  push:
+    branches: [prod]
+
+concurrency:
+  group: prod-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Hetzner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: SSH & deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT }}
+          passphrase: ${{ secrets.PROD_SSH_PASSPHRASE }}
+          script: |
+            set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            cd /home/jonathan/admin
+            git checkout prod
+            git pull --ff-only
+            nvm use
+            corepack enable
+            pnpm install --frozen-lockfile
+            pnpm build
+
+            cd ~/server/pm2
+
+            pm2 list
+            pm2 reload zena-admin
