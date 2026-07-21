@@ -398,6 +398,7 @@ export function CustomersView() {
                 applyStatusDraft();
                 applyDateDraft();
                 setOpenFilter(null);
+                closeFilterBar();
                 setPage(1);
               }}
               onClear={() => {

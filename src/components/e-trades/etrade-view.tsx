@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ListFilter } from "lucide-react";
+import { CalendarDays, ListFilter, Plus } from "lucide-react";
 import { WalletMoney, CardSend, CardReceive } from "iconsax-react";
 
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
@@ -255,9 +255,9 @@ export function EtradeView() {
         <button
           type="button"
           onClick={() => setIsLoggingTrade(true)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#C1FF00] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90 shadow-sm"
+          className="inline-flex h-9 items-center gap-1 rounded-full border-0 bg-[#C1FF00] px-4 text-sm font-semibold text-zinc-950 transition-opacity hover:opacity-90 focus:outline-none"
         >
-          <span className="text-[16px] font-extrabold mr-0.5">+</span>
+          <Plus size={16} strokeWidth={2.2} className="mr-0.5" />
           Log a Trade
         </button>
       </div>
@@ -409,6 +409,7 @@ export function EtradeView() {
                 setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
                 applyDateDraft();
                 setOpenFilter(null);
+                closeFilterBar();
                 setPage(1);
                 setTxnPage(1);
               }}

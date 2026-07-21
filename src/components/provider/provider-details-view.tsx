@@ -418,6 +418,7 @@ export function ProviderDetailsView({ id }: ProviderDetailsViewProps) {
                   setAppliedCommission(draftCommission === "All types" ? null : draftCommission);
                   setAppliedRowStatus(draftRowStatus === "All statuses" ? null : draftRowStatus);
                   setOpenFilter(null);
+                  setFilterMode(false);
                   setPage(1);
                 }}
                 onClear={() => {

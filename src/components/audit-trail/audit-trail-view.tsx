@@ -301,6 +301,7 @@ export function AuditTrailView() {
                 setAppliedAction(draftAction);
                 applySessionDraft();
                 setOpenFilter(null);
+                closeFilterBar();
                 setPage(1);
               }}
               onClear={() => {

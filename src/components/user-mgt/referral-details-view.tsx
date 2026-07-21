@@ -379,6 +379,7 @@ export function ReferralDetailsView({ id: accountId }: ReferralDetailsViewProps)
                   setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
                   setAppliedDate(draftDate);
                   setOpenFilter(null);
+                  toggleFilterMode(false);
                   setPage(1);
                 }}
                 onClear={() => {

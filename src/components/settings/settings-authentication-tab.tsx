@@ -480,15 +480,54 @@ function StatusBadge({ status }: { status: AuthStatus }) {
   );
 }
 
-function UsersTab() {
+function UsersTab({
+  search,
+  appliedMfa,
+  appliedRole,
+}: {
+  search: string;
+  appliedMfa: string | null;
+  appliedRole: string | null;
+}) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(18);
   const [disablingUser, setDisablingUser] = useState<AuthUser | null>(null);
 
-  const safePage = Math.min(page, Math.max(1, Math.ceil(ALL_USERS.length / pageSize)));
+  const [prevFilters, setPrevFilters] = useState({ search, appliedMfa, appliedRole });
+
+  if (
+    prevFilters.search !== search ||
+    prevFilters.appliedMfa !== appliedMfa ||
+    prevFilters.appliedRole !== appliedRole
+  ) {
+    setPage(1);
+    setPrevFilters({ search, appliedMfa, appliedRole });
+  }
+
+  const filteredUsers = useMemo(() => {
+    return ALL_USERS.filter((user) => {
+      if (search) {
+        const s = search.toLowerCase();
+        if (!user.name.toLowerCase().includes(s) && !user.id.toLowerCase().includes(s)) {
+          return false;
+        }
+      }
+      if (appliedMfa) {
+        const isMfaEnabled = user.status === "Active";
+        if (appliedMfa === "MFA enabled" && !isMfaEnabled) return false;
+        if (appliedMfa === "MFA disabled" && isMfaEnabled) return false;
+      }
+      if (appliedRole) {
+        if (user.role !== appliedRole) return false;
+      }
+      return true;
+    });
+  }, [search, appliedMfa, appliedRole]);
+
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filteredUsers.length / pageSize)));
   const paginatedRows = useMemo(
-    () => ALL_USERS.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [safePage, pageSize],
+    () => filteredUsers.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredUsers, safePage, pageSize],
   );
 
   return (
@@ -517,10 +556,10 @@ function UsersTab() {
                 </td>
                 <td className="h-16 border-b border-outline px-4 py-0 align-middle">
                   <button
-                    type="button"
-                    onClick={() => setDisablingUser(row)}
-                    className="text-zinc-400 transition-colors hover:text-zinc-600"
-                    aria-label="Disable MFA"
+                     type="button"
+                     onClick={() => setDisablingUser(row)}
+                     className="text-zinc-400 transition-colors hover:text-zinc-600"
+                     aria-label="Disable MFA"
                   >
                     <Setting2 size={18} variant="Outline" color="currentColor" />
                   </button>
@@ -534,7 +573,7 @@ function UsersTab() {
       <AuditTrailPagination
         page={safePage}
         pageSize={pageSize}
-        totalItems={ALL_USERS.length}
+        totalItems={filteredUsers.length}
         onPageChange={(p) => setPage(p)}
         onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
       />
@@ -553,6 +592,7 @@ function UsersTab() {
 export function SettingsAuthenticationTab() {
   const [subTab, setSubTab] = useState<AuthSubTab>("general");
   const [showCreateMfa, setShowCreateMfa] = useState(false);
+  const [search, setSearch] = useState("");
   const [filterMode, setFilterMode] = useState(false);
   const [openFilter, setOpenFilter] = useState<null | "mfa" | "role">(null);
   const { filterBarRef, filterScrollRef, dropdownLeft, registerPillRef, syncDropdownLeft } =
@@ -560,6 +600,8 @@ export function SettingsAuthenticationTab() {
 
   const [draftMfa, setDraftMfa] = useState("All statuses");
   const [draftRole, setDraftRole] = useState("All roles");
+  const [appliedMfa, setAppliedMfa] = useState<string | null>(null);
+  const [appliedRole, setAppliedRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (!filterMode) setOpenFilter(null);
@@ -593,6 +635,8 @@ export function SettingsAuthenticationTab() {
           <input
             type="text"
             placeholder="Search by Name or ID"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-zinc-400"
           />
         </div>
@@ -707,8 +751,16 @@ export function SettingsAuthenticationTab() {
           }
           actions={
             <TableFilterApplyClear
-              onApply={() => setOpenFilter(null)}
+              onApply={() => {
+                setAppliedMfa(draftMfa === "All statuses" ? null : draftMfa);
+                setAppliedRole(draftRole === "All roles" ? null : draftRole);
+                setOpenFilter(null);
+                setFilterMode(false);
+              }}
               onClear={() => {
+                setSearch("");
+                setAppliedMfa(null);
+                setAppliedRole(null);
                 setDraftMfa("All statuses");
                 setDraftRole("All roles");
                 setOpenFilter(null);
@@ -742,7 +794,13 @@ export function SettingsAuthenticationTab() {
       </div>
 
       {subTab === "general" && <GeneralTab />}
-      {subTab === "users" && <UsersTab />}
+      {subTab === "users" && (
+        <UsersTab
+          search={search}
+          appliedMfa={appliedMfa}
+          appliedRole={appliedRole}
+        />
+      )}
 
       {showCreateMfa && <CreateMfaModal onClose={() => setShowCreateMfa(false)} />}
     </div>

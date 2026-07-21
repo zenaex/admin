@@ -281,6 +281,7 @@ export function CommunicationView() {
                 setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
                 applyStartDateDraft();
                 setOpenFilter(null);
+                closeFilterBar();
                 setPage(1);
               }}
               onClear={() => {

@@ -261,6 +261,7 @@ export function ProviderView() {
                 setAppliedStatus(draftStatus === "All statuses" ? null : draftStatus);
                 applyDateDraft();
                 setOpenFilter(null);
+                closeFilterBar();
                 setPage(1);
               }}
               onClear={() => {

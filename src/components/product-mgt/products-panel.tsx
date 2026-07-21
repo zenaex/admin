@@ -329,6 +329,7 @@ export function ProductsPanel() {
                 setAppliedSwitchProvider(draftProvider === "All providers" ? null : draftProvider);
                 setAppliedCommissionType(draftCommission === "All types" ? null : draftCommission);
                 setOpenFilter(null);
+                setFilterMode(false);
                 setPage(1);
               }}
               onClear={() => {
