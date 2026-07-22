@@ -37,5 +37,5 @@ jobs:
 
             cd ~/server/pm2
 
-            pm2 list
-            pm2 reload zena-admin
+            pnpx pm2 list
+            pnpx pm2 reload zena-admin
