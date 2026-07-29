@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Edit } from "iconsax-react";
 import type { EtradeRequestRow } from "@/components/e-trades/etrade-types";
 
 type EtradeRequestListProps = {
@@ -26,7 +25,6 @@ export function EtradeRequestList({ rows }: EtradeRequestListProps) {
             <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Date Created</th>
             <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Trade Value</th>
             <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Status</th>
-            <th className="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -68,19 +66,6 @@ export function EtradeRequestList({ rows }: EtradeRequestListProps) {
                 <td className="h-16 px-4 py-0 align-middle text-zinc-500">{row.dateCreated}</td>
                 <td className="h-16 px-4 py-0 align-middle text-zinc-800 font-semibold">{row.tradeValue}</td>
                 <td className="h-16 px-4 py-0 align-middle">{statusBadge}</td>
-                <td className="h-16 px-4 py-0 align-middle">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRowClick(row.id);
-                    }}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-outline hover:text-zinc-600"
-                    aria-label={`View trade ${row.tradeId}`}
-                  >
-                    <Edit size={16} variant="Outline" color="currentColor" />
-                  </button>
-                </td>
               </tr>
             );
           })}

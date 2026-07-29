@@ -87,7 +87,7 @@ function normalizePermissionItem(raw: unknown): AdminPermissionItem | null {
   if (!o) return null;
   const key = pickStr(o, ["key", "permissionKey", "permission_key", "id", "name", "slug"]);
   if (!key) return null;
-  const label = pickStr(o, ["label", "name", "title", "displayName", "description"]) || key;
+  const label = pickStr(o, ["name", "label", "title", "displayName", "description"]) || key;
   const description = pickStr(o, ["description", "summary", "helpText"]) || undefined;
   return { key, label, description: description !== label ? description : undefined };
 }
@@ -118,8 +118,17 @@ function normalizeRoleListItem(raw: unknown): AdminRoleListItem | null {
   const description = pickStr(o, ["description", "summary"]) || "—";
   const icon = pickStr(o, ["icon", "iconName", "icon_key"]) || "setting2";
   const memberCount = pickNum(o, ["memberCount", "member_count", "membersCount", "members", "activeMembers"]);
+  const permissionCount = pickNum(o, ["permissionCount", "permission_count", "permissionsCount"]);
   const isSystem = pickBool(o, ["isSystem", "is_system", "system", "isDefault", "is_default"]);
-  return { id, name, description, icon, memberCount, isSystem };
+  return {
+    id,
+    name,
+    description,
+    icon,
+    memberCount,
+    permissionCount: permissionCount > 0 ? permissionCount : undefined,
+    isSystem,
+  };
 }
 
 function normalizeRoleDetail(raw: unknown): AdminRoleDetail | null {
@@ -136,10 +145,11 @@ function normalizeRoleDetail(raw: unknown): AdminRoleDetail | null {
   let permissionKeys = extractPermissionKeys(keysRaw);
   if (permissionKeys.length === 0 && Array.isArray(keysRaw)) {
     permissionKeys = extractPermissionKeys(
-      keysRaw.map((p) => (asRecord(p) ? pickStr(asRecord(p)!, ["key", "permissionKey"]) : "")),
+      keysRaw.map((p) => (asRecord(p) ? pickStr(asRecord(p)!, ["key", "permissionKey", "id"]) : "")),
     );
   }
-  return { ...base, permissionKeys };
+  const calcPermissionCount = permissionKeys.length || base.permissionCount || 0;
+  return { ...base, permissionCount: calcPermissionCount, permissionKeys };
 }
 
 function normalizeMemberPreview(raw: unknown): AdminRoleMemberPreview | null {
@@ -164,7 +174,7 @@ function normalizeMemberPreview(raw: unknown): AdminRoleMemberPreview | null {
 function unwrapEntity(data: unknown): unknown {
   const r = asRecord(data);
   if (!r) return data;
-  return r.data ?? r.role ?? r.item ?? r.result ?? data;
+  return r.role ?? r.data ?? r.item ?? r.result ?? data;
 }
 
 /** `GET /admin/permissions` — permissions grouped by module. */
@@ -255,9 +265,17 @@ export async function getAdminRoleMembers(id: string): Promise<AdminRoleMemberPr
 
 /** `POST /admin/roles` — create role. */
 export async function postAdminRole(body: AdminRoleUpsertBody): Promise<AdminRoleDetail | null> {
+  const payload = {
+    name: body.name,
+    description: body.description,
+    icon: body.icon,
+    permissionKeys: body.permissionKeys,
+    permissions: body.permissionKeys,
+    permission_keys: body.permissionKeys,
+  };
   const data = await adminRequest<unknown>("/admin/roles", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
     auth: true,
   });
   return normalizeRoleDetail(unwrapEntity(data));
@@ -265,9 +283,17 @@ export async function postAdminRole(body: AdminRoleUpsertBody): Promise<AdminRol
 
 /** `PUT /admin/roles/{id}` — update role. */
 export async function putAdminRole(id: string, body: AdminRoleUpsertBody): Promise<AdminRoleDetail | null> {
+  const payload = {
+    name: body.name,
+    description: body.description,
+    icon: body.icon,
+    permissionKeys: body.permissionKeys,
+    permissions: body.permissionKeys,
+    permission_keys: body.permissionKeys,
+  };
   const data = await adminRequest<unknown>(`/admin/roles/${encodeURIComponent(id)}`, {
     method: "PUT",
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
     auth: true,
   });
   return normalizeRoleDetail(unwrapEntity(data));

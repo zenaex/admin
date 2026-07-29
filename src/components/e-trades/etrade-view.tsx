@@ -440,11 +440,11 @@ export function EtradeView() {
 
       {listLoading ? (
         <TableSkeleton
-          columns={activeTab === "requests" ? 7 : 8}
+          columns={activeTab === "requests" ? 6 : 7}
           rows={8}
           headers={
             activeTab === "requests"
-              ? ["Trade ID", "Customer", "Request", "Date Created", "Trade Value", "Status", "Action"]
+              ? ["Trade ID", "Customer", "Request", "Date Created", "Trade Value", "Status"]
               : [
                   "Trade ID",
                   "Customer",
@@ -453,7 +453,6 @@ export function EtradeView() {
                   "Trade Value",
                   "Ops-in-charge",
                   "Status",
-                  "Action",
                 ]
           }
           className="mt-4 overflow-x-auto rounded-[8px] bg-white border border-zinc-100 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]"
@@ -461,8 +460,8 @@ export function EtradeView() {
           headerCellClassName="h-11 px-4 py-0 text-xs font-semibold text-zinc-400 align-middle"
           cellVariants={
             activeTab === "requests"
-              ? ["text-narrow", "text", "text-wide", "text", "text-narrow", "badge", "icon"]
-              : ["text-narrow", "text", "text-wide", "text", "text-narrow", "text", "badge", "icon"]
+              ? ["text-narrow", "text", "text-wide", "text", "text-narrow", "badge"]
+              : ["text-narrow", "text", "text-wide", "text", "text-narrow", "text", "badge"]
           }
         />
       ) : activeTab === "requests" ? (

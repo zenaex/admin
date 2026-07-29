@@ -981,6 +981,18 @@ function normalizeEtradeDetail(raw: unknown, id: string): EtradeTransactionDetai
   const opsInCharge = pickOpsInCharge(inner, rawStatus);
   const isApproved = outcome === "approved";
 
+  const proofImageUrl =
+    pickString(inner, [
+      "proofImageUrl",
+      "proof_image_url",
+      "receiptImageUrl",
+      "receipt_image_url",
+      "imageUrl",
+      "image_url",
+      "photoUrl",
+      "photo_url",
+    ]) || "";
+
   return {
     id: pickString(inner, ["id", "etradeId", "etrade_id"]) || id,
     outcome,
@@ -1017,6 +1029,7 @@ function normalizeEtradeDetail(raw: unknown, id: string): EtradeTransactionDetai
     deviceId,
     location,
     locationCoordinate,
+    proofImageUrl,
   };
 }
 

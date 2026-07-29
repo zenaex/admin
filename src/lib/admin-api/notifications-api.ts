@@ -115,23 +115,34 @@ export async function getAdminNotifications(): Promise<AdminNotificationItem[]> 
   });
 }
 
-/** `POST /notifications/read` — Mark in-app notifications as read (empty array = mark all read) */
-export async function postMarkNotificationsRead(ids?: string[]): Promise<void> {
-  const body = ids ?? [];
+export type MarkNotificationsReadRequest = {
+  notificationIds: string[];
+};
+
+/**
+ * `POST /notifications/read` — Mark in-app notifications as read
+ * Pass an array of notification IDs or an empty array `[]` (or omit) to mark all notifications as read.
+ */
+export async function postMarkNotificationsRead(notificationIds: string[] = []): Promise<void> {
+  const payload: MarkNotificationsReadRequest = {
+    notificationIds,
+  };
+
   try {
     await adminRequest("/notifications/read", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
   } catch {
-    // Try fallback object payload if server expects object
+    // Fallback: try raw array payload if backend expects direct array
     try {
       await adminRequest("/notifications/read", {
         method: "POST",
-        body: JSON.stringify({ notificationIds: body, ids: body }),
+        body: JSON.stringify(notificationIds),
       });
     } catch (e) {
       console.error("Failed to mark notifications as read:", e);
+      throw e;
     }
   }
 }
