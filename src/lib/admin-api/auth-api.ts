@@ -32,10 +32,11 @@ export async function postAdminLogin(body: AdminLoginBody): Promise<AdminLoginRe
   });
 }
 
-export async function postAdminLogout(): Promise<unknown> {
+export async function postAdminLogout(adminId?: string): Promise<unknown> {
   return adminRequest("/admin/auth/logout", {
     method: "POST",
     auth: true,
+    ...(adminId ? { body: JSON.stringify({ admin_id: adminId }) } : {}),
   });
 }
 

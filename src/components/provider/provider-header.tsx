@@ -6,10 +6,12 @@ import { NotificationDrawerTrigger } from "@/components/notifications/notificati
 
 export function ProviderHeader({
   title = "Provider",
-  notificationCount = 3,
+  notificationCount,
+  showSettings = false,
 }: {
   title?: string;
   notificationCount?: number;
+  showSettings?: boolean;
 }) {
   return (
     <header className="flex flex-wrap items-center gap-4">
@@ -25,13 +27,15 @@ export function ProviderHeader({
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <NotificationDrawerTrigger notificationCount={notificationCount} />
-        <button
-          type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-outline hover:text-zinc-600"
-          aria-label="Settings"
-        >
-          <Setting2 size={22} variant="Outline" color="currentColor" />
-        </button>
+        {showSettings ? (
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-outline hover:text-zinc-600"
+            aria-label="Settings"
+          >
+            <Setting2 size={22} variant="Outline" color="currentColor" />
+          </button>
+        ) : null}
       </div>
     </header>
   );

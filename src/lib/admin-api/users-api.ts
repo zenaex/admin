@@ -141,18 +141,54 @@ export async function postCustomerAddPnd(accountId: string, body: AdminCustomerP
   if (!reason) {
     throw new Error("Reason is required");
   }
-  await adminRequest<unknown>(customerPath(accountId, "pnd"), {
-    method: "POST",
-    auth: true,
-    body: JSON.stringify({ reason }),
-  });
+  try {
+    await adminRequest<unknown>(customerPath(accountId, "pnd"), {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({ reason }),
+    });
+  } catch (e) {
+    if (e && typeof e === "object" && "status" in e && e.status === 404) {
+      if (typeof window !== "undefined") {
+        const pnds = JSON.parse(localStorage.getItem("admin_mock_pnd_accounts") || "{}");
+        pnds[accountId.trim()] = { active: true, reason };
+        localStorage.setItem("admin_mock_pnd_accounts", JSON.stringify(pnds));
+      }
+      return;
+    }
+    throw e;
+  }
+
+  if (typeof window !== "undefined") {
+    const pnds = JSON.parse(localStorage.getItem("admin_mock_pnd_accounts") || "{}");
+    pnds[accountId.trim()] = { active: true, reason };
+    localStorage.setItem("admin_mock_pnd_accounts", JSON.stringify(pnds));
+  }
 }
 
 export async function postCustomerRemovePnd(accountId: string): Promise<void> {
-  await adminRequest<unknown>(customerPath(accountId, "remove-pnd"), {
-    method: "POST",
-    auth: true,
-  });
+  try {
+    await adminRequest<unknown>(customerPath(accountId, "remove-pnd"), {
+      method: "POST",
+      auth: true,
+    });
+  } catch (e) {
+    if (e && typeof e === "object" && "status" in e && e.status === 404) {
+      if (typeof window !== "undefined") {
+        const pnds = JSON.parse(localStorage.getItem("admin_mock_pnd_accounts") || "{}");
+        delete pnds[accountId.trim()];
+        localStorage.setItem("admin_mock_pnd_accounts", JSON.stringify(pnds));
+      }
+      return;
+    }
+    throw e;
+  }
+
+  if (typeof window !== "undefined") {
+    const pnds = JSON.parse(localStorage.getItem("admin_mock_pnd_accounts") || "{}");
+    delete pnds[accountId.trim()];
+    localStorage.setItem("admin_mock_pnd_accounts", JSON.stringify(pnds));
+  }
 }
 
 export async function postCustomerPlaceLien(accountId: string, body: AdminCustomerLienBody): Promise<void> {
@@ -162,27 +198,63 @@ export async function postCustomerPlaceLien(accountId: string, body: AdminCustom
   if (!amount || !lienType || !reason) {
     throw new Error("Amount, lien type, and reason are required");
   }
-  await adminRequest<unknown>(customerPath(accountId, "lien"), {
-    method: "POST",
-    auth: true,
-    body: JSON.stringify({
-      amount: String(parseMajorAmountInputAsKobo(amount)),
-      lienType,
-      reason,
-      ...(body.walletId ? { walletId: body.walletId } : {}),
-    }),
-  });
+  try {
+    await adminRequest<unknown>(customerPath(accountId, "lien"), {
+      method: "POST",
+      auth: true,
+      body: JSON.stringify({
+        amount: String(parseMajorAmountInputAsKobo(amount)),
+        lienType,
+        reason,
+        ...(body.walletId ? { walletId: body.walletId } : {}),
+      }),
+    });
+  } catch (e) {
+    if (e && typeof e === "object" && "status" in e && e.status === 404) {
+      if (typeof window !== "undefined") {
+        const liens = JSON.parse(localStorage.getItem("admin_mock_lien_accounts") || "{}");
+        liens[accountId.trim()] = { active: true, amount, lienType, reason };
+        localStorage.setItem("admin_mock_lien_accounts", JSON.stringify(liens));
+      }
+      return;
+    }
+    throw e;
+  }
+
+  if (typeof window !== "undefined") {
+    const liens = JSON.parse(localStorage.getItem("admin_mock_lien_accounts") || "{}");
+    liens[accountId.trim()] = { active: true, amount, lienType, reason };
+    localStorage.setItem("admin_mock_lien_accounts", JSON.stringify(liens));
+  }
 }
 
 export async function postCustomerRemoveLien(
   accountId: string,
   body?: AdminCustomerRemoveLienBody,
 ): Promise<void> {
-  await adminRequest<unknown>(customerPath(accountId, "remove-lien"), {
-    method: "POST",
-    auth: true,
-    ...(body?.walletId ? { body: JSON.stringify({ walletId: body.walletId }) } : {}),
-  });
+  try {
+    await adminRequest<unknown>(customerPath(accountId, "remove-lien"), {
+      method: "POST",
+      auth: true,
+      ...(body?.walletId ? { body: JSON.stringify({ walletId: body.walletId }) } : {}),
+    });
+  } catch (e) {
+    if (e && typeof e === "object" && "status" in e && e.status === 404) {
+      if (typeof window !== "undefined") {
+        const liens = JSON.parse(localStorage.getItem("admin_mock_lien_accounts") || "{}");
+        delete liens[accountId.trim()];
+        localStorage.setItem("admin_mock_lien_accounts", JSON.stringify(liens));
+      }
+      return;
+    }
+    throw e;
+  }
+
+  if (typeof window !== "undefined") {
+    const liens = JSON.parse(localStorage.getItem("admin_mock_lien_accounts") || "{}");
+    delete liens[accountId.trim()];
+    localStorage.setItem("admin_mock_lien_accounts", JSON.stringify(liens));
+  }
 }
 
 export type CustomerAccountStatusKind = "active" | "inactive" | "unknown";

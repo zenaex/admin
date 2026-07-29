@@ -14,6 +14,8 @@ export type TableExportMenuProps = {
   onExportPdf: () => void | Promise<void>;
   /** Show JSON option when API returns JSON records */
   onExportJson?: () => void | Promise<void>;
+  icon?: React.ReactNode;
+  iconPosition?: "left" | "right";
 };
 
 export function TableExportMenu({
@@ -25,6 +27,8 @@ export function TableExportMenu({
   onExportCsv,
   onExportPdf,
   onExportJson,
+  icon,
+  iconPosition = "left",
 }: TableExportMenuProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,6 +47,10 @@ export function TableExportMenu({
     }
   };
 
+  const iconElement = icon !== undefined ? icon : (
+    <Download size={18} strokeWidth={2} color={triggerClassName ? "currentColor" : "var(--color-brand-navy)"} />
+  );
+
   return (
     <div className={`relative ${className}`}>
       <button
@@ -51,8 +59,9 @@ export function TableExportMenu({
         onClick={() => setOpen((o) => !o)}
         className={triggerClassName || "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 text-sm font-semibold text-brand-navy transition-colors hover:bg-surface-subtle disabled:opacity-50"}
       >
-        <Download size={18} strokeWidth={2} color={triggerClassName ? "currentColor" : "var(--color-brand-navy)"} />
+        {iconPosition === "left" && iconElement}
         {loading || busy ? "Exporting…" : label}
+        {iconPosition === "right" && iconElement}
       </button>
       {open ? (
         <>

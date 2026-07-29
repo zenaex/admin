@@ -484,7 +484,7 @@ export function DashboardView() {
   return (
     <div>
       {/* Header */}
-      <ProviderHeader title="Dashboard" />
+      <ProviderHeader title="Dashboard" showSettings={true} />
 
       <DashboardGreetingToolbar
         dateRange={dateRange}

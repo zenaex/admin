@@ -1,5 +1,5 @@
 "use client";
-
+ 
 import { useState, useEffect } from "react";
 import { getAdminDashboardTrend, type NormalizedTrendItem } from "@/lib/admin-api/dashboard-api";
 import {
@@ -12,6 +12,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ExportSquare } from "iconsax-react";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
+import { exportClientTable } from "@/lib/export/export-handlers";
+import type { ExportColumn } from "@/lib/export/table-export";
+
+const TREND_EXPORT_COLUMNS: ExportColumn<NormalizedTrendItem>[] = [
+  { header: "Month", value: (row) => String(row.month) },
+  { header: "Inflows", value: (row) => String(row.inflows) },
+  { header: "Outflows", value: (row) => String(row.outflows) },
+];
 
 type TimeFrame = "12 months" | "3 months" | "30 days" | "7 days" | "24 hours";
 
@@ -161,10 +170,15 @@ export function TransactionTrendChart() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-[16px] font-semibold text-primary-text">Transaction Trend</h3>
-        <button type="button" className="inline-flex underline items-center gap-1 text-xs font-medium text-brand-navy transition-colors">
-          Explore data
-          <ExportSquare size={12} variant="Outline" color="currentColor" className="text-brand-navy" />
-        </button>
+        <TableExportMenu
+          label="Explore data"
+          triggerClassName="inline-flex underline items-center gap-1 text-xs font-medium text-brand-navy transition-colors"
+          icon={<ExportSquare size={12} variant="Outline" color="currentColor" className="text-brand-navy" />}
+          iconPosition="right"
+          onExportCsv={() => exportClientTable("transaction-trend", "csv", chartData, TREND_EXPORT_COLUMNS)}
+          onExportPdf={() => exportClientTable("transaction-trend", "pdf", chartData, TREND_EXPORT_COLUMNS)}
+          onExportJson={() => exportClientTable("transaction-trend", "json", chartData, TREND_EXPORT_COLUMNS)}
+        />
       </div>
 
       {/* Time frame switcher */}
