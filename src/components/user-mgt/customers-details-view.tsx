@@ -97,18 +97,12 @@ export type CustomerDetailsViewProps = {
   id: string;
 };
 
-type CustomerAccountAction = "suspend" | "deactivate" | "reactivate";
+type CustomerAccountAction = "deactivate" | "reactivate";
 
 const ACTION_COPY: Record<
   CustomerAccountAction,
   { title: string; message: string; confirmLabel: string; success: string }
 > = {
-  suspend: {
-    title: "Suspend account",
-    message: "Are you sure you want to suspend this customer account?",
-    confirmLabel: "Suspend",
-    success: "Customer account has been suspended.",
-  },
   deactivate: {
     title: "Deactivate account",
     message: "Are you sure you want to deactivate this customer account? This blocks the account.",
@@ -219,24 +213,12 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
       },
     ];
 
-    const showSuspendDeactivate =
+    const showDeactivate =
       accountStatusKind === "active" || accountStatusKind === "unknown";
     const showReactivate =
       accountStatusKind === "inactive" || accountStatusKind === "unknown";
 
-    if (showSuspendDeactivate && canSuspendReactivate) {
-      items.push({
-        key: "suspend",
-        label: "Suspend Account",
-        icon: <Forbidden size={16} variant="Outline" color="currentColor" />,
-        onClick: () => {
-          setActionError(null);
-          setPendingAction("suspend");
-          setActionOpen(false);
-        },
-      });
-    }
-    if (showSuspendDeactivate && canDeactivate) {
+    if (showDeactivate && canDeactivate) {
       items.push({
         key: "deactivate",
         label: "Deactivate Account",
@@ -339,22 +321,14 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
     }
   };
 
-  const handleSuspendReactivateSubmit = async (reason: string, notes?: string) => {
-    const action = pendingAction;
-    if (action !== "suspend" && action !== "reactivate") return;
+  const handleReactivateSubmit = async (reason: string) => {
+    if (pendingAction !== "reactivate") return;
     setActionError(null);
     setActionLoading(true);
     try {
-      if (action === "suspend") {
-        await postCustomerSuspend(accountId, {
-          reason: reason.trim(),
-          notes: (notes ?? reason).trim(),
-        });
-      } else {
-        await postCustomerReactivate(accountId, { reason: reason.trim() });
-      }
+      await postCustomerReactivate(accountId, { reason: reason.trim() });
       setPendingAction(null);
-      setSuccessMessage(ACTION_COPY[action].success);
+      setSuccessMessage(ACTION_COPY.reactivate.success);
       await loadProfile();
     } catch (e) {
       setActionError(e instanceof AdminApiError ? e.message : "Action failed.");
@@ -456,14 +430,14 @@ export function CustomerDetailsView({ id: accountId }: CustomerDetailsViewProps)
         />
       ) : null}
 
-      {pendingAction === "suspend" || pendingAction === "reactivate" ? (
+      {pendingAction === "reactivate" ? (
         <CustomerAccountActionFormModal
           action={pendingAction}
           loading={actionLoading}
           onClose={() => {
             if (!actionLoading) setPendingAction(null);
           }}
-          onSubmit={(reason, notes) => void handleSuspendReactivateSubmit(reason, notes)}
+          onSubmit={(reason) => void handleReactivateSubmit(reason)}
         />
       ) : null}
 
@@ -503,13 +477,12 @@ function CustomerAccountActionFormModal({
   onClose,
   onSubmit,
 }: {
-  action: "suspend" | "reactivate";
+  action: "reactivate";
   loading: boolean;
   onClose: () => void;
-  onSubmit: (reason: string, notes?: string) => void;
+  onSubmit: (reason: string) => void;
 }) {
   const [reason, setReason] = useState("");
-  const [notes, setNotes] = useState("");
   const copy = ACTION_COPY[action];
 
   return (
@@ -523,8 +496,7 @@ function CustomerAccountActionFormModal({
           onSubmit={(e) => {
             e.preventDefault();
             if (!reason.trim()) return;
-            if (action === "suspend" && !notes.trim()) return;
-            onSubmit(reason, notes);
+            onSubmit(reason);
           }}
         >
           <div>
@@ -538,19 +510,6 @@ function CustomerAccountActionFormModal({
               required
             />
           </div>
-          {action === "suspend" ? (
-            <div>
-              <label className="mb-2 block text-sm font-medium text-zinc-700">Internal notes</label>
-              <textarea
-                className="min-h-[80px] w-full resize-y rounded-xl border border-zinc-300 bg-white px-3.5 py-3 text-sm text-primary-text outline-none focus:border-zinc-400"
-                value={notes}
-                disabled={loading}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Required"
-                required
-              />
-            </div>
-          ) : null}
           <div className="flex gap-3 pt-2">
             <button
               type="button"
@@ -562,14 +521,8 @@ function CustomerAccountActionFormModal({
             </button>
             <button
               type="submit"
-              disabled={
-                loading ||
-                !reason.trim() ||
-                (action === "suspend" && !notes.trim())
-              }
-              className={`flex-1 rounded-full py-3 text-sm font-semibold text-primary-text disabled:opacity-50 ${
-                action === "reactivate" ? "bg-primary-green hover:opacity-90" : "bg-red-600 text-white hover:bg-red-700"
-              }`}
+              disabled={loading || !reason.trim()}
+              className="flex-1 rounded-full bg-primary-green py-3 text-sm font-semibold text-primary-text hover:opacity-90 disabled:opacity-50"
             >
               {loading ? "Please wait…" : copy.confirmLabel}
             </button>

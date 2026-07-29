@@ -130,7 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await postAdminLogout();
+      const access = getAccessToken();
+      const hints = adminProfileHintsFromToken(access);
+      await postAdminLogout(hints.adminId || undefined);
     } catch (e) {
       console.error("Failed to call logout API:", e);
     } finally {

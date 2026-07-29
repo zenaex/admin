@@ -49,7 +49,7 @@ const TABS: CustomerTab[] = ["All", "Active", "Blocked", "PND", "Lien"];
 const FILTER_ACCOUNT_STATUSES = [
   { value: "", label: "All statuses" },
   { value: "active", label: "Active" },
-  { value: "suspended", label: "Suspended" },
+  { value: "inactive", label: "Inactive" },
   { value: "blocked", label: "Blocked" },
 ] as const;
 
@@ -232,16 +232,32 @@ export function CustomersView() {
   }, [loadList]);
 
   const displayedRows = useMemo(() => {
-    if (!clientTab) return listRows;
-    return listRows.filter((r) => rowMatchesTab(r, activeTab));
-  }, [listRows, activeTab, clientTab]);
+    let rows = listRows;
+    if (clientTab) {
+      rows = rows.filter((r) => rowMatchesTab(r, activeTab));
+    }
+    if (appliedAccountStatus) {
+      const target = appliedAccountStatus.toLowerCase();
+      rows = rows.filter((r) => {
+        const rawStatus = String(r.raw.accountStatus ?? r.raw.status ?? r.statusLabel ?? "").toLowerCase();
+        if (target === "active") return rawStatus.includes("active") && !rawStatus.includes("in");
+        if (target === "inactive") return rawStatus.includes("inactive") || rawStatus.includes("deactivated") || rawStatus.includes("disabled");
+        if (target === "blocked") return rawStatus.includes("block");
+        return rawStatus.includes(target);
+      });
+    }
+    return rows;
+  }, [listRows, activeTab, clientTab, appliedAccountStatus]);
 
-  const paginationTotal = clientTab ? displayedRows.length : listTotal;
-  const safePage = clientTab ? 1 : Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)));
+  const paginationTotal = displayedRows.length > 0 ? (clientTab || appliedAccountStatus ? displayedRows.length : listTotal) : listTotal;
+  const safePage = Math.min(page, Math.max(1, Math.ceil(Math.max(paginationTotal, 1) / pageSize)));
   const paginatedRows = useMemo(() => {
-    if (clientTab) return displayedRows;
+    if (clientTab || appliedAccountStatus) {
+      const start = (safePage - 1) * pageSize;
+      return displayedRows.slice(start, start + pageSize);
+    }
     return listRows;
-  }, [clientTab, displayedRows, listRows]);
+  }, [clientTab, appliedAccountStatus, displayedRows, listRows, safePage, pageSize]);
 
   useEffect(() => {
     if (clientTab) setPage(1);
@@ -251,14 +267,17 @@ export function CustomersView() {
     FILTER_ACCOUNT_STATUSES.find((o) => o.value === draftStatusValue)?.label ?? "All statuses";
 
   const runExport = async (format: "csv" | "json" | "pdf") => {
-    let rows = displayedRows;
-    if (!clientTab) {
-      const tabQ = tabToServerQuery(activeTab);
-      const pillStatus = appliedAccountStatus
-          ? (appliedAccountStatus as NonNullable<AdminCustomerListQuery["accountStatus"]>)
-          : tabQ.accountStatus;
+    let rows: AdminCustomerListRow[] = [];
+    const tabQ = tabToServerQuery(activeTab);
+    const pillStatus = appliedAccountStatus
+        ? (appliedAccountStatus as NonNullable<AdminCustomerListQuery["accountStatus"]>)
+        : tabQ.accountStatus;
+
+    let pageNum = 1;
+    let hasMore = true;
+    while (hasMore) {
       const res = await getAdminCustomersList({
-        page: 1,
+        page: pageNum,
         pageSize: 100,
         search: debouncedSearch || undefined,
         sortBy: "created_at",
@@ -268,8 +287,23 @@ export function CustomersView() {
         fromDate: toApiDateFrom(appliedDate),
         toDate: toApiDateTo(appliedDate),
       });
-      rows = res.items;
+
+      if (res.items.length === 0) {
+        hasMore = false;
+      } else {
+        rows = [...rows, ...res.items];
+        if (res.items.length < 100 || rows.length >= res.total) {
+          hasMore = false;
+        } else {
+          pageNum++;
+        }
+      }
     }
+
+    if (clientTab) {
+      rows = rows.filter((r) => rowMatchesTab(r, activeTab));
+    }
+
     exportClientTable("customers", format, rows, CUSTOMER_EXPORT_COLUMNS);
   };
 
@@ -380,7 +414,9 @@ export function CustomersView() {
                     selectedValue={draftStatusValue}
                     onSelect={(value) => {
                       setDraftStatusValue(value);
+                      statusFilter.setApplied(value === "" ? null : value);
                       setOpenFilter(null);
+                      setPage(1);
                     }}
                   />
                 </TableFilterDropdownCard>

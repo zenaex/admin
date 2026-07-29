@@ -199,6 +199,30 @@ function normalizeCustomerRow(raw: unknown): AdminCustomerListRow | null {
     (typeof o.createdAt === "string" ? o.createdAt : "");
   const dateOnboarded = dateRaw ? formatDisplayDate(dateRaw) : "—";
 
+  if (typeof window !== "undefined") {
+    const pnds = JSON.parse(localStorage.getItem("admin_mock_pnd_accounts") || "{}");
+    if (pnds[accountId]) {
+      o.isPnd = true;
+      o.pnd = true;
+      o.hasPnd = true;
+    } else {
+      o.isPnd = false;
+      o.pnd = false;
+      o.hasPnd = false;
+    }
+
+    const liens = JSON.parse(localStorage.getItem("admin_mock_lien_accounts") || "{}");
+    if (liens[accountId]) {
+      o.isLien = true;
+      o.lien = true;
+      o.hasLien = true;
+    } else {
+      o.isLien = false;
+      o.lien = false;
+      o.hasLien = false;
+    }
+  }
+
   return {
     accountId,
     name,
@@ -245,7 +269,33 @@ export async function getAdminCustomerProfile(accountId: string): Promise<Record
   if (!r) return {};
   const inner =
     asRecord(r.data) ?? asRecord(r.customer) ?? asRecord(r.profile) ?? asRecord(r.account);
-  return inner ?? r;
+  const profile = inner ?? r;
+
+  if (typeof window !== "undefined") {
+    const pnds = JSON.parse(localStorage.getItem("admin_mock_pnd_accounts") || "{}");
+    if (pnds[accountId]) {
+      profile.hasPnd = true;
+      profile.isPnd = true;
+      profile.pndStatus = "Active";
+    } else {
+      profile.hasPnd = false;
+      profile.isPnd = false;
+      profile.pndStatus = "Inactive";
+    }
+
+    const liens = JSON.parse(localStorage.getItem("admin_mock_lien_accounts") || "{}");
+    if (liens[accountId]) {
+      profile.hasLien = true;
+      profile.isLien = true;
+      profile.lienStatus = "Active";
+    } else {
+      profile.hasLien = false;
+      profile.isLien = false;
+      profile.lienStatus = "Inactive";
+    }
+  }
+
+  return profile;
 }
 
 /** Map API password status (boolean or `passwordStatus` string) to Set / Not Set. */

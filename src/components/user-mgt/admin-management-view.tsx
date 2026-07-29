@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { More, Add, Setting2, Edit2, PasswordCheck, Forbidden, Trash, Refresh } from "iconsax-react";
+import { More, Add, Edit2, PasswordCheck, Forbidden, Trash, Refresh } from "iconsax-react";
 import { AdminRolesTab } from "@/components/user-mgt/admin-roles-tab";
 import { CalendarDays, ListFilter } from "lucide-react";
 import { AuditTrailIconSearch } from "@/components/audit-trail/audit-trail-icon-search";
@@ -122,7 +122,6 @@ export function AdminManagementView() {
   const [roleTarget, setRoleTarget] = useState<AdminTeamMember | null>(null);
   const [roleDraft, setRoleDraft] = useState<string>(INVITE_ROLE_OPTIONS[1]);
   const [deactivateTarget, setDeactivateTarget] = useState<AdminTeamMember | null>(null);
-  const [suspendTarget, setSuspendTarget] = useState<AdminTeamMember | null>(null);
   const [resetPwTarget, setResetPwTarget] = useState<AdminTeamMember | null>(null);
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [adminActionError, setAdminActionError] = useState<string | null>(null);
@@ -133,12 +132,6 @@ export function AdminManagementView() {
   // Deactivate modal states
   const [deactivateReason, setDeactivateReason] = useState("");
   const [deactivateNotes, setDeactivateNotes] = useState("");
-
-  // Suspend modal states
-  const [suspendReason, setSuspendReason] = useState("");
-  const [suspendNotes, setSuspendNotes] = useState("");
-  const [suspendUntil, setSuspendUntil] = useState("");
-  const [suspendMessage, setSuspendMessage] = useState("");
 
   const reloadRoleOptions = useCallback(() => {
     getAdminRoles()
@@ -285,46 +278,7 @@ export function AdminManagementView() {
     }
   };
 
-  const handleSuspendAdminConfirm = async () => {
-    if (!suspendTarget) return;
-    if (!suspendReason.trim()) {
-      setAdminActionError("Reason is required to suspend.");
-      return;
-    }
-    if (!suspendUntil) {
-      setAdminActionError("Suspend Until date is required.");
-      return;
-    }
-    setAdminActionError(null);
-    setAdminActionLoading(true);
-    try {
-      let suspendUntilIso = "";
-      if (suspendUntil) {
-        const d = new Date(suspendUntil);
-        if (!Number.isNaN(d.getTime())) {
-          suspendUntilIso = d.toISOString();
-        }
-      }
-      await postAdminTeamSuspend(suspendTarget.id, {
-        reason: suspendReason.trim(),
-        notes: suspendNotes.trim(),
-        suspendUntil: suspendUntilIso,
-        message: suspendMessage.trim(),
-      });
-      const name = suspendTarget.name;
-      setSuspendTarget(null);
-      setSuspendReason("");
-      setSuspendNotes("");
-      setSuspendUntil("");
-      setSuspendMessage("");
-      setAdminSuccessMessage(`${name} has been suspended.`);
-      void loadTeam();
-    } catch (e) {
-      setAdminActionError(e instanceof AdminApiError ? e.message : "Could not suspend admin.");
-    } finally {
-      setAdminActionLoading(false);
-    }
-  };
+
 
   const handleActivateAdmin = async (row: AdminTeamMember) => {
     setAdminActionError(null);
@@ -372,10 +326,7 @@ export function AdminManagementView() {
           <div className="flex items-center gap-6 w-full justify-end">
             {/* Icons */}
             <div className="flex items-center gap-4 text-zinc-600">
-              <NotificationDrawerTrigger notificationCount={2} iconSize={24} />
-              <button type="button" className="hover:text-primary-text transition-colors">
-                <Setting2 size={24} variant="Outline" color="currentColor" />
-              </button>
+              <NotificationDrawerTrigger iconSize={24} />
             </div>
           </div>
         </div>
@@ -686,40 +637,6 @@ export function AdminManagementView() {
                                 <PasswordCheck size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
                                 Reset Password
                               </button>
-                              {row.status.toLowerCase().includes("suspend") ? (
-                                <button
-                                  type="button"
-                                  disabled={!canActOnAdminRow(row)}
-                                  title={canActOnAdminRow(row) ? "Activate admin" : MOCK_ADMIN_ACTION_HINT}
-                                  onClick={() => {
-                                    if (!canActOnAdminRow(row)) return;
-                                    setOpenMenuId(null);
-                                    setMenuCoords(null);
-                                    void handleActivateAdmin(row);
-                                  }}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  <Refresh size={16} variant="Outline" className="text-zinc-500" />
-                                  Activate
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={!canActOnAdminRow(row)}
-                                  title={canActOnAdminRow(row) ? "Suspend admin" : MOCK_ADMIN_ACTION_HINT}
-                                  onClick={() => {
-                                    if (!canActOnAdminRow(row)) return;
-                                    setAdminActionError(null);
-                                    setSuspendTarget(row);
-                                    setOpenMenuId(null);
-                                    setMenuCoords(null);
-                                  }}
-                                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-primary-text transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  <Forbidden size={16} variant="Outline" color="currentColor" className="text-zinc-500" />
-                                  Suspend
-                                </button>
-                              )}
                               <button
                                 type="button"
                                 disabled={!canActOnAdminRow(row)}
@@ -847,60 +764,7 @@ export function AdminManagementView() {
         </ConfirmModal>
       ) : null}
 
-      {suspendTarget ? (
-        <ConfirmModal
-          title="Suspend admin"
-          confirmLabel={adminActionLoading ? "Please wait…" : "Suspend"}
-          cancelLabel="Cancel"
-          variant="danger"
-          onConfirm={() => void handleSuspendAdminConfirm()}
-          onCancel={() => {
-            if (!adminActionLoading) {
-              setSuspendTarget(null);
-              setSuspendReason("");
-              setSuspendNotes("");
-              setSuspendUntil("");
-              setSuspendMessage("");
-            }
-          }}
-        >
-          <div className="grid gap-3 text-left">
-            <p className="text-center text-sm text-zinc-400">
-              Are you sure you want to suspend {suspendTarget.name}?
-            </p>
-            <InputField
-              id="susp-reason"
-              label="Reason *"
-              value={suspendReason}
-              onChange={(e) => setSuspendReason(e.target.value)}
-              placeholder="e.g. Policy violation"
-              required
-            />
-            <InputField
-              id="susp-notes"
-              label="Notes"
-              value={suspendNotes}
-              onChange={(e) => setSuspendNotes(e.target.value)}
-              placeholder="Optional notes"
-            />
-            <InputField
-              id="susp-until"
-              label="Suspend Until *"
-              type="datetime-local"
-              value={suspendUntil}
-              onChange={(e) => setSuspendUntil(e.target.value)}
-              required
-            />
-            <InputField
-              id="susp-message"
-              label="Message"
-              value={suspendMessage}
-              onChange={(e) => setSuspendMessage(e.target.value)}
-              placeholder="Optional message to the user"
-            />
-          </div>
-        </ConfirmModal>
-      ) : null}
+
 
       {resetPwTarget ? (
         <ConfirmModal
