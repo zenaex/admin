@@ -167,6 +167,17 @@ function printEtradeReceipt(detail: EtradeTransactionDetail, outcome: string) {
     </tr>
   </table>
 
+  ${
+    detail.proofImageUrl
+      ? `
+  <div style="margin-bottom: 32px; text-align: center;">
+    <div style="font-size: 13px; color: #777F89; margin-bottom: 12px; font-weight: 600;">Uploaded Receipt / Proof</div>
+    <img src="${detail.proofImageUrl}" alt="Uploaded Receipt" style="max-width: 100%; max-height: 400px; border-radius: 12px; border: 1px solid #E8EBEE; object-fit: contain;" />
+  </div>
+  `
+      : ""
+  }
+
   <div class="footer">
     <p>Thank you for trading with Zenaex Exchange.</p>
     <p>This is an automated transaction receipt.</p>
@@ -378,6 +389,13 @@ export function EtradeTransactionDetailView({ transactionId }: EtradeTransaction
             headers={["Device", "Device ID", "Location", "Coordinate"]}
             row={[detail.device, detail.deviceId, detail.location, detail.locationCoordinate]}
           />
+        </section>
+
+        <section className="mt-8">
+          <h2 className="mb-4 text-base font-semibold" style={{ color: TEXT }}>
+            Uploaded Receipt
+          </h2>
+          <EtradeReceiptPreview imageUrl={detail.proofImageUrl} />
         </section>
       </div>
 
@@ -732,5 +750,123 @@ function DataBlockTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function EtradeReceiptPlaceholder() {
+  return (
+    <div
+      className="flex min-h-[220px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100/80 px-4 py-10 text-center"
+      role="img"
+      aria-label="No uploaded receipt available"
+    >
+      <div className="flex h-12 w-16 items-center justify-center rounded-md border border-zinc-300 bg-zinc-200/80 text-zinc-400">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      </div>
+      <span className="text-xs font-medium text-zinc-500">No receipt image uploaded</span>
+    </div>
+  );
+}
+
+function EtradeReceiptLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal
+      aria-label="Uploaded receipt expanded view"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+
+      {/* Close button */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+        aria-label="Close image preview"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {/* Image container */}
+      <div
+        className="relative z-10 max-h-[90vh] max-w-[90vw] animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt="Uploaded receipt — full size"
+          className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+        />
+      </div>
+    </div>
+  );
+}
+
+function EtradeReceiptPreview({ imageUrl }: { imageUrl?: string }) {
+  const [open, setOpen] = useState(false);
+  const src = imageUrl?.trim();
+
+  if (!src) {
+    return <EtradeReceiptPlaceholder />;
+  }
+
+  return (
+    <>
+      <div className="w-full overflow-hidden rounded-xl border border-[#EEEEEE] bg-white p-4">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="group relative flex min-h-[220px] max-h-[400px] w-full items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-[#F9F9F9] p-3 transition-all hover:border-zinc-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+          aria-label="View full-size uploaded receipt"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt="Uploaded receipt preview"
+            className="max-h-[360px] w-auto max-w-full object-contain rounded-lg transition-transform duration-300 group-hover:scale-[1.02]"
+          />
+          {/* Expand hint overlay */}
+          <span className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/60 px-3 py-1.5 text-xs font-medium text-white opacity-90 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100 group-hover:bg-black/75">
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden>
+              <path
+                d="M7.5 1.5H10.5V4.5M10.5 1.5L7 5M4.5 10.5H1.5V7.5M1.5 10.5L5 7"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Click to expand
+          </span>
+        </button>
+      </div>
+
+      {open && <EtradeReceiptLightbox src={src} onClose={() => setOpen(false)} />}
+    </>
   );
 }

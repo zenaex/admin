@@ -55,12 +55,21 @@ export function NotificationDrawerTrigger({
   const handleMarkAllRead = async () => {
     setMarkingRead(true);
     try {
-      await postMarkNotificationsRead(); // Empty array = mark all read per backend spec
+      await postMarkNotificationsRead([]); // Empty array = mark all read per backend spec
       setItems((prev) => prev.map((item) => ({ ...item, read: true })));
     } catch (e) {
       console.error("Failed to mark all notifications as read:", e);
     } finally {
       setMarkingRead(false);
+    }
+  };
+
+  const handleMarkSingleRead = async (id: string) => {
+    try {
+      await postMarkNotificationsRead([id]);
+      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
+    } catch (e) {
+      console.error(`Failed to mark notification ${id} as read:`, e);
     }
   };
 
@@ -132,7 +141,15 @@ export function NotificationDrawerTrigger({
                 <div className="py-8 text-center text-xs text-zinc-400">No notifications available</div>
               ) : (
                 items.map((item) => (
-                  <article key={item.id} className={`flex gap-2.5 ${item.read ? "opacity-60" : ""}`}>
+                  <article
+                    key={item.id}
+                    onClick={() => {
+                      if (!item.read) void handleMarkSingleRead(item.id);
+                    }}
+                    className={`flex gap-2.5 ${
+                      item.read ? "opacity-60" : "cursor-pointer transition-opacity hover:opacity-80"
+                    }`}
+                  >
                     <Image
                       src="/logo/Logo-small.svg"
                       alt=""

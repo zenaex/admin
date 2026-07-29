@@ -566,6 +566,7 @@ export type AdminRoleListItem = {
   description: string;
   icon: string;
   memberCount: number;
+  permissionCount?: number;
   isSystem: boolean;
 };
 

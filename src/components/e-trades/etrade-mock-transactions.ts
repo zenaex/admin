@@ -94,6 +94,7 @@ export type EtradeTransactionDetail = {
   deviceId: string;
   location: string;
   locationCoordinate: string;
+  proofImageUrl?: string;
 };
 
 const APPROVED_BODY: Omit<EtradeTransactionDetail, "id"> = {
@@ -115,6 +116,7 @@ const APPROVED_BODY: Omit<EtradeTransactionDetail, "id"> = {
   deviceId: "c83738d53yedhd",
   location: "Ijebu Igbo, Ogun State",
   locationCoordinate: "Lat: 40.748944",
+  proofImageUrl: "https://images.unsplash.com/photo-1574634534894-89d7576c8259?auto=format&fit=crop&q=80&w=600",
 };
 
 const PENDING_BODY: Omit<EtradeTransactionDetail, "id"> = {
@@ -136,6 +138,7 @@ const PENDING_BODY: Omit<EtradeTransactionDetail, "id"> = {
   deviceId: "c83738d83yadhd",
   location: "Ijebu Igbo, Ogun State",
   locationCoordinate: "Lat: 40'748944",
+  proofImageUrl: "https://images.unsplash.com/photo-1574634534894-89d7576c8259?auto=format&fit=crop&q=80&w=600",
 };
 
 const FAILED_BODY: Omit<EtradeTransactionDetail, "id"> = {
@@ -157,6 +160,7 @@ const FAILED_BODY: Omit<EtradeTransactionDetail, "id"> = {
   deviceId: "c83738d83yedhd",
   location: "Ijebu Igbo, Ogun State",
   locationCoordinate: "Lat: 40748944",
+  proofImageUrl: "https://images.unsplash.com/photo-1574634534894-89d7576c8259?auto=format&fit=crop&q=80&w=600",
 };
 
 const DETAIL_BY_ID: Record<string, Omit<EtradeTransactionDetail, "id">> = {
