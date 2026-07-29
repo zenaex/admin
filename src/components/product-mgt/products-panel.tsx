@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown2, Edit } from "iconsax-react";
 import { AuditTrailPagination } from "@/components/audit-trail/audit-trail-pagination";
@@ -8,8 +8,6 @@ import { AuditTrailToolbar } from "@/components/audit-trail/audit-trail-toolbar"
 import {
   COMMISSION_TYPE_FILTER,
   PRODUCT_STATUS_FILTER,
-  PRODUCT_PROVIDERS,
-  PROVIDER_FILTER_OPTIONS,
 } from "@/components/product-mgt/product-fixtures";
 import type { ProductRow, ProductStatus } from "@/components/product-mgt/product-mgt-types";
 import {
@@ -26,8 +24,10 @@ import {
   patchAdminProductToggle,
   patchAdminProductSwitchProvider,
   getAdminProductProviders,
+  ProductProviderOption,
   UTILITY_PRODUCT_CATEGORY,
 } from "@/lib/admin-api/products-api";
+import { getAdminProvidersList } from "@/lib/admin-api/providers-api";
 import { ConfirmModal, SuccessModal } from "@/components/provider/provider-modals";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 
@@ -52,6 +52,21 @@ function StatusToggle({ checked, onChange }: { checked: boolean; onChange: (v: b
   );
 }
 
+function humanizeProviderName(p: string): string {
+  if (!p) return "—";
+  const t = p.trim();
+  if (!t || t === "—" || t === "-") return "—";
+  if (t.includes(" ") || (/[A-Z]/.test(t) && !t.includes("-"))) {
+    return t;
+  }
+  const formatted = t
+    .split("-")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+  return formatted || t;
+}
+
 function ProviderDropdown({
   productSlug,
   value,
@@ -59,34 +74,80 @@ function ProviderDropdown({
 }: {
   productSlug: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (v: ProductProviderOption) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [options, setOptions] = useState<string[]>(PRODUCT_PROVIDERS);
+  const [options, setOptions] = useState<ProductProviderOption[]>([]);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open && options.length === 0) {
       setLoading(true);
       getAdminProductProviders(productSlug)
-        .then((list) => {
+        .then(async (list) => {
           if (list.length > 0) {
             setOptions(list);
+          } else {
+            const res = await getAdminProvidersList({ pageSize: 100 });
+            const live = res.items.map((p) => ({
+              id: p.id,
+              slug: p.id,
+              name: p.name,
+            }));
+            setOptions(live);
           }
         })
-        .catch(() => {})
+        .catch(async () => {
+          try {
+            const res = await getAdminProvidersList({ pageSize: 100 });
+            const live = res.items.map((p) => ({
+              id: p.id,
+              slug: p.id,
+              name: p.name,
+            }));
+            setOptions(live);
+          } catch (e) {
+            console.error("Failed to load live providers:", e);
+          }
+        })
         .finally(() => setLoading(false));
     }
-  }, [open, productSlug]);
+  }, [open, productSlug, options.length]);
+
+  const displayLabel = humanizeProviderName(value);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-primary-text"
       >
-        {value}
+        {displayLabel === "—" ? "Select provider" : displayLabel}
         <ArrowDown2
           size={12}
           variant="Outline"
@@ -95,7 +156,7 @@ function ProviderDropdown({
         />
       </button>
       {open ? (
-        <div className="absolute left-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+        <div className="absolute left-0 top-full z-20 mt-1 w-40 max-h-48 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
           {loading ? (
             <div className="px-3 py-2 text-xs text-zinc-400">Loading...</div>
           ) : options.length === 0 ? (
@@ -103,17 +164,15 @@ function ProviderDropdown({
           ) : (
             options.map((p) => (
               <button
-                key={p}
+                key={p.slug || p.id}
                 type="button"
                 onClick={() => {
                   onChange(p);
                   setOpen(false);
                 }}
-                className={`w-full px-3 py-2 text-left text-xs transition-colors hover:bg-surface-subtle ${
-                  value === p ? "font-semibold text-primary-text" : "text-zinc-500"
-                }`}
+                className="block w-full px-3 py-2 text-left text-xs text-primary-text transition-colors hover:bg-zinc-50"
               >
-                {p}
+                {humanizeProviderName(p.name)}
               </button>
             ))
           )}
@@ -219,11 +278,24 @@ export function ProductsPanel() {
     }
   };
 
-  const handleProviderSwitch = async (row: ProductRow, nextProvider: string) => {
+  const [providerFilterOptions, setProviderFilterOptions] = useState<string[]>(["All providers"]);
+
+  useEffect(() => {
+    getAdminProvidersList({ pageSize: 100 })
+      .then((res) => {
+        if (res.items.length > 0) {
+          const names = Array.from(new Set(res.items.map((p) => p.name)));
+          setProviderFilterOptions(["All providers", ...names]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleProviderSwitch = async (row: ProductRow, option: ProductProviderOption) => {
     try {
-      await patchAdminProductSwitchProvider(row.id, nextProvider);
-      setProviders((prev) => ({ ...prev, [row.id]: nextProvider }));
-      setShowSuccess({ message: `Active provider for ${row.productName} updated to ${nextProvider}` });
+      await patchAdminProductSwitchProvider(row.id, option.name);
+      setProviders((prev) => ({ ...prev, [row.id]: option.name }));
+      setShowSuccess({ message: `Active provider for ${row.productName} updated to ${humanizeProviderName(option.name)}` });
     } catch (e) {
       console.error("Failed to switch provider:", e);
       alert(e instanceof Error ? e.message : "Failed to switch provider");
@@ -300,7 +372,7 @@ export function ProductsPanel() {
                 <TableFilterDropdownCard left={dropdownLeft} widthClass="w-[200px]">
                   <TableFilterPanelTitle />
                   <TableFilterOptionsList
-                    options={PROVIDER_FILTER_OPTIONS}
+                    options={providerFilterOptions}
                     onSelect={(opt) => {
                       setDraftProvider(opt);
                       setOpenFilter(null);

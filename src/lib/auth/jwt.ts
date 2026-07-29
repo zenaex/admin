@@ -62,6 +62,7 @@ export function canSuspendOrReactivateCustomer(accessToken: string | null): bool
 }
 
 export type AdminProfileHints = {
+  adminId: string | null;
   email: string | null;
   displayName: string | null;
   roleLabel: string | null;
@@ -75,10 +76,13 @@ function str(v: unknown): string | null {
 
 /** UI hints from access token only — not for authorization. */
 export function adminProfileHintsFromToken(accessToken: string | null): AdminProfileHints {
-  const empty: AdminProfileHints = { email: null, displayName: null, roleLabel: null, initials: "?" };
+  const empty: AdminProfileHints = { adminId: null, email: null, displayName: null, roleLabel: null, initials: "?" };
   if (!accessToken) return empty;
   const p = decodeJwtPayload(accessToken);
   if (!p) return empty;
+
+  const rawId = p.sub ?? p.id ?? p.adminId ?? p.admin_id ?? p.userId ?? p.user_id;
+  const adminId = typeof rawId === "string" ? rawId.trim() : null;
 
   const fromEmail = str(p.email);
   const preferred = str(p.preferred_username);
@@ -126,6 +130,7 @@ export function adminProfileHintsFromToken(accessToken: string | null): AdminPro
           : "?";
 
   return {
+    adminId,
     email,
     displayName: displayName || null,
     roleLabel,

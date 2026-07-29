@@ -1,6 +1,5 @@
 import type { ProductRow } from "@/components/product-mgt/product-mgt-types";
 
-export const PRODUCT_PROVIDERS = ["Buypower", "Presmit", "Quidax", "Baxi", "Flutterwave"];
 
 const BASE_PRODUCTS: Omit<ProductRow, "id">[] = [
   {
@@ -119,4 +118,3 @@ export const COMMISSION_TYPE_FILTER = [
 ];
 
 export const PRODUCT_STATUS_FILTER = ["All statuses", "Active", "Inactive"] as const;
-export const PROVIDER_FILTER_OPTIONS = ["All providers", ...PRODUCT_PROVIDERS];

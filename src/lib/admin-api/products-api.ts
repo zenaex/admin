@@ -152,24 +152,80 @@ function formatDisplayDate(isoOrAny: string): string {
   return isoOrAny;
 }
 
+function extractProviderName(raw: Record<string, unknown>): string {
+  const direct = pickString(raw, [
+    "activeProviderName",
+    "active_provider_name",
+    "defaultProviderName",
+    "default_provider_name",
+    "activeProviderSlug",
+    "active_provider_slug",
+    "defaultProviderSlug",
+    "default_provider_slug",
+    "defaultProvider",
+    "default_provider",
+    "activeProvider",
+    "active_provider",
+    "switchProvider",
+    "switch_provider",
+    "currentProvider",
+    "current_provider",
+    "primaryProvider",
+    "primary_provider",
+    "provider",
+    "providerName",
+    "provider_name",
+  ]);
+  if (direct && direct !== "—" && direct !== "-") return direct;
+
+  for (const k of ["activeProvider", "active_provider", "defaultProvider", "default_provider", "provider", "currentProvider"]) {
+    const v = raw[k];
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      const rec = v as Record<string, unknown>;
+      const name = pickString(rec, ["name", "providerName", "provider_name", "displayName", "title", "slug", "id"]);
+      if (name && name !== "—" && name !== "-") return name;
+    }
+  }
+
+  const arrayKeys = ["providers", "supportedProviders", "supported_providers", "availableProviders", "available_providers"];
+  for (const k of arrayKeys) {
+    const arr = raw[k];
+    if (Array.isArray(arr) && arr.length > 0) {
+      const first = arr[0];
+      if (typeof first === "string" && first.trim() && first.trim() !== "—" && first.trim() !== "-") return first.trim();
+      if (first && typeof first === "object" && !Array.isArray(first)) {
+        const rec = first as Record<string, unknown>;
+        const name = pickString(rec, ["name", "providerName", "provider_name", "displayName", "title", "slug", "id"]);
+        if (name && name !== "—" && name !== "-") return name;
+      }
+    }
+  }
+
+  return "—";
+}
+
 function normalizeProductRow(raw: unknown, index: number): ProductRow | null {
-  const o = asRecord(raw);
-  if (!o) return null;
-  const id = pickString(o, ["slug", "productSlug", "product_slug", "id"]) || `product-${index}`;
-  const productName = pickString(o, ["name", "productName", "product_name", "title"]) || id;
-  const categorySlug = pickString(o, ["categorySlug", "category_slug", "category", "productCategory"]);
+  const top = asRecord(raw);
+  if (!top) return null;
+  const o = asRecord(top.product) ?? asRecord(top.data) ?? asRecord(top.attributes) ?? top;
+
+  const id = pickString(o, ["slug", "productSlug", "product_slug", "id"]) || pickString(top, ["slug", "productSlug", "product_slug", "id"]) || `product-${index}`;
+  const productName = pickString(o, ["name", "productName", "product_name", "title"]) || pickString(top, ["name", "productName", "product_name", "title"]) || id;
+  const categorySlug = pickString(o, ["categorySlug", "category_slug", "category", "productCategory"]) || pickString(top, ["categorySlug", "category_slug", "category", "productCategory"]);
   const productCategory = categorySlug ? humanizeCategorySlug(categorySlug) : "—";
 
-  const chargeTypeRaw = pickString(o, ["chargeType", "charge_type", "commissionType"]) || "none";
-  const chargeValue = pickNum(o, ["chargeValue", "charge_value", "commissionRate", "rate"]);
-  const chargeCap = pickNum(o, ["chargeCap", "charge_cap", "cap"]);
+  const chargeTypeRaw = pickString(o, ["chargeType", "charge_type", "commissionType"]) || pickString(top, ["chargeType", "charge_type", "commissionType"]) || "none";
+  const chargeValue = pickNum(o, ["chargeValue", "charge_value", "commissionRate", "rate"]) ?? pickNum(top, ["chargeValue", "charge_value", "commissionRate", "rate"]);
+  const chargeCap = pickNum(o, ["chargeCap", "charge_cap", "cap"]) ?? pickNum(top, ["chargeCap", "charge_cap", "cap"]);
   const { commissionRate, cap } = formatChargeDisplay(chargeTypeRaw, chargeValue, chargeCap);
 
-  const switchProvider = pickString(o, ["activeProvider", "active_provider", "switchProvider", "provider", "providerName"]) || "—";
+  const p1 = extractProviderName(o);
+  const p2 = extractProviderName(top);
+  const switchProvider = p1 !== "—" ? p1 : p2;
 
-  const statusRaw = pickString(o, ["status", "productStatus", "isActive"]);
+  const statusRaw = pickString(o, ["status", "productStatus", "isActive"]) || pickString(top, ["status", "productStatus", "isActive"]);
   let status: ProductStatus = "Active";
-  if (statusRaw.toLowerCase() === "inactive" || statusRaw.toLowerCase() === "disabled" || o.isActive === false || o.active === false) {
+  if (statusRaw.toLowerCase() === "inactive" || statusRaw.toLowerCase() === "disabled" || o.isActive === false || o.active === false || top.isActive === false || top.active === false) {
     status = "Inactive";
   }
 
@@ -373,11 +429,23 @@ export async function patchAdminProductToggle(productSlug: string, active: boole
   });
 }
 
-/** `PATCH /admin/products/{productSlug}/switch-provider` — Switch the active provider for a product */
-export async function patchAdminProductSwitchProvider(productSlug: string, provider: string): Promise<void> {
+export type ProductProviderOption = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
+/** `PATCH /admin/products/{productSlug}/switch-provider` — Switch the active provider for a product using provider name */
+export async function patchAdminProductSwitchProvider(productSlug: string, providerName: string): Promise<void> {
   await adminRequest(`/admin/products/${encodeURIComponent(productSlug)}/switch-provider`, {
     method: "PATCH",
-    body: JSON.stringify({ provider, providerId: provider, providerName: provider }),
+    body: JSON.stringify({
+      providerName: providerName,
+      newProviderName: providerName,
+      newProviderSlug: providerName,
+      providerSlug: providerName,
+      provider: providerName,
+    }),
   });
 }
 
@@ -393,18 +461,22 @@ export async function patchAdminProductCommission(
 }
 
 /** `GET /admin/products/{productSlug}/providers` — List providers supporting this product */
-export async function getAdminProductProviders(productSlug: string): Promise<string[]> {
+export async function getAdminProductProviders(productSlug: string): Promise<ProductProviderOption[]> {
   try {
     const body = await adminRequest<unknown>(`/admin/products/${encodeURIComponent(productSlug)}/providers`, { method: "GET" });
     const itemsRaw = extractItemsArray(body);
     return itemsRaw.map((item) => {
-      if (typeof item === "string") return item;
+      if (typeof item === "string") {
+        return { id: item, slug: item, name: item };
+      }
       const o = asRecord(item);
       if (o) {
-        return pickString(o, ["name", "providerName", "provider_name", "id", "slug"]);
+        const slug = pickString(o, ["slug", "providerSlug", "provider_slug", "id"]) || pickString(o, ["name", "providerName", "provider_name"]);
+        const name = pickString(o, ["name", "providerName", "provider_name", "displayName"]) || slug;
+        return { id: slug || name, slug: slug || name, name: name || slug };
       }
-      return "";
-    }).filter(Boolean);
+      return null;
+    }).filter((x): x is ProductProviderOption => x !== null && Boolean(x.slug || x.name));
   } catch (e) {
     console.error(`Failed to fetch providers for product ${productSlug}:`, e);
     return [];

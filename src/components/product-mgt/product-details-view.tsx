@@ -99,9 +99,9 @@ export function ProductDetailsView({ id: _id }: { id?: string }) {
       setProductActive(details.status);
 
       const providerList = await getAdminProductProviders(_id);
-      const mappedProviders: ProviderRow[] = providerList.map((pName, idx) => ({
+      const mappedProviders: ProviderRow[] = providerList.map((p, idx) => ({
         id: `prov-${idx}`,
-        providerName: pName,
+        providerName: typeof p === "string" ? p : p.name,
         commissionType: details.commissionType,
         commissionRate: details.commissionRate,
         cap: details.cap,

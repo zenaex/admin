@@ -1,56 +1,71 @@
 "use client";
 
 import Image from "next/image";
-import { CloseCircle, Notification, Setting2 } from "iconsax-react";
-import { useState } from "react";
-
-type NotificationItem = {
-  id: string;
-  title: string;
-  subtitle: string;
-  timeMeta: string;
-  ago: string;
-};
-
-const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "n1",
-    title: "Customer Status Alert",
-    subtitle: "Chiroma Ikechukwu's account has been marked as Inactive",
-    timeMeta: "1:30 am, 21 Feb",
-    ago: "1m ago",
-  },
-  {
-    id: "n2",
-    title: "Bulk Status Change",
-    subtitle: "5 accounts moved to 'Blocked' status",
-    timeMeta: "1:30 am, 21 Feb",
-    ago: "1m ago",
-  },
-  {
-    id: "n3",
-    title: "Customer Milestone",
-    subtitle: "Total customers reached ₦150,000!",
-    timeMeta: "1:30 am, 21 Feb",
-    ago: "1m ago",
-  },
-  {
-    id: "n4",
-    title: "Reactivation",
-    subtitle: "Timothy Nasiru's account has been reactivated",
-    timeMeta: "1:30 am, 21 Feb",
-    ago: "1m ago",
-  },
-];
+import { CloseCircle, Notification } from "iconsax-react";
+import { useEffect, useState } from "react";
+import {
+  getAdminNotifications,
+  postMarkNotificationsRead,
+  type AdminNotificationItem,
+} from "@/lib/admin-api/notifications-api";
 
 export function NotificationDrawerTrigger({
-  notificationCount = 3,
+  notificationCount,
   iconSize = 22,
 }: {
   notificationCount?: number;
   iconSize?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [markingRead, setMarkingRead] = useState(false);
+  const [items, setItems] = useState<AdminNotificationItem[]>([]);
+  const [fetched, setFetched] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const fetchNotifications = async () => {
+      setLoading(true);
+      try {
+        const liveItems = await getAdminNotifications();
+        if (active) {
+          setItems(liveItems);
+          setFetched(true);
+        }
+      } catch (e) {
+        console.error("Failed to load live notifications:", e);
+        if (active) {
+          setItems([]);
+          setFetched(true);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    if (open || !fetched) {
+      void fetchNotifications();
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [open, fetched]);
+
+  const handleMarkAllRead = async () => {
+    setMarkingRead(true);
+    try {
+      await postMarkNotificationsRead(); // Empty array = mark all read per backend spec
+      setItems((prev) => prev.map((item) => ({ ...item, read: true })));
+    } catch (e) {
+      console.error("Failed to mark all notifications as read:", e);
+    } finally {
+      setMarkingRead(false);
+    }
+  };
+
+  const unreadItems = items.filter((item) => !item.read);
+  const displayCount = notificationCount ?? (fetched ? unreadItems.length : 0);
 
   return (
     <>
@@ -61,9 +76,11 @@ export function NotificationDrawerTrigger({
         onClick={() => setOpen(true)}
       >
         <Notification size={iconSize} variant="Outline" color="currentColor" />
-        <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[10px] font-semibold text-white">
-          {notificationCount}
-        </span>
+        {displayCount > 0 ? (
+          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[10px] font-semibold text-white">
+            {displayCount}
+          </span>
+        ) : null}
       </button>
 
       <div
@@ -96,32 +113,49 @@ export function NotificationDrawerTrigger({
                 </button>
                 <h2 className="text-lg font-semibold text-primary-text">Notifications</h2>
               </div>
-              <button type="button" aria-label="Notification settings" className="text-zinc-500">
-                <Setting2 size={16} variant="Outline" color="currentColor" />
-              </button>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void handleMarkAllRead()}
+                  disabled={markingRead}
+                  className="text-xs text-primary-text font-medium hover:underline disabled:opacity-50"
+                >
+                  {markingRead ? "Marking..." : "Mark all read"}
+                </button>
+              )}
             </div>
 
-            <div className="space-y-4 overflow-y-auto px-4 py-4">
-              {SAMPLE_NOTIFICATIONS.map((item) => (
-                <article key={item.id} className="flex gap-2.5">
-                  <Image
-                    src="/logo/Logo-small.svg"
-                    alt=""
-                    width={24}
-                    height={24}
-                    className="mt-0.5 h-6 w-6 shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold leading-snug text-black">
-                      {item.title}
-                      <span className="font-normal text-zinc-500"> | </span>
-                      <span className="font-normal text-zinc-500">{item.timeMeta}</span>
-                    </p>
-                    <p className="mt-0.5 text-[12px] leading-snug text-zinc-600">{item.subtitle}</p>
-                    <p className="mt-1 text-[11px] text-zinc-400">{item.ago}</p>
-                  </div>
-                </article>
-              ))}
+            <div className="space-y-4 overflow-y-auto px-4 py-4 flex-1">
+              {loading ? (
+                <div className="py-8 text-center text-xs text-zinc-400">Loading notifications...</div>
+              ) : items.length === 0 ? (
+                <div className="py-8 text-center text-xs text-zinc-400">No notifications available</div>
+              ) : (
+                items.map((item) => (
+                  <article key={item.id} className={`flex gap-2.5 ${item.read ? "opacity-60" : ""}`}>
+                    <Image
+                      src="/logo/Logo-small.svg"
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="mt-0.5 h-6 w-6 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold leading-snug text-black">
+                        {item.title}
+                        {item.timeMeta ? (
+                          <>
+                            <span className="font-normal text-zinc-500"> | </span>
+                            <span className="font-normal text-zinc-500">{item.timeMeta}</span>
+                          </>
+                        ) : null}
+                      </p>
+                      <p className="mt-0.5 text-[12px] leading-snug text-zinc-600">{item.subtitle}</p>
+                      <p className="mt-1 text-[11px] text-zinc-400">{item.ago}</p>
+                    </div>
+                  </article>
+                ))
+              )}
             </div>
           </div>
         </aside>
@@ -129,4 +163,3 @@ export function NotificationDrawerTrigger({
     </>
   );
 }
-

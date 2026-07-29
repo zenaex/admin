@@ -1,10 +1,18 @@
 "use client";
-
+ 
 import { useEffect, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { ExportSquare } from "iconsax-react";
 import { getAdminDashboardCategories, type NormalizedProductCategory } from "@/lib/admin-api/dashboard-api";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
+import { exportClientTable } from "@/lib/export/export-handlers";
+import type { ExportColumn } from "@/lib/export/table-export";
+
+const CATEGORY_EXPORT_COLUMNS: ExportColumn<NormalizedProductCategory>[] = [
+  { header: "Category", value: (row) => String(row.name) },
+  { header: "Share (%)", value: (row) => `${row.value}%` },
+];
 
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: NormalizedProductCategory & { displayValue?: number } }> }) {
   if (!active || !payload?.length) return null;
@@ -64,10 +72,15 @@ export function ProductCategoryChart({ dateRange }: { dateRange?: DateRange }) {
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[16px] font-semibold text-primary-text whitespace-nowrap">Product Category</h3>
-        <button type="button" className="inline-flex underline items-center gap-1 text-[12px] font-medium text-primary-text transition-colors whitespace-nowrap shrink-0">
-          Explore data
-          <ExportSquare size={12} variant="Outline" color="currentColor" />
-        </button>
+        <TableExportMenu
+          label="Explore data"
+          triggerClassName="inline-flex underline items-center gap-1 text-[12px] font-medium text-primary-text transition-colors whitespace-nowrap shrink-0"
+          icon={<ExportSquare size={12} variant="Outline" color="currentColor" />}
+          iconPosition="right"
+          onExportCsv={() => exportClientTable("product-categories", "csv", data, CATEGORY_EXPORT_COLUMNS)}
+          onExportPdf={() => exportClientTable("product-categories", "pdf", data, CATEGORY_EXPORT_COLUMNS)}
+          onExportJson={() => exportClientTable("product-categories", "json", data, CATEGORY_EXPORT_COLUMNS)}
+        />
       </div>
 
       {/* Donut chart */}

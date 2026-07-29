@@ -1,5 +1,5 @@
 "use client";
-
+ 
 import { useEffect, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import {
@@ -14,6 +14,14 @@ import {
 } from "recharts";
 import { ExportSquare } from "iconsax-react";
 import { getAdminDashboardCrypto, type NormalizedCryptoVolume } from "@/lib/admin-api/dashboard-api";
+import { TableExportMenu } from "@/components/ui/table-export-menu";
+import { exportClientTable } from "@/lib/export/export-handlers";
+import type { ExportColumn } from "@/lib/export/table-export";
+
+const CRYPTO_EXPORT_COLUMNS: ExportColumn<NormalizedCryptoVolume>[] = [
+  { header: "Asset/Date", value: (row) => String(row.coin) },
+  { header: "Volume (NGN)", value: (row) => String(row.value) },
+];
 
 function yTickFormatter(v: number) {
   if (v === 0) return "0";
@@ -80,13 +88,15 @@ export function CryptoExchangeChart({ dateRange }: { dateRange?: DateRange }) {
           </h3>
           <p className="mt-0.5 text-[12px] text-zinc-400">FX Conversion</p>
         </div>
-        <button
-          type="button"
-          className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium underline text-primary-text transition-colors"
-        >
-          Explore data
-          <ExportSquare size={12} variant="Outline" color="currentColor" />
-        </button>
+        <TableExportMenu
+          label="Explore data"
+          triggerClassName="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium underline text-primary-text transition-colors"
+          icon={<ExportSquare size={12} variant="Outline" color="currentColor" />}
+          iconPosition="right"
+          onExportCsv={() => exportClientTable("crypto-exchange", "csv", data, CRYPTO_EXPORT_COLUMNS)}
+          onExportPdf={() => exportClientTable("crypto-exchange", "pdf", data, CRYPTO_EXPORT_COLUMNS)}
+          onExportJson={() => exportClientTable("crypto-exchange", "json", data, CRYPTO_EXPORT_COLUMNS)}
+        />
       </div>
 
       {/* Chart / Loading states */}

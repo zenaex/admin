@@ -635,7 +635,7 @@ function formatTradeAmountDisplay(
 }
 
 function formatRateFee(o: Record<string, unknown>): string {
-  const pre = pickString(o, ["rateFee", "rate_fee", "rate", "customerRate", "customer_rate", "rateDisplay"]);
+  const pre = pickString(o, ["rateFee", "rate_fee", "rateDisplay"]);
   if (pre) return pre;
 
   const tradeType = pickString(o, ["tradeType", "trade_type"]).toLowerCase();
@@ -651,9 +651,14 @@ function formatRateFee(o: Record<string, unknown>): string {
   const markupKobo = pickKobo(o, ["ourMarkupRate", "our_markup_rate"]);
   const vendor = vendorKobo !== undefined ? koboToMajor(vendorKobo) : pickNum(o, ["vendorRate", "vendor_rate"]);
   const markup = markupKobo !== undefined ? koboToMajor(markupKobo) : pickNum(o, ["ourMarkupRate", "our_markup_rate"]);
+  
+  const customerKobo = pickKobo(o, ["customerRate", "customer_rate", "rate"]);
   const customer =
-    pickNum(o, ["customerRate", "customer_rate"]) ??
-    (vendor !== undefined && markup !== undefined ? Math.max(0, vendor - markup) : vendor);
+    customerKobo !== undefined
+      ? koboToMajor(customerKobo)
+      : (pickNum(o, ["customerRate", "customer_rate", "rate"]) ??
+         (vendor !== undefined && markup !== undefined ? Math.max(0, vendor - markup) : vendor));
+
   if (customer !== undefined) return `₦${customer.toLocaleString()}/$1`;
   return "—";
 }
@@ -888,6 +893,20 @@ function normalizeEtradeDetail(raw: unknown, id: string): EtradeTransactionDetai
   const tradeAmount = formatTradeAmountDisplay(inner, tradeCurrency);
   const rateFee = formatRateFee(inner);
 
+  const vendorKobo = pickKobo(inner, ["vendorRate", "vendor_rate"]);
+  const markupKobo = pickKobo(inner, ["ourMarkupRate", "our_markup_rate"]);
+  const vendor = vendorKobo !== undefined ? koboToMajor(vendorKobo) : pickNum(inner, ["vendorRate", "vendor_rate"]);
+  const markup = markupKobo !== undefined ? koboToMajor(markupKobo) : pickNum(inner, ["ourMarkupRate", "our_markup_rate"]);
+  const customerKobo = pickKobo(inner, ["customerRate", "customer_rate", "rate"]);
+  const customerRate =
+    customerKobo !== undefined
+      ? koboToMajor(customerKobo)
+      : (pickNum(inner, ["customerRate", "customer_rate", "rate"]) ??
+         (vendor !== undefined && markup !== undefined ? Math.max(0, vendor - markup) : vendor));
+
+  const rawAmount = pickNum(inner, ["tradeAmount", "trade_amount", "amount"]);
+  const tradeType = pickString(inner, ["tradeType", "trade_type"]).toLowerCase();
+
   const ngnKobo = pickKobo(inner, [
     "ngnEquivalent",
     "ngn_equivalent",
@@ -896,10 +915,15 @@ function normalizeEtradeDetail(raw: unknown, id: string): EtradeTransactionDetai
     "ngnAmount",
     "ngn_amount",
   ]);
-  const ngnEquivalent =
-    ngnKobo !== undefined
-      ? formatKoboAsNgn(ngnKobo)
-      : pickString(inner, ["ngnEquivalent", "ngn_equivalent", "ngnAmountDisplay"]) || "—";
+
+  let ngnEquivalent = "—";
+  if (tradeType !== "percentage" && rawAmount !== undefined && customerRate !== undefined) {
+    ngnEquivalent = formatNgnMajor(rawAmount * customerRate);
+  } else if (ngnKobo !== undefined) {
+    ngnEquivalent = formatKoboAsNgn(ngnKobo);
+  } else {
+    ngnEquivalent = pickString(inner, ["ngnEquivalent", "ngn_equivalent", "ngnAmountDisplay"]) || "—";
+  }
 
   const createdRaw =
     pickString(inner, ["createdAt", "created_at", "dateInitiated", "date_initiated", "initiatedAt"]) ||
