@@ -55,6 +55,7 @@ export function SwapCryptoRateUpdateFlow({ row, onClose, onApplied }: SwapCrypto
       await postConfigureSwapCryptoRate(base, quote, {
         baseToQuoteMarkupValue: parseFloat(form.baseToQuoteRate) || 0,
         quoteToBaseMarkupValue: parseFloat(form.quoteToBaseRate) || 0,
+        markupType: form.markupType,
       });
 
       const updated: ExchangeRateRow = {

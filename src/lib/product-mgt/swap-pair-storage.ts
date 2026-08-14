@@ -43,19 +43,15 @@ export function buildSwapPairRow(draft: CreateSwapPairDraft): ExchangeRateRow {
 export function readExtraSwapPairRows(): ExchangeRateRow[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as ExchangeRateRow[];
-    return Array.isArray(parsed) ? parsed : [];
+    sessionStorage.removeItem(STORAGE_KEY);
   } catch {
-    return [];
+    // ignore
   }
+  return [];
 }
 
-export function appendExtraSwapPairRow(row: ExchangeRateRow): void {
-  if (typeof window === "undefined") return;
-  const existing = readExtraSwapPairRows();
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...existing, row]));
+export function appendExtraSwapPairRow(_row: ExchangeRateRow): void {
+  // No-op: swap pairs are managed exclusively by the backend API to prevent duplicates
 }
 
 export function mergeSwapPairRows(

@@ -9,11 +9,7 @@ import { CreateSwapPairStepper } from "@/components/product-mgt/create-swap-pair
 import { CryptoSelectField } from "@/components/product-mgt/crypto-select-field";
 import { findCryptoOption } from "@/lib/product-mgt/crypto-options";
 import type { CryptoOption } from "@/lib/product-mgt/crypto-options";
-import {
-  appendExtraSwapPairRow,
-  buildSwapPairRow,
-  type CreateSwapPairDraft,
-} from "@/lib/product-mgt/swap-pair-storage";
+import { type CreateSwapPairDraft } from "@/lib/product-mgt/swap-pair-storage";
 import {
   markupRateInputValue,
   type MarkupType,
@@ -63,8 +59,6 @@ export function CreateSwapPairView() {
         quoteToBaseMarkupValue: parseFloat(draft.quoteToBaseRate) || 0,
       });
 
-      const row = buildSwapPairRow(draft);
-      appendExtraSwapPairRow(row);
       router.push("/dashboard/product-mgt?tab=exchange-rates&ratesSubTab=swap-crypto");
     } catch (e) {
       console.error("Failed to create swap pair:", e);

@@ -651,23 +651,43 @@ export async function postConfigureSellCryptoRate(
   });
 }
 
-/** `POST /admin/rates/swap-crypto/{base}/{quote}/configure` — Configure both markups for an existing swap pair */
+/** `POST /admin/rates/swap-crypto/{base}/{quote}/configure` — Configure markups for an existing swap pair */
 export async function postConfigureSwapCryptoRate(
   base: string,
   quote: string,
-  input: { baseToQuoteMarkupValue: number; quoteToBaseMarkupValue: number },
+  input: { baseToQuoteMarkupValue: number; quoteToBaseMarkupValue: number; markupType?: string },
 ): Promise<void> {
-  await adminRequest(
-    `/admin/rates/swap-crypto/${encodeURIComponent(resolveSwapCryptoCode(base))}/${encodeURIComponent(resolveSwapCryptoCode(quote))}/configure`,
-    {
+  const baseCode = resolveSwapCryptoCode(base);
+  const quoteCode = resolveSwapCryptoCode(quote);
+  const payload: Record<string, unknown> = {
+    baseToQuoteMarkupValue: input.baseToQuoteMarkupValue,
+    quoteToBaseMarkupValue: input.quoteToBaseMarkupValue,
+  };
+  if (input.markupType) {
+    payload.markupType = buildMarkupConfigurePayload(input.markupType, 0).markupType;
+  }
+
+  const primaryPath = `/admin/rates/swap-crypto/${encodeURIComponent(baseCode)}/${encodeURIComponent(quoteCode)}/configure`;
+  try {
+    await adminRequest(primaryPath, {
       method: "POST",
-      body: JSON.stringify({
-        baseToQuoteMarkupValue: input.baseToQuoteMarkupValue,
-        quoteToBaseMarkupValue: input.quoteToBaseMarkupValue,
-      }),
+      body: JSON.stringify(payload),
       auth: true,
-    },
-  );
+    });
+  } catch (e) {
+    const baseSlug = resolveCryptoSlug(base);
+    const quoteSlug = resolveCryptoSlug(quote);
+    if (baseSlug !== baseCode.toLowerCase() || quoteSlug !== quoteCode.toLowerCase()) {
+      const fallbackPath = `/admin/rates/swap-crypto/${encodeURIComponent(baseSlug)}/${encodeURIComponent(quoteSlug)}/configure`;
+      await adminRequest(fallbackPath, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        auth: true,
+      });
+    } else {
+      throw e;
+    }
+  }
 }
 
 export type GiftcardRateCategoryInput = {

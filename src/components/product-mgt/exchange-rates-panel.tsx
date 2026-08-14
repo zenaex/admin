@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/table-filter-bar";
 import { TableExportMenu } from "@/components/ui/table-export-menu";
 import { getExchangeRates } from "@/lib/admin-api/exchange-rates-api";
-import { mergeSwapPairRows, readExtraSwapPairRows } from "@/lib/product-mgt/swap-pair-storage";
 import type { ExportColumn } from "@/lib/export/table-export";
 import { exportClientTable } from "@/lib/export/export-handlers";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
@@ -115,11 +114,7 @@ export function ExchangeRatesPanel() {
     setLoading(true);
     try {
       const res = await getExchangeRates(subTab);
-      let items = res.items;
-      if (subTab === "swap-crypto") {
-        items = mergeSwapPairRows(items, readExtraSwapPairRows());
-      }
-      setRows(items);
+      setRows(res.items);
     } finally {
       setLoading(false);
     }
