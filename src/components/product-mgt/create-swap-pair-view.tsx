@@ -158,6 +158,22 @@ export function CreateSwapPairView() {
                   />
                 </div>
 
+                {markupType === "% capped @" && (
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-primary-text">Markup Cap (₦)</label>
+                    <input
+                      type="text"
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
+                      value={draft.markupCap ?? "50"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        draft.markupCap = val;
+                      }}
+                      placeholder="e.g. 50"
+                    />
+                  </div>
+                )}
+
                 {!canContinue ? (
                   <p className="text-center text-xs text-red-500">Base and quote must be different.</p>
                 ) : null}

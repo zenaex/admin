@@ -29,6 +29,7 @@ type MockRuntimeStatus = "successful" | "pending" | "failed";
 type MockRuntime = {
   status: MockRuntimeStatus;
   rejectionReason?: string;
+  adjustedAmount?: number;
 };
 
 const DEFAULT_RUNTIME: Record<string, MockRuntime> = {
@@ -174,23 +175,30 @@ function buildLogs(ref: string, runtime: MockRuntime): TransactionLogEntry[] {
       title: "Payout completed",
       date: "Jun 2, 2026 | 9:46AM",
     });
-    return entries;
-  }
-  if (runtime.status === "pending") {
+  } else if (runtime.status === "pending") {
     entries.push({
       step: 3,
       title: "Awaiting admin approval",
       date: "Jun 2, 2026 | 9:34AM",
     });
-    return entries;
+  } else {
+    entries.push({
+      step: 3,
+      title: runtime.rejectionReason
+        ? `Rejected — ${runtime.rejectionReason}`
+        : "Rejected by admin",
+      date: "Jun 2, 2026 | 10:05AM",
+    });
   }
-  entries.push({
-    step: 3,
-    title: runtime.rejectionReason
-      ? `Rejected — ${runtime.rejectionReason}`
-      : "Rejected by admin",
-    date: "Jun 2, 2026 | 10:05AM",
-  });
+
+  if (runtime.adjustedAmount !== undefined) {
+    entries.push({
+      step: entries.length + 1,
+      title: `Transaction face value adjusted to ${meta?.currency ?? "USD"} ${runtime.adjustedAmount.toLocaleString()}`,
+      date: "Just now",
+    });
+  }
+
   return entries;
 }
 
@@ -205,6 +213,8 @@ function buildDetailRaw(reference: string): Record<string, unknown> {
   const completed =
     runtime.status === "pending" ? initiated : "2026-06-02T09:46:00.000Z";
 
+  const cardAmount = runtime.adjustedAmount !== undefined ? runtime.adjustedAmount : meta.cardAmount;
+
   return {
     reference: ref,
     status: statusForApi(runtime),
@@ -213,7 +223,7 @@ function buildDetailRaw(reference: string): Record<string, unknown> {
     productSlug: meta.product.toLowerCase().replace(/\s+/g, "-"),
     product: meta.product,
     customerName: meta.customerName,
-    amount: meta.cardAmount,
+    amount: cardAmount,
     currency: meta.currency,
     amountPaidOut: meta.paidOutNgn,
     paidOut: meta.paidOutNgn,
@@ -333,6 +343,14 @@ export function mockGiftcardDecline(submissionId: string, reason: string): void 
   const ref = REF_BY_SUBMISSION.get(submissionId.trim());
   if (!ref) return;
   setRuntime(ref, { status: "failed", rejectionReason: reason.trim() || "Declined by admin." });
+}
+
+export function mockGiftcardAdjust(submissionId: string, faceValueCents: number): void {
+  const ref = REF_BY_SUBMISSION.get(submissionId.trim());
+  if (!ref) return;
+  const current = getRuntime(ref);
+  const amount = faceValueCents / 100;
+  setRuntime(ref, { ...current, adjustedAmount: amount });
 }
 
 export function mockGiftcardECode(submissionId: string): string {

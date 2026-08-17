@@ -4,12 +4,14 @@ export type RateFormValues = {
   baseRate: string;
   markupType: MarkupType;
   markupRate: string;
+  markupCap?: string;
 };
 
 /** Sell crypto flow — markup only (no base rate). */
 export type MarkupFormValues = {
   markupType: MarkupType;
   markupRate: string;
+  markupCap?: string;
 };
 
 /** Swap crypto pair — bidirectional markup rates. */
@@ -17,6 +19,7 @@ export type SwapPairFormValues = {
   markupType: MarkupType;
   baseToQuoteRate: string;
   quoteToBaseRate: string;
+  markupCap?: string;
 };
 
 const NGN_BASE = {

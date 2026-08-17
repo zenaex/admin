@@ -67,18 +67,54 @@ function humanizeProviderName(p: string): string {
   return formatted || t;
 }
 
+function filterProvidersForProduct(
+  productCategory: string | undefined,
+  list: ProductProviderOption[],
+): ProductProviderOption[] {
+  const EXCLUDED = new Set(["threshold", "manual", "system", "none", "—"]);
+  const cat = (productCategory ?? "").toLowerCase();
+
+  return list.filter((p) => {
+    const nameLower = p.name.trim().toLowerCase();
+    const slugLower = p.slug.trim().toLowerCase();
+
+    if (EXCLUDED.has(nameLower) || EXCLUDED.has(slugLower)) {
+      return false;
+    }
+
+    if (
+      cat.includes("utility") ||
+      cat.includes("betting") ||
+      cat.includes("airtime") ||
+      cat.includes("electricity") ||
+      cat.includes("cable") ||
+      cat.includes("data")
+    ) {
+      const nonUtility = ["threshold", "quidax", "yellowcard", "binance", "paxful", "presmit", "cardvert"];
+      if (nonUtility.some((n) => nameLower.includes(n) || slugLower.includes(n))) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
 function ProviderDropdown({
   productSlug,
+  productCategory,
   value,
   onChange,
 }: {
   productSlug: string;
+  productCategory?: string;
   value: string;
   onChange: (v: ProductProviderOption) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState<ProductProviderOption[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -109,8 +145,9 @@ function ProviderDropdown({
       setLoading(true);
       getAdminProductProviders(productSlug)
         .then(async (list) => {
-          if (list.length > 0) {
-            setOptions(list);
+          const filteredList = filterProvidersForProduct(productCategory, list);
+          if (filteredList.length > 0) {
+            setOptions(filteredList);
           } else {
             const res = await getAdminProvidersList({ pageSize: 100 });
             const live = res.items.map((p) => ({
@@ -118,7 +155,7 @@ function ProviderDropdown({
               slug: p.id,
               name: p.name,
             }));
-            setOptions(live);
+            setOptions(filterProvidersForProduct(productCategory, live));
           }
         })
         .catch(async () => {
@@ -129,25 +166,31 @@ function ProviderDropdown({
               slug: p.id,
               name: p.name,
             }));
-            setOptions(live);
+            setOptions(filterProvidersForProduct(productCategory, live));
           } catch (e) {
             console.error("Failed to load live providers:", e);
           }
         })
         .finally(() => setLoading(false));
     }
-  }, [open, productSlug, options.length]);
+  }, [open, productSlug, productCategory, options.length]);
 
   const displayLabel = humanizeProviderName(value);
 
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const q = searchTerm.trim().toLowerCase();
+    return options.filter((p) => p.name.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q));
+  }, [options, searchTerm]);
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative inline-block" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-primary-text"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-primary-text hover:bg-surface-subtle transition-colors"
       >
-        {displayLabel === "—" ? "Select provider" : displayLabel}
+        <span>{displayLabel === "—" ? "Select provider" : displayLabel}</span>
         <ArrowDown2
           size={12}
           variant="Outline"
@@ -156,26 +199,48 @@ function ProviderDropdown({
         />
       </button>
       {open ? (
-        <div className="absolute left-0 top-full z-20 mt-1 w-40 max-h-48 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
-          {loading ? (
-            <div className="px-3 py-2 text-xs text-zinc-400">Loading...</div>
-          ) : options.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-zinc-400">No providers</div>
-          ) : (
-            options.map((p) => (
-              <button
-                key={p.slug || p.id}
-                type="button"
-                onClick={() => {
-                  onChange(p);
-                  setOpen(false);
-                }}
-                className="block w-full px-3 py-2 text-left text-xs text-primary-text transition-colors hover:bg-zinc-50"
-              >
-                {humanizeProviderName(p.name)}
-              </button>
-            ))
-          )}
+        <div className="absolute right-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl">
+          {options.length > 4 ? (
+            <div className="p-1">
+              <input
+                type="text"
+                className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-primary-text outline-none focus:border-zinc-400"
+                placeholder="Search provider..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          ) : null}
+
+          <div className="max-h-48 overflow-y-auto">
+            {loading ? (
+              <div className="px-3 py-2 text-xs text-zinc-400">Loading providers...</div>
+            ) : filteredOptions.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-zinc-400">No matching provider</div>
+            ) : (
+              filteredOptions.map((p) => {
+                const label = humanizeProviderName(p.name);
+                const isSelected = label.toLowerCase() === displayLabel.toLowerCase();
+                return (
+                  <button
+                    key={p.slug || p.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(p);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
+                      isSelected ? "bg-zinc-100 font-semibold text-primary-text" : "text-zinc-600 hover:bg-zinc-50"
+                    }`}
+                  >
+                    <span>{label}</span>
+                    {isSelected ? <span className="text-xs text-primary-green">✓</span> : null}
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
       ) : null}
     </div>
@@ -483,6 +548,7 @@ export function ProductsPanel() {
                   <td className="h-16 border-b border-outline px-4 py-0 align-middle" onClick={(e) => e.stopPropagation()}>
                     <ProviderDropdown
                       productSlug={row.id}
+                      productCategory={row.productCategory}
                       value={getProvider(row)}
                       onChange={(v) => handleProviderSwitch(row, v)}
                     />

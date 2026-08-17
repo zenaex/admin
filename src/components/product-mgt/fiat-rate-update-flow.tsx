@@ -53,10 +53,11 @@ export function FiatRateUpdateFlow({ row, onClose, onApplied }: FiatRateUpdateFl
     try {
       const base = row.fiatBase ?? "NGN";
       const quote = row.fiatQuote ?? row.currencyCode;
+      const capNum = form.markupCap ? parseFloat(form.markupCap) : 50;
       await postConfigureFiatRate(base, quote, {
         markupType: form.markupType,
         markupRate: form.markupRate,
-        markupCap: form.markupType === "% capped @" ? 50 : undefined,
+        markupCap: form.markupType === "% capped @" ? (Number.isFinite(capNum) ? capNum : 50) : undefined,
       });
 
       const preview = buildRatePreview(form, row.currencyCode);

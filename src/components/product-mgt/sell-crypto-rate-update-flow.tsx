@@ -49,10 +49,11 @@ export function SellCryptoRateUpdateFlow({ row, onClose, onApplied }: SellCrypto
     if (!form) return;
     try {
       const cryptoSlug = row.cryptoSlug ?? row.currencyCode;
+      const capNum = form.markupCap ? parseFloat(form.markupCap) : 50;
       await postConfigureSellCryptoRate(cryptoSlug, {
         markupType: form.markupType,
         markupRate: form.markupRate,
-        markupCap: form.markupType === "% capped @" ? 50 : undefined,
+        markupCap: form.markupType === "% capped @" ? (Number.isFinite(capNum) ? capNum : 50) : undefined,
       });
 
       const updated: ExchangeRateRow = {

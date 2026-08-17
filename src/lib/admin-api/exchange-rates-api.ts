@@ -381,10 +381,10 @@ function normalizeExchangeRateRow(raw: unknown, index: number, subTab: ExchangeR
   ]);
   const dateUpdated = updatedAtRaw ? formatDisplayDate(updatedAtRaw) : "—";
 
+  const rawCryptoSlug = pickString(o, ["cryptoSlug", "crypto_slug", "slug", "assetSlug", "code", "symbol", "currencyCode"]);
   const cryptoSlug =
     subTab === "sell-crypto"
-      ? pickString(o, ["cryptoSlug", "crypto_slug", "slug", "assetSlug"]) ||
-        resolveCryptoSlug(currencyCode, pickString(o, ["cryptoSlug", "slug"]))
+      ? (rawCryptoSlug ? rawCryptoSlug.toLowerCase() : resolveCryptoSlug(currencyCode))
       : undefined;
 
   const iconUrl =

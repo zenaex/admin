@@ -306,6 +306,50 @@ export function TableFilterSelectOptions<V extends string>({
   );
 }
 
+function toYmd(d: Date | undefined): string {
+  if (!d) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parseYmd(s: string): Date | undefined {
+  if (!s) return undefined;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
+}
+
+function getPresetRange(preset: "today" | "yesterday" | "7days" | "30days" | "thisMonth"): DateRange {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (preset) {
+    case "today":
+      return { from: today, to: today };
+    case "yesterday": {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      return { from: y, to: y };
+    }
+    case "7days": {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 6);
+      return { from: d, to: today };
+    }
+    case "30days": {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 29);
+      return { from: d, to: today };
+    }
+    case "thisMonth": {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: start, to: today };
+    }
+  }
+}
+
 export function TableFilterDatePanel({
   value,
   onChange,
@@ -313,11 +357,83 @@ export function TableFilterDatePanel({
   value: DateRange | undefined;
   onChange: (range: DateRange | undefined) => void;
 }) {
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const fromStr = value?.from ? toYmd(value.from) : "";
+  const toStr = value?.to ? toYmd(value.to) : "";
+
+  const handleFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fromDate = parseYmd(e.target.value);
+    onChange({ from: fromDate, to: value?.to });
+  };
+
+  const handleToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const toDate = parseYmd(e.target.value);
+    onChange({ from: value?.from, to: toDate });
+  };
+
   return (
-    <>
+    <div className="w-[280px] sm:w-[310px] p-1">
       <TableFilterPanelTitle />
-      <TableFilterCalendar value={value} onChange={onChange} />
-    </>
+
+      {/* Quick Presets */}
+      <div className="mt-2.5 flex flex-wrap gap-1.5 border-b border-zinc-100 pb-3">
+        {(["today", "yesterday", "7days", "30days", "thisMonth"] as const).map((p) => {
+          const labels = {
+            today: "Today",
+            yesterday: "Yesterday",
+            "7days": "Last 7 Days",
+            "30days": "Last 30 Days",
+            thisMonth: "This Month",
+          };
+          return (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onChange(getPresetRange(p))}
+              className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-100 hover:border-zinc-300 transition-colors"
+            >
+              {labels[p]}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Direct Date Inputs */}
+      <div className="mt-3 flex items-center gap-2">
+        <div className="flex-1">
+          <label className="mb-1 block text-[10px] font-medium uppercase text-zinc-400">From</label>
+          <input
+            type="date"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-primary-text outline-none focus:border-zinc-400"
+            value={fromStr}
+            onChange={handleFromChange}
+          />
+        </div>
+        <div className="flex-1">
+          <label className="mb-1 block text-[10px] font-medium uppercase text-zinc-400">To</label>
+          <input
+            type="date"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-primary-text outline-none focus:border-zinc-400"
+            value={toStr}
+            onChange={handleToChange}
+          />
+        </div>
+      </div>
+
+      {/* Collapsible Calendar Picker */}
+      <div className="mt-3 border-t border-zinc-100 pt-2">
+        <button
+          type="button"
+          onClick={() => setShowCalendar((s) => !s)}
+          className="flex w-full items-center justify-between py-1 text-xs font-medium text-zinc-500 hover:text-primary-text"
+        >
+          <span>{showCalendar ? "Hide Calendar Picker" : "Show Calendar Picker"}</span>
+          <ChevronDown size={14} className={`transition-transform ${showCalendar ? "rotate-180" : ""}`} />
+        </button>
+        {showCalendar ? <TableFilterCalendar value={value} onChange={onChange} /> : null}
+      </div>
+    </div>
   );
 }
 

@@ -20,6 +20,7 @@ import {
   postGiftcardSubmissionAdjust,
   postGiftcardSubmissionDecline,
   postGiftcardSubmissionECode,
+  postGiftcardDeclineUploadUrl,
 } from "@/lib/admin-api/giftcard-submissions-api";
 import { getAdminTransactionDetail, getAdminTransactionLogs, postAdminTransactionReverse } from "@/lib/admin-api/transactions-api";
 import { isLikelySuperAdminFromToken } from "@/lib/auth/jwt";
@@ -330,13 +331,13 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
     }
   };
 
-  const handleRejectSubmit = async (reason: string) => {
+  const handleRejectSubmit = async (reason: string, proofImageUrl?: string) => {
     const submissionId = requireGiftcardSubmissionId();
     if (!submissionId) return;
     setActionError(null);
     setActionLoading(true);
     try {
-      await postGiftcardSubmissionDecline(submissionId, { reason });
+      await postGiftcardSubmissionDecline(submissionId, { reason, proofImageUrl, imageUrl: proofImageUrl });
       setShowRejectModal(false);
       await loadDetail();
       setShowSuccessModal(true);
@@ -381,6 +382,7 @@ export function TransactionDetailsView({ id }: TransactionDetailsViewProps) {
         throw new Error("Please enter a valid amount");
       }
       await postGiftcardSubmissionAdjust(submissionId, { faceValueCents });
+      await loadDetail();
       setShowAdjustModal(false);
       setSuccessMessage("Giftcard transaction has been successfully adjusted");
       setShowSuccessModal(true);
@@ -1634,12 +1636,14 @@ function RejectModal({
   error,
 }: {
   onClose: () => void;
-  onSubmit: (reason: string) => void;
+  onSubmit: (reason: string, proofImageUrl?: string) => void;
   loading?: boolean;
   error?: string | null;
 }) {
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
+  const [proofImageUrl, setProofImageUrl] = useState<string>("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const buildReason = () => {
@@ -1648,6 +1652,28 @@ function RejectModal({
     if (!base) return "";
     if (extra) return `${base} — ${extra}`;
     return base;
+  };
+
+  const handleFileChange = async (file: File | null) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const res = await postGiftcardDeclineUploadUrl({ filename: file.name, contentType: file.type });
+      if (res.uploadUrl && !res.uploadUrl.includes("example.com")) {
+        await fetch(res.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "image/jpeg" },
+          body: file,
+        });
+      }
+      const finalUrl = res.imageUrl || res.url || URL.createObjectURL(file);
+      setProofImageUrl(finalUrl);
+    } catch (e) {
+      console.error("Failed to upload proof image:", e);
+      setProofImageUrl(URL.createObjectURL(file));
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   return (
@@ -1677,7 +1703,7 @@ function RejectModal({
             e.preventDefault();
             const payload = buildReason();
             if (!payload) return;
-            void onSubmit(payload);
+            void onSubmit(payload, proofImageUrl || undefined);
           }}
           className="space-y-5"
         >
@@ -1728,24 +1754,45 @@ function RejectModal({
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              className="sr-only"
-              tabIndex={-1}
-              aria-hidden
-              disabled
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                void handleFileChange(f);
+              }}
             />
-            <div
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-6 text-sm text-zinc-400"
-              aria-disabled
-            >
-              <DocumentUpload size={24} variant="Outline" color="currentColor" />
-              <span className="font-medium">Upload Image</span>
-              <span className="text-center text-xs">Not supported yet — decline sends reason only.</span>
-            </div>
+            {proofImageUrl ? (
+              <div className="relative rounded-xl border border-zinc-200 bg-zinc-50 p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <DocumentUpload size={20} variant="Outline" className="shrink-0 text-primary-green" />
+                  <span className="truncate text-xs font-medium text-primary-text">Proof Image Attached</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProofImageUrl("")}
+                  className="text-xs font-semibold text-red-500 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage}
+                className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-5 text-sm text-zinc-500 hover:bg-zinc-100 transition-colors"
+              >
+                <DocumentUpload size={24} variant="Outline" color="currentColor" />
+                <span className="font-medium text-xs">
+                  {uploadingImage ? "Uploading Proof Image..." : "Upload Proof Image"}
+                </span>
+                <span className="text-center text-[11px] text-zinc-400">Attach decline proof image</span>
+              </button>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={loading || !reason.trim()}
+            disabled={loading || uploadingImage || !reason.trim()}
             className="w-full rounded-full bg-primary-green py-3.5 text-sm font-semibold text-primary-text transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading ? "Rejecting…" : "Reject"}

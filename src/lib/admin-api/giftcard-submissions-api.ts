@@ -2,6 +2,7 @@ import { adminRequest } from "@/lib/admin-api/client";
 import {
   giftcardMocksEnabled,
   isGiftcardMockSubmissionId,
+  mockGiftcardAdjust,
   mockGiftcardApprove,
   mockGiftcardDecline,
   mockGiftcardECode,
@@ -54,6 +55,35 @@ export async function postGiftcardSubmissionApprove(submissionId: string): Promi
   });
 }
 
+export type GiftcardDeclineUploadUrlResponse = {
+  uploadUrl?: string;
+  url?: string;
+  imageKey?: string;
+  imageUrl?: string;
+};
+
+/** `POST /admin/transactions/gift-cards/submissions/decline/upload-url` — Presigned URL for rejection proof */
+export async function postGiftcardDeclineUploadUrl(body?: {
+  filename?: string;
+  contentType?: string;
+}): Promise<GiftcardDeclineUploadUrlResponse> {
+  if (giftcardMocksEnabled()) {
+    return {
+      uploadUrl: "https://example.com/mock-upload",
+      imageUrl: "https://images.unsplash.com/photo-1574634534894-89d7576c8259?auto=format&fit=crop&q=80&w=600",
+    };
+  }
+  return adminRequest<GiftcardDeclineUploadUrlResponse>(
+    "/admin/transactions/gift-cards/submissions/decline/upload-url",
+    {
+      method: "POST",
+      auth: true,
+      body: body ? JSON.stringify(body) : undefined,
+    },
+  );
+}
+
+/** `POST /admin/transactions/gift-cards/submissions/{id}/decline` — Reject giftcard submission */
 export async function postGiftcardSubmissionDecline(
   submissionId: string,
   body: AdminGiftcardDeclineBody,
@@ -66,10 +96,16 @@ export async function postGiftcardSubmissionDecline(
     mockGiftcardDecline(submissionId, reason);
     return;
   }
-  await adminRequest<unknown>(submissionPath(submissionId, "decline"), {
+  const enc = encodeURIComponent(submissionId.trim());
+  await adminRequest<unknown>(`/admin/transactions/gift-cards/submissions/${enc}/decline`, {
     method: "POST",
     auth: true,
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({
+      reason,
+      proofImageUrl: body.proofImageUrl || body.imageUrl,
+      imageUrl: body.imageUrl || body.proofImageUrl,
+      imageKey: body.imageKey,
+    }),
   });
 }
 
@@ -110,6 +146,10 @@ export async function postGiftcardSubmissionAdjust(
   body: AdminGiftcardAdjustBody,
 ): Promise<unknown> {
   const enc = encodeURIComponent(submissionId.trim());
+  if (giftcardMocksEnabled() && isGiftcardMockSubmissionId(submissionId)) {
+    mockGiftcardAdjust(submissionId, body.faceValueCents);
+    return { success: true };
+  }
   return adminRequest<unknown>(`/admin/transactions/gift-cards/submissions/${enc}/adjust`, {
     method: "POST",
     auth: true,

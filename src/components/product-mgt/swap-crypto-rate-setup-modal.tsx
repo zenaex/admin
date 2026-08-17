@@ -145,9 +145,22 @@ export function SwapCryptoRateSetupModal({
               className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
               value={markupRateInputValue(form.markupType, form.quoteToBaseRate)}
               onChange={(e) => setForm((f) => ({ ...f, quoteToBaseRate: e.target.value }))}
-              placeholder={form.markupType === "Percentage" ? "e.g. 20%" : "e.g. 50"}
+              placeholder={form.markupType === "Percentage" || form.markupType === "% capped @" ? "e.g. 20%" : "e.g. 50"}
             />
           </div>
+
+          {form.markupType === "% capped @" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-primary-text">Markup Cap (₦)</label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
+                value={form.markupCap ?? "50"}
+                onChange={(e) => setForm((f) => ({ ...f, markupCap: e.target.value }))}
+                placeholder="e.g. 50"
+              />
+            </div>
+          )}
 
           <button
             type="submit"

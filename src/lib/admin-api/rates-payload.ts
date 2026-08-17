@@ -46,15 +46,12 @@ export function buildMarkupConfigurePayload(
   return payload;
 }
 
-/** Path/query slug for sell-crypto (e.g. `bitcoin`). */
+/** Path/query slug for sell-crypto (e.g. `usdt`, `btc`, `eth`). */
 export function resolveCryptoSlug(codeOrSlug: string, altSlug?: string): string {
   const alt = altSlug?.trim();
   if (alt) return alt.toLowerCase();
   const raw = codeOrSlug.trim();
-  if (!raw) return raw;
-  const upper = raw.toUpperCase();
-  if (CRYPTO_TICKER_TO_SLUG[upper]) return CRYPTO_TICKER_TO_SLUG[upper];
-  if (raw.includes("-") || raw.length > 6) return raw.toLowerCase();
+  if (!raw) return "";
   return raw.toLowerCase();
 }
 

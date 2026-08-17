@@ -177,7 +177,11 @@ export function GiftcardRateSetupModal({ brand, brands, onClose, onSubmit }: Gif
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-primary-text">Commission Rate</label>
+            <label className="mb-1.5 block text-sm font-medium text-primary-text">
+              {form.commissionType === "Percentage" || form.commissionType === "% capped @"
+                ? "Commission Rate (%)"
+                : "Commission Rate"}
+            </label>
             <input
               type="text"
               className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
@@ -186,9 +190,25 @@ export function GiftcardRateSetupModal({ brand, brands, onClose, onSubmit }: Gif
                 const cleaned = e.target.value.replace(/[^0-9.]/g, "");
                 setForm((f) => ({ ...f, commissionRate: cleaned }));
               }}
-              placeholder={form.commissionType === "Percentage" ? "e.g. 20%" : "e.g. 100"}
+              placeholder={form.commissionType === "Percentage" || form.commissionType === "% capped @" ? "e.g. 20%" : "e.g. 100"}
             />
           </div>
+
+          {form.commissionType === "% capped @" && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-primary-text">Commission Cap (₦)</label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
+                value={(form as unknown as { commissionCap?: string }).commissionCap ?? "50"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm((f) => ({ ...f, commissionCap: val } as typeof f));
+                }}
+                placeholder="e.g. 50"
+              />
+            </div>
+          )}
 
           {/* Vendor's Rate Section */}
           <div className="pt-2">

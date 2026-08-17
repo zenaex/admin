@@ -383,6 +383,9 @@ export type AdminTransactionListResult = {
 /** Body for `POST /admin/transactions/gift-cards/submissions/{id}/decline`. */
 export type AdminGiftcardDeclineBody = {
   reason: string;
+  proofImageUrl?: string;
+  imageUrl?: string;
+  imageKey?: string;
 };
 
 /** Body for `POST /admin/transactions/gift-cards/submissions/{id}/adjust`. */
