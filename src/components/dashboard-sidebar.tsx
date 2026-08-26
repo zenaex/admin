@@ -17,6 +17,7 @@ import {
   LogoutCurve,
   MoneySend,
   User,
+  Headphone,
 } from "iconsax-react";
 
 import { ConfirmModal } from "@/components/provider/provider-modals";
@@ -370,6 +371,19 @@ export function DashboardSidebar({ collapsed = false }: DashboardSidebarProps) {
               />
             }
             active={isActive("/dashboard/communication")}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            href="/dashboard/support"
+            label="Support Desk"
+            icon={
+              <Headphone
+                size="24"
+                color="currentColor"
+                variant={isActive("/dashboard/support") ? "Bold" : "Outline"}
+              />
+            }
+            active={isActive("/dashboard/support")}
             collapsed={collapsed}
           />
           <SidebarItem

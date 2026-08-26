@@ -466,6 +466,39 @@ function pickTransactionChannel(o: Record<string, unknown>): string {
     return "Giftcard";
   }
 
+  const categorySlug = pickString(o, ["categorySlug", "category_slug", "category"]).toLowerCase();
+  const productSlug = pickString(o, ["productSlug", "product_slug", "product"]).toLowerCase();
+
+  const isCryptoObject =
+    categorySlug.includes("crypto") ||
+    categorySlug.includes("swap") ||
+    productSlug.includes("crypto") ||
+    Boolean(
+      o.cryptoCurrency ||
+        o.crypto_currency ||
+        o.coin ||
+        o.asset ||
+        o.txHash ||
+        o.tx_hash ||
+        o.hash ||
+        o.transactionHash ||
+        o.walletAddress ||
+        o.wallet_address ||
+        o.cryptoAmount ||
+        o.crypto_amount ||
+        o.cryptoType ||
+        o.crypto_type ||
+        o.swapPair ||
+        o.swap_pair ||
+        o.fromAsset ||
+        o.toAsset ||
+        o.fromCurrency ||
+        o.toCurrency ||
+        o.network ||
+        o.chain ||
+        o.blockchain
+    );
+
   const raw = pickString(o, [
     "channel",
     "productChannel",
@@ -479,23 +512,64 @@ function pickTransactionChannel(o: Record<string, unknown>): string {
     "categorySlug",
     "category_slug",
     "type",
+    "subType",
+    "subtype",
+    "action",
   ]);
+
+  const clean = raw.trim();
+  const lower = clean.toLowerCase();
+
+  if (isCryptoObject || lower.includes("crypto") || lower.includes("swap")) {
+    if (lower.includes("swap") || String(o.cryptoType || o.type || "").toLowerCase().includes("swap")) {
+      return "Crypto Swap";
+    }
+    if (lower.includes("sell") || String(o.cryptoType || o.type || "").toLowerCase().includes("sell")) {
+      return "Crypto Sell";
+    }
+    if (lower.includes("buy") || String(o.cryptoType || o.type || "").toLowerCase().includes("buy")) {
+      return "Crypto Buy";
+    }
+    return "Crypto";
+  }
 
   if (!raw) return "—";
 
-  const clean = raw.trim();
   if (/^\d+-\d+$/.test(clean) || /^\d+\s*-\s*\d+$/.test(clean)) {
     return "Giftcard";
   }
 
-  if (clean.toLowerCase() === "credit") {
+  if (lower === "esim" || lower === "e-sim" || categorySlug === "esim") return "E-sim";
+  if (
+    lower === "etrade" ||
+    lower === "e-trade" ||
+    categorySlug === "e-trade" ||
+    categorySlug === "etrade" ||
+    Boolean(o.etrade || o.eTrade || o.tradeId)
+  ) {
     return "E-trade";
   }
+  if (lower === "giftcard" || lower === "gift-card" || categorySlug === "gift-card") return "Giftcard";
 
-  const lower = clean.toLowerCase();
-  if (lower === "esim" || lower === "e-sim") return "E-sim";
-  if (lower === "etrade" || lower === "e-trade") return "E-trade";
-  if (lower === "giftcard" || lower === "gift-card") return "Giftcard";
+  if (
+    lower === "deposit" ||
+    lower === "wallet_deposit" ||
+    lower === "fiat_deposit" ||
+    lower === "credit" ||
+    categorySlug === "deposit" ||
+    categorySlug === "wallet"
+  ) {
+    return "Deposit";
+  }
+
+  if (
+    lower === "withdrawal" ||
+    lower === "wallet_withdrawal" ||
+    lower === "debit" ||
+    categorySlug === "withdrawal"
+  ) {
+    return "Withdrawal";
+  }
 
   return humanizeLabel(clean);
 }
@@ -1418,8 +1492,119 @@ export function filterRowsByChannelTab(
   const needle = tab.toLowerCase().replace(/[^a-z0-9]/g, "");
   return items.filter((row) => {
     const ch = row.channel.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (tab === "E-sim") return ch.includes("esim") || ch.includes("sim");
-    if (tab === "E-trade") return ch.includes("etrade") || ch.includes("trade");
+    const raw = row.raw || {};
+    const catSlug = String(raw.categorySlug || raw.category_slug || raw.category || "").toLowerCase();
+    const prodSlug = String(raw.productSlug || raw.product_slug || raw.product || "").toLowerCase();
+    const typeStr = String(raw.type || raw.transactionType || raw.transaction_type || "").toLowerCase();
+
+    if (tab === "Crypto") {
+      return (
+        ch.includes("crypto") ||
+        ch.includes("swap") ||
+        ch.includes("coin") ||
+        ch.includes("exchange") ||
+        ch.includes("otc") ||
+        catSlug.includes("crypto") ||
+        catSlug.includes("swap") ||
+        prodSlug.includes("crypto") ||
+        prodSlug.includes("swap") ||
+        typeStr.includes("crypto") ||
+        typeStr.includes("swap") ||
+        typeStr.includes("sell") ||
+        typeStr.includes("buy") ||
+        Boolean(
+          raw.cryptoCurrency ||
+            raw.crypto_currency ||
+            raw.coin ||
+            raw.asset ||
+            raw.txHash ||
+            raw.tx_hash ||
+            raw.hash ||
+            raw.transactionHash ||
+            raw.walletAddress ||
+            raw.wallet_address ||
+            raw.cryptoAmount ||
+            raw.crypto_amount ||
+            raw.cryptoType ||
+            raw.crypto_type ||
+            raw.swapPair ||
+            raw.swap_pair ||
+            raw.fromAsset ||
+            raw.toAsset ||
+            raw.fromCurrency ||
+            raw.toCurrency ||
+            raw.network ||
+            raw.chain ||
+            raw.blockchain
+        )
+      );
+    }
+
+    if (tab === "Deposit") {
+      return (
+        ch.includes("deposit") ||
+        ch.includes("wallet") ||
+        ch.includes("bank") ||
+        ch.includes("transfer") ||
+        ch.includes("fiat") ||
+        ch.includes("virtual") ||
+        ch.includes("monnify") ||
+        ch.includes("paystack") ||
+        ch.includes("flutterwave") ||
+        ch.includes("funding") ||
+        ch.includes("credit") ||
+        ch.includes("topup") ||
+        catSlug.includes("deposit") ||
+        catSlug.includes("wallet") ||
+        prodSlug.includes("deposit") ||
+        typeStr.includes("deposit") ||
+        typeStr === "credit"
+      );
+    }
+
+    if (tab === "Withdrawal") {
+      return (
+        ch.includes("withdrawal") ||
+        ch.includes("withdraw") ||
+        ch.includes("debit") ||
+        catSlug.includes("withdrawal") ||
+        catSlug.includes("withdraw") ||
+        typeStr.includes("withdraw") ||
+        typeStr === "debit"
+      );
+    }
+
+    if (tab === "Giftcard") {
+      return (
+        ch.includes("giftcard") ||
+        ch.includes("gift-card") ||
+        ch.includes("gift") ||
+        catSlug.includes("gift") ||
+        Boolean(raw.giftCardSubmission || raw.giftcardImageUrl || raw.giftcardProvider)
+      );
+    }
+
+    if (tab === "Utility") {
+      return (
+        ch.includes("utility") ||
+        ch.includes("electric") ||
+        ch.includes("airtime") ||
+        ch.includes("data") ||
+        ch.includes("tv") ||
+        ch.includes("cable") ||
+        ch.includes("betting") ||
+        catSlug.includes("utility")
+      );
+    }
+
+    if (tab === "E-sim") {
+      return ch.includes("esim") || ch.includes("sim") || catSlug.includes("esim");
+    }
+
+    if (tab === "E-trade") {
+      return ch.includes("etrade") || ch.includes("trade") || catSlug.includes("e-trade");
+    }
+
     return ch.includes(needle);
   });
 }
