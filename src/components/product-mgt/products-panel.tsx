@@ -71,14 +71,21 @@ function filterProvidersForProduct(
   productCategory: string | undefined,
   list: ProductProviderOption[],
 ): ProductProviderOption[] {
-  const EXCLUDED = new Set(["threshold", "manual", "system", "none", "—"]);
   const cat = (productCategory ?? "").toLowerCase();
 
   return list.filter((p) => {
     const nameLower = p.name.trim().toLowerCase();
     const slugLower = p.slug.trim().toLowerCase();
 
-    if (EXCLUDED.has(nameLower) || EXCLUDED.has(slugLower)) {
+    if (
+      nameLower.includes("threshold") ||
+      slugLower.includes("threshold") ||
+      nameLower === "manual" ||
+      nameLower === "system" ||
+      nameLower === "none" ||
+      nameLower === "—" ||
+      nameLower === "-"
+    ) {
       return false;
     }
 
@@ -144,32 +151,13 @@ function ProviderDropdown({
     if (open && options.length === 0) {
       setLoading(true);
       getAdminProductProviders(productSlug)
-        .then(async (list) => {
+        .then((list) => {
           const filteredList = filterProvidersForProduct(productCategory, list);
-          if (filteredList.length > 0) {
-            setOptions(filteredList);
-          } else {
-            const res = await getAdminProvidersList({ pageSize: 100 });
-            const live = res.items.map((p) => ({
-              id: p.id,
-              slug: p.id,
-              name: p.name,
-            }));
-            setOptions(filterProvidersForProduct(productCategory, live));
-          }
+          setOptions(filteredList);
         })
-        .catch(async () => {
-          try {
-            const res = await getAdminProvidersList({ pageSize: 100 });
-            const live = res.items.map((p) => ({
-              id: p.id,
-              slug: p.id,
-              name: p.name,
-            }));
-            setOptions(filterProvidersForProduct(productCategory, live));
-          } catch (e) {
-            console.error("Failed to load live providers:", e);
-          }
+        .catch((e) => {
+          console.error(`Failed to load providers for product ${productSlug}:`, e);
+          setOptions([]);
         })
         .finally(() => setLoading(false));
     }

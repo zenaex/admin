@@ -468,37 +468,7 @@ function pickTransactionChannel(o: Record<string, unknown>): string {
 
   const categorySlug = pickString(o, ["categorySlug", "category_slug", "category"]).toLowerCase();
   const productSlug = pickString(o, ["productSlug", "product_slug", "product"]).toLowerCase();
-
-  const isCryptoObject =
-    categorySlug.includes("crypto") ||
-    categorySlug.includes("swap") ||
-    productSlug.includes("crypto") ||
-    Boolean(
-      o.cryptoCurrency ||
-        o.crypto_currency ||
-        o.coin ||
-        o.asset ||
-        o.txHash ||
-        o.tx_hash ||
-        o.hash ||
-        o.transactionHash ||
-        o.walletAddress ||
-        o.wallet_address ||
-        o.cryptoAmount ||
-        o.crypto_amount ||
-        o.cryptoType ||
-        o.crypto_type ||
-        o.swapPair ||
-        o.swap_pair ||
-        o.fromAsset ||
-        o.toAsset ||
-        o.fromCurrency ||
-        o.toCurrency ||
-        o.network ||
-        o.chain ||
-        o.blockchain
-    );
-
+  const displayCategory = pickString(o, ["displayCategory", "display_category"]).toLowerCase();
   const raw = pickString(o, [
     "channel",
     "productChannel",
@@ -520,14 +490,141 @@ function pickTransactionChannel(o: Record<string, unknown>): string {
   const clean = raw.trim();
   const lower = clean.toLowerCase();
 
+  // 1. Utility / VAS check (Airtime, Data, Electricity, TV, Cable, Betting)
+  const meta = asRecord(o.metadata) ?? asRecord(o.meta);
+  const isUtility =
+    categorySlug === "utility" ||
+    displayCategory === "airtime" ||
+    displayCategory === "data" ||
+    displayCategory === "electricity" ||
+    displayCategory === "tv" ||
+    displayCategory === "cable" ||
+    displayCategory === "betting" ||
+    productSlug.includes("vtu") ||
+    productSlug.includes("airtime") ||
+    productSlug.includes("data") ||
+    productSlug.includes("electric") ||
+    productSlug.includes("dstv") ||
+    productSlug.includes("gotv") ||
+    productSlug.includes("startimes") ||
+    productSlug.includes("betting") ||
+    lower.includes("utility") ||
+    lower.includes("airtime") ||
+    lower.includes("data") ||
+    lower.includes("electricity") ||
+    lower.includes("betting") ||
+    Boolean(o.phoneNumber || o.phone || (meta && (meta.phoneNumber || meta.phone)));
+
+  if (isUtility) {
+    return "Utility";
+  }
+
+  // 2. Giftcard Check
+  if (lower === "giftcard" || lower === "gift-card" || categorySlug === "gift-card" || categorySlug === "giftcard") {
+    return "Giftcard";
+  }
+
+  // 3. E-sim Check
+  if (lower === "esim" || lower === "e-sim" || categorySlug === "esim") {
+    return "E-sim";
+  }
+
+  // 4. E-trade Check
+  if (
+    lower === "etrade" ||
+    lower === "e-trade" ||
+    categorySlug === "e-trade" ||
+    categorySlug === "etrade" ||
+    Boolean(o.etrade || o.eTrade || o.tradeId)
+  ) {
+    return "E-trade";
+  }
+
+  // 5. Crypto Check (ensure telecom networks like airtel/mtn are not mistaken for crypto chains)
+  const details = asRecord(o.details) ?? asRecord(o.transactionDetails) ?? asRecord(o.transaction_details);
+  const networkVal = String(o.network || (meta && meta.network) || (details && details.network) || "").toLowerCase();
+  const isTelecomNetwork = ["airtel", "mtn", "glo", "9mobile"].some((net) => networkVal.includes(net));
+
+  const cryptoTypeVal = String(
+    o.cryptoType ||
+      o.crypto_type ||
+      o.subType ||
+      o.subtype ||
+      (meta && (meta.cryptoType || meta.crypto_type || meta.subType || meta.subtype)) ||
+      (details && (details.cryptoType || details.crypto_type || details.subType || details.subtype)) ||
+      ""
+  ).toLowerCase();
+
+  const isCryptoObject =
+    !isTelecomNetwork &&
+    (categorySlug.includes("crypto") ||
+      categorySlug.includes("swap") ||
+      productSlug.includes("crypto") ||
+      productSlug.includes("swap") ||
+      cryptoTypeVal.includes("sell") ||
+      cryptoTypeVal.includes("buy") ||
+      cryptoTypeVal.includes("swap") ||
+      lower.includes("crypto_sell") ||
+      lower.includes("sell_crypto") ||
+      lower.includes("sell_deposit") ||
+      Boolean(
+        o.cryptoCurrency ||
+          o.crypto_currency ||
+          o.coin ||
+          o.asset ||
+          o.txHash ||
+          o.tx_hash ||
+          o.cryptoAmount ||
+          o.crypto_amount ||
+          o.cryptoType ||
+          o.crypto_type ||
+          o.swapPair ||
+          o.swap_pair ||
+          o.fromAsset ||
+          o.toAsset ||
+          o.fromCurrency ||
+          o.toCurrency ||
+          (meta &&
+            (meta.cryptoCurrency ||
+              meta.crypto_currency ||
+              meta.coin ||
+              meta.asset ||
+              meta.txHash ||
+              meta.cryptoAmount ||
+              meta.cryptoType ||
+              meta.crypto_type ||
+              meta.swapPair ||
+              meta.fromAsset ||
+              meta.toAsset)) ||
+          (details &&
+            (details.cryptoCurrency ||
+              details.crypto_currency ||
+              details.coin ||
+              details.asset ||
+              details.txHash ||
+              details.cryptoAmount ||
+              details.cryptoType ||
+              details.crypto_type ||
+              details.swapPair ||
+              details.fromAsset ||
+              details.toAsset)) ||
+          (networkVal && ["erc20", "trc20", "bep20", "polygon", "solana", "bitcoin", "ethereum"].some((c) => networkVal.includes(c)))
+      ));
+
   if (isCryptoObject || lower.includes("crypto") || lower.includes("swap")) {
-    if (lower.includes("swap") || String(o.cryptoType || o.type || "").toLowerCase().includes("swap")) {
+    if (lower.includes("swap") || cryptoTypeVal.includes("swap") || String(o.type || "").toLowerCase().includes("swap")) {
       return "Crypto Swap";
     }
-    if (lower.includes("sell") || String(o.cryptoType || o.type || "").toLowerCase().includes("sell")) {
+    if (
+      lower.includes("sell") ||
+      cryptoTypeVal.includes("sell") ||
+      String(o.type || "").toLowerCase().includes("sell") ||
+      productSlug.includes("sell") ||
+      categorySlug.includes("sell")
+    ) {
       return "Crypto Sell";
     }
-    if (lower.includes("buy") || String(o.cryptoType || o.type || "").toLowerCase().includes("buy")) {
+    if (lower.includes("buy") || cryptoTypeVal.includes("buy") || String(o.type || "").toLowerCase().includes("buy")) {
       return "Crypto Buy";
     }
     return "Crypto";
@@ -538,18 +635,6 @@ function pickTransactionChannel(o: Record<string, unknown>): string {
   if (/^\d+-\d+$/.test(clean) || /^\d+\s*-\s*\d+$/.test(clean)) {
     return "Giftcard";
   }
-
-  if (lower === "esim" || lower === "e-sim" || categorySlug === "esim") return "E-sim";
-  if (
-    lower === "etrade" ||
-    lower === "e-trade" ||
-    categorySlug === "e-trade" ||
-    categorySlug === "etrade" ||
-    Boolean(o.etrade || o.eTrade || o.tradeId)
-  ) {
-    return "E-trade";
-  }
-  if (lower === "giftcard" || lower === "gift-card" || categorySlug === "gift-card") return "Giftcard";
 
   if (
     lower === "deposit" ||
@@ -647,13 +732,37 @@ function pickTransactionProduct(o: Record<string, unknown>, channelLabel: string
     return "Exchange Rate";
   }
 
+  if (channelLabel.toLowerCase().includes("crypto") || String(o.categorySlug || "").toLowerCase() === "crypto") {
+    const from = pickString(o, ["fromCurrency", "from_currency", "fromAsset", "from_asset"]);
+    const to = pickString(o, ["toCurrency", "to_currency", "toAsset", "to_asset"]);
+    if (from && to) {
+      return `${from.toUpperCase()} / ${to.toUpperCase()}`;
+    }
+    const cryptoCoin = pickString(o, [
+      "toCurrency",
+      "fromCurrency",
+      "currency",
+      "cryptoCurrency",
+      "crypto_currency",
+      "coin",
+      "asset",
+      "swapPair",
+      "swap_pair",
+      "pair",
+      "token",
+    ]);
+    if (cryptoCoin && cryptoCoin.toUpperCase() !== "NGN") return cryptoCoin.toUpperCase();
+  }
+
   const productSlug = pickString(o, ["productSlug", "product_slug"]);
   const slugKey = productSlug.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (
     slugKey === "withdrawal" ||
     slugKey === "withdraw" ||
     slugKey === "deposit" ||
-    slugKey === "wallet"
+    slugKey === "wallet" ||
+    slugKey === "cryptoswap" ||
+    slugKey === "crypto"
   ) {
     return "—";
   }
@@ -1251,10 +1360,22 @@ export function normalizeTransactionRow(raw: unknown, index = 0): AdminTransacti
     `tx-${index}`;
 
   const amountKobo =
-    pickKobo(o, ["amount", "value", "totalAmount", "transactionAmount", "amountPaid", "paidAmount"]) ??
+    pickKobo(o, [
+      "netNgnKobo",
+      "net_ngn_kobo",
+      "grossNgnKobo",
+      "gross_ngn_kobo",
+      "amount",
+      "value",
+      "totalAmount",
+      "transactionAmount",
+      "amountPaid",
+      "paidAmount",
+    ]) ??
     (amountBlock ? pickKobo(amountBlock, ["value", "amount", "total", "paid"]) : undefined) ??
     pickKobo(o, ["amountCents", "amount_cents", "amountInCents", "amount_in_cents", "amountKobo", "amount_kobo"]);
   const currency =
+    (o.netNgnKobo || o.grossNgnKobo ? "NGN" : "") ||
     pickString(o, ["currency", "asset", "currencyCode"]) ||
     (amountBlock ? pickString(amountBlock, ["currency", "code"]) : "") ||
     "";
@@ -1493,11 +1614,65 @@ export function filterRowsByChannelTab(
   return items.filter((row) => {
     const ch = row.channel.toLowerCase().replace(/[^a-z0-9]/g, "");
     const raw = row.raw || {};
+    const meta = asRecord(raw.metadata) ?? asRecord(raw.meta) ?? {};
+    const details = asRecord(raw.details) ?? asRecord(raw.transactionDetails) ?? asRecord(raw.transaction_details) ?? {};
     const catSlug = String(raw.categorySlug || raw.category_slug || raw.category || "").toLowerCase();
     const prodSlug = String(raw.productSlug || raw.product_slug || raw.product || "").toLowerCase();
     const typeStr = String(raw.type || raw.transactionType || raw.transaction_type || "").toLowerCase();
+    const subTypeStr = String(
+      raw.subType ||
+        raw.subtype ||
+        raw.cryptoType ||
+        raw.crypto_type ||
+        meta.cryptoType ||
+        meta.crypto_type ||
+        meta.subType ||
+        meta.subtype ||
+        details.cryptoType ||
+        details.crypto_type ||
+        ""
+    ).toLowerCase();
+    const narrStr = String(raw.narration || raw.description || raw.remark || raw.memo || "").toLowerCase();
+
+    const isCryptoSell =
+      ch.includes("cryptosell") ||
+      ch.includes("selldeposit") ||
+      subTypeStr.includes("sell") ||
+      subTypeStr.includes("crypto_sell") ||
+      subTypeStr.includes("sell_crypto") ||
+      subTypeStr.includes("sell_deposit") ||
+      typeStr.includes("crypto_sell") ||
+      typeStr.includes("sell_crypto") ||
+      typeStr.includes("sell_deposit") ||
+      prodSlug.includes("sell-crypto") ||
+      prodSlug.includes("crypto-sell") ||
+      narrStr.includes("crypto sell") ||
+      narrStr.includes("sell crypto") ||
+      narrStr.includes("sell deposit");
+
+    if (tab === "Utility") {
+      return (
+        ch.includes("utility") ||
+        ch.includes("electric") ||
+        ch.includes("airtime") ||
+        ch.includes("data") ||
+        ch.includes("tv") ||
+        ch.includes("cable") ||
+        ch.includes("betting") ||
+        catSlug === "utility" ||
+        prodSlug.includes("vtu") ||
+        prodSlug.includes("airtime") ||
+        prodSlug.includes("data")
+      );
+    }
 
     if (tab === "Crypto") {
+      if (ch === "utility" || catSlug === "utility" || catSlug === "gift-card" || catSlug === "esim" || catSlug === "e-trade") {
+        return false;
+      }
+      if (isCryptoSell) {
+        return true;
+      }
       return (
         ch.includes("crypto") ||
         ch.includes("swap") ||
@@ -1512,6 +1687,14 @@ export function filterRowsByChannelTab(
         typeStr.includes("swap") ||
         typeStr.includes("sell") ||
         typeStr.includes("buy") ||
+        subTypeStr.includes("crypto") ||
+        subTypeStr.includes("swap") ||
+        subTypeStr.includes("sell") ||
+        subTypeStr.includes("buy") ||
+        narrStr.includes("crypto") ||
+        narrStr.includes("usdt") ||
+        narrStr.includes("btc") ||
+        narrStr.includes("eth") ||
         Boolean(
           raw.cryptoCurrency ||
             raw.crypto_currency ||
@@ -1519,10 +1702,6 @@ export function filterRowsByChannelTab(
             raw.asset ||
             raw.txHash ||
             raw.tx_hash ||
-            raw.hash ||
-            raw.transactionHash ||
-            raw.walletAddress ||
-            raw.wallet_address ||
             raw.cryptoAmount ||
             raw.crypto_amount ||
             raw.cryptoType ||
@@ -1533,14 +1712,28 @@ export function filterRowsByChannelTab(
             raw.toAsset ||
             raw.fromCurrency ||
             raw.toCurrency ||
-            raw.network ||
-            raw.chain ||
-            raw.blockchain
+            meta.cryptoCurrency ||
+            meta.crypto_currency ||
+            meta.coin ||
+            meta.asset ||
+            meta.cryptoType ||
+            details.cryptoCurrency ||
+            details.coin ||
+            details.asset
         )
       );
     }
 
     if (tab === "Deposit") {
+      if (ch === "utility" || catSlug === "utility" || catSlug === "gift-card" || catSlug === "esim" || catSlug === "e-trade") {
+        return false;
+      }
+      if (isCryptoSell) {
+        return true;
+      }
+      if (catSlug.includes("crypto") || ch.includes("crypto") || typeStr.includes("crypto")) {
+        return false;
+      }
       return (
         ch.includes("deposit") ||
         ch.includes("wallet") ||
@@ -1581,19 +1774,6 @@ export function filterRowsByChannelTab(
         ch.includes("gift") ||
         catSlug.includes("gift") ||
         Boolean(raw.giftCardSubmission || raw.giftcardImageUrl || raw.giftcardProvider)
-      );
-    }
-
-    if (tab === "Utility") {
-      return (
-        ch.includes("utility") ||
-        ch.includes("electric") ||
-        ch.includes("airtime") ||
-        ch.includes("data") ||
-        ch.includes("tv") ||
-        ch.includes("cable") ||
-        ch.includes("betting") ||
-        catSlug.includes("utility")
       );
     }
 

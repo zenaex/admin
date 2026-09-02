@@ -194,7 +194,7 @@ export function GiftcardRateSetupModal({ brand, brands, onClose, onSubmit }: Gif
             />
           </div>
 
-          {form.commissionType === "% capped @" && (
+          {(form.commissionType === "% capped @" || form.commissionType.toLowerCase().includes("cap")) && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-primary-text">Commission Cap (₦)</label>
               <input

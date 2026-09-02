@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { User, Sms, Call, Verify, SecurityUser, UserEdit, Check } from "iconsax-react";
+import { Sms, Call, Verify, SecurityUser } from "iconsax-react";
 import type { SupportTicket } from "./types";
 import { Button } from "@/components/button";
 
@@ -54,19 +54,19 @@ export function SupportCustomerCard({
       <div className="space-y-2 text-xs">
         <div className="flex items-center justify-between text-zinc-500">
           <span className="flex items-center gap-1.5 text-zinc-400">
-            <Sms size="14" /> Email
+            <Sms size="14" variant="Outline" color="currentColor" /> Email
           </span>
           <span className="font-medium text-primary-text truncate max-w-[160px]">{customer.email}</span>
         </div>
         <div className="flex items-center justify-between text-zinc-500">
           <span className="flex items-center gap-1.5 text-zinc-400">
-            <Call size="14" /> Phone
+            <Call size="14" variant="Outline" color="currentColor" /> Phone
           </span>
           <span className="font-mono font-medium text-primary-text">{customer.phone}</span>
         </div>
         <div className="flex items-center justify-between text-zinc-500">
           <span className="flex items-center gap-1.5 text-zinc-400">
-            <Verify size="14" /> Joined
+            <Verify size="14" variant="Outline" color="currentColor" /> Joined
           </span>
           <span className="font-medium text-primary-text">{customer.registeredDate}</span>
         </div>
@@ -116,7 +116,7 @@ export function SupportCustomerCard({
         <div>
           <label className="text-[10px] font-medium text-zinc-500 block mb-1">Assigned Agent</label>
           <div className="flex items-center gap-1.5 h-8 rounded-md border border-zinc-200/80 bg-zinc-50/60 px-2.5 text-xs text-primary-text">
-            <SecurityUser size="14" className="text-secondary-green" />
+            <SecurityUser size="14" variant="Outline" color="currentColor" className="text-secondary-green" />
             <span>{ticket.assignedAgent?.name || "Unassigned"}</span>
           </div>
         </div>

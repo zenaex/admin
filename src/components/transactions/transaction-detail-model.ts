@@ -109,6 +109,7 @@ export type TransactionDetailModel = {
   plan: string;
   cashback: string;
   walletAddress: string;
+  depositWalletAddress: string;
   network: string;
   networkFee: string;
   meterNumber: string;
@@ -205,6 +206,7 @@ export const EMPTY_TRANSACTION_DETAIL_MODEL: TransactionDetailModel = {
   plan: "",
   cashback: "",
   walletAddress: "",
+  depositWalletAddress: "",
   network: "",
   networkFee: "",
   meterNumber: "",

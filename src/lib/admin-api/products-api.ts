@@ -465,18 +465,20 @@ export async function getAdminProductProviders(productSlug: string): Promise<Pro
   try {
     const body = await adminRequest<unknown>(`/admin/products/${encodeURIComponent(productSlug)}/providers`, { method: "GET" });
     const itemsRaw = extractItemsArray(body);
-    return itemsRaw.map((item) => {
-      if (typeof item === "string") {
-        return { id: item, slug: item, name: item };
-      }
-      const o = asRecord(item);
-      if (o) {
-        const slug = pickString(o, ["slug", "providerSlug", "provider_slug", "id"]) || pickString(o, ["name", "providerName", "provider_name"]);
-        const name = pickString(o, ["name", "providerName", "provider_name", "displayName"]) || slug;
-        return { id: slug || name, slug: slug || name, name: name || slug };
-      }
-      return null;
-    }).filter((x): x is ProductProviderOption => x !== null && Boolean(x.slug || x.name));
+    return itemsRaw
+      .map((item) => {
+        if (typeof item === "string") {
+          return { id: item, slug: item, name: item };
+        }
+        const o = asRecord(item);
+        if (o) {
+          const slug = pickString(o, ["slug", "providerSlug", "provider_slug", "id"]) || pickString(o, ["name", "providerName", "provider_name"]);
+          const name = pickString(o, ["name", "providerName", "provider_name", "displayName"]) || slug;
+          return { id: slug || name, slug: slug || name, name: name || slug };
+        }
+        return null;
+      })
+      .filter((x): x is ProductProviderOption => x !== null && Boolean(x.slug || x.name));
   } catch (e) {
     console.error(`Failed to fetch providers for product ${productSlug}:`, e);
     return [];
