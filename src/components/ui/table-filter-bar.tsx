@@ -9,11 +9,17 @@ import {
   type RefObject,
 } from "react";
 import { X, ChevronDown } from "lucide-react";
-import { DayPicker, type DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { ArrowLeft2, ArrowRight2 } from "iconsax-react";
-import "react-day-picker/dist/style.css";
 
-import { formatDateRangeLabel } from "@/lib/filters/date-range";
+import {
+  detectActivePreset,
+  formatDateRangeLabel,
+  getPresetRange,
+  parseYmd,
+  toYmd,
+  type DatePreset,
+} from "@/lib/filters/date-range";
 
 export { formatDateRangeLabel };
 
@@ -24,71 +30,134 @@ export function TableFilterCalendar({
   value: DateRange | undefined;
   onChange: (range: DateRange | undefined) => void;
 }) {
+  const [viewDate, setViewDate] = useState(() => value?.from ?? new Date());
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  const dayNames = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  const numDays = lastDayOfMonth.getDate();
+
+  let startOffset = firstDayOfMonth.getDay() - 1;
+  if (startOffset < 0) startOffset = 6;
+
+  const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+
+  const handleDayClick = (dayNum: number) => {
+    const clicked = new Date(year, month, dayNum);
+
+    if (!value?.from || (value.from && value.to)) {
+      onChange({ from: clicked, to: undefined });
+    } else if (value.from && !value.to) {
+      if (clicked < value.from) {
+        onChange({ from: clicked, to: undefined });
+      } else {
+        onChange({ from: value.from, to: clicked });
+      }
+    }
+  };
+
+  const isSelected = (dayNum: number) => {
+    if (!value?.from) return false;
+    const current = new Date(year, month, dayNum);
+    const fromYmd = toYmd(value.from);
+    const toYmdStr = toYmd(value.to ?? value.from);
+    const currYmd = toYmd(current);
+
+    return currYmd === fromYmd || currYmd === toYmdStr;
+  };
+
+  const isInRange = (dayNum: number) => {
+    if (!value?.from || !value?.to) return false;
+    const current = new Date(year, month, dayNum);
+    const fromTime = new Date(value.from.getFullYear(), value.from.getMonth(), value.from.getDate()).getTime();
+    const toTime = new Date(value.to.getFullYear(), value.to.getMonth(), value.to.getDate()).getTime();
+    const currTime = current.getTime();
+
+    return currTime > fromTime && currTime < toTime;
+  };
+
+  const isToday = (dayNum: number) => {
+    const today = new Date();
+    return (
+      today.getFullYear() === year &&
+      today.getMonth() === month &&
+      today.getDate() === dayNum
+    );
+  };
+
   return (
-    <div className="flex flex-col items-center">
-      <DayPicker
-        mode="range"
-        selected={value}
-        onSelect={onChange}
-        numberOfMonths={1}
-        components={{
-          PreviousMonthButton: (props) => (
+    <div className="w-full select-none rounded-xl bg-white p-1">
+      {/* Month Navigation */}
+      <div className="mb-2 flex items-center justify-between px-1">
+        <button
+          type="button"
+          onClick={prevMonth}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 transition-colors"
+          aria-label="Previous month"
+        >
+          <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
+        </button>
+        <span className="text-xs font-bold text-primary-text">
+          {monthNames[month]} {year}
+        </span>
+        <button
+          type="button"
+          onClick={nextMonth}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 transition-colors"
+          aria-label="Next month"
+        >
+          <ArrowRight2 size={14} variant="Outline" color="currentColor" />
+        </button>
+      </div>
+
+      {/* Weekday Headers */}
+      <div className="mb-1 grid grid-cols-7 text-center">
+        {dayNames.map((d) => (
+          <span key={d} className="py-1 text-[10px] font-semibold text-zinc-400">
+            {d}
+          </span>
+        ))}
+      </div>
+
+      {/* Days Grid */}
+      <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
+        {Array.from({ length: startOffset }).map((_, i) => (
+          <div key={`blank-${i}`} />
+        ))}
+        {Array.from({ length: numDays }, (_, i) => i + 1).map((dayNum) => {
+          const selected = isSelected(dayNum);
+          const inRange = isInRange(dayNum);
+          const today = isToday(dayNum);
+
+          return (
             <button
-              {...props}
+              key={dayNum}
               type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 transition-colors"
+              onClick={() => handleDayClick(dayNum)}
+              className={`relative flex h-7 w-7 items-center justify-center rounded-full mx-auto font-medium transition-all ${
+                selected
+                  ? "bg-[#013220] text-white font-bold shadow-xs"
+                  : inRange
+                  ? "bg-[#BCEB0F]/30 text-primary-text rounded-none"
+                  : today
+                  ? "border border-[#013220] text-[#013220] font-bold"
+                  : "text-zinc-700 hover:bg-zinc-100"
+              }`}
             >
-              <ArrowLeft2 size={14} variant="Outline" color="currentColor" />
+              {dayNum}
             </button>
-          ),
-          NextMonthButton: (props) => (
-            <button
-              {...props}
-              type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 transition-colors"
-            >
-              <ArrowRight2 size={14} variant="Outline" color="currentColor" />
-            </button>
-          ),
-        }}
-        styles={{
-          months: { display: "flex", gap: "1rem", padding: "0.5rem" },
-          month_caption: {
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "0.5rem",
-          },
-          caption_label: { fontSize: "0.875rem", fontWeight: 600, color: "#0A0A0A" },
-          nav: { display: "flex", alignItems: "center", gap: "0.25rem" },
-          weekdays: { marginBottom: "0.25rem" },
-          weekday: {
-            fontSize: "0.75rem",
-            color: "#9E9E9E",
-            fontWeight: 500,
-            width: "2rem",
-            textAlign: "center",
-            padding: "0.25rem 0",
-          },
-          day: { width: "2rem", height: "2rem", fontSize: "0.8125rem", borderRadius: "9999px" },
-          day_button: {
-            width: "2rem",
-            height: "2rem",
-            borderRadius: "9999px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          },
-          today: { fontWeight: 700, color: "#013220" },
-        }}
-        classNames={{
-          selected: "bg-[#BCEB0F] text-primary-text rounded-full",
-          range_start: "bg-[#013220] text-white rounded-full",
-          range_end: "bg-[#013220] text-white rounded-full",
-          range_middle: "bg-[#BCEB0F]/20 rounded-none",
-          day_button: "hover:bg-zinc-100 rounded-full transition-colors",
-        }}
-      />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -306,50 +375,6 @@ export function TableFilterSelectOptions<V extends string>({
   );
 }
 
-function toYmd(d: Date | undefined): string {
-  if (!d) return "";
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function parseYmd(s: string): Date | undefined {
-  if (!s) return undefined;
-  const [y, m, d] = s.split("-").map(Number);
-  if (!y || !m || !d) return undefined;
-  return new Date(y, m - 1, d);
-}
-
-function getPresetRange(preset: "today" | "yesterday" | "7days" | "30days" | "thisMonth"): DateRange {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  switch (preset) {
-    case "today":
-      return { from: today, to: today };
-    case "yesterday": {
-      const y = new Date(today);
-      y.setDate(y.getDate() - 1);
-      return { from: y, to: y };
-    }
-    case "7days": {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 6);
-      return { from: d, to: today };
-    }
-    case "30days": {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 29);
-      return { from: d, to: today };
-    }
-    case "thisMonth": {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { from: start, to: today };
-    }
-  }
-}
-
 export function TableFilterDatePanel({
   value,
   onChange,
@@ -357,7 +382,7 @@ export function TableFilterDatePanel({
   value: DateRange | undefined;
   onChange: (range: DateRange | undefined) => void;
 }) {
-  const [showCalendar, setShowCalendar] = useState(false);
+  const activePreset = detectActivePreset(value);
 
   const fromStr = value?.from ? toYmd(value.from) : "";
   const toStr = value?.to ? toYmd(value.to) : "";
@@ -372,40 +397,59 @@ export function TableFilterDatePanel({
     onChange({ from: value?.from, to: toDate });
   };
 
-  return (
-    <div className="w-[280px] sm:w-[310px] p-1">
-      <TableFilterPanelTitle />
+  const presets: { id: DatePreset; label: string }[] = [
+    { id: "all", label: "All Time" },
+    { id: "today", label: "Today" },
+    { id: "yesterday", label: "Yesterday" },
+    { id: "7days", label: "Last 7 Days" },
+    { id: "30days", label: "Last 30 Days" },
+    { id: "thisMonth", label: "This Month" },
+    { id: "lastMonth", label: "Last Month" },
+  ];
 
-      {/* Quick Presets */}
-      <div className="mt-2.5 flex flex-wrap gap-1.5 border-b border-zinc-100 pb-3">
-        {(["today", "yesterday", "7days", "30days", "thisMonth"] as const).map((p) => {
-          const labels = {
-            today: "Today",
-            yesterday: "Yesterday",
-            "7days": "Last 7 Days",
-            "30days": "Last 30 Days",
-            thisMonth: "This Month",
-          };
+  return (
+    <div className="w-[280px] sm:w-[310px] p-2 select-none">
+      <div className="mb-2 flex items-center justify-between">
+        <TableFilterPanelTitle />
+        {value?.from ? (
+          <button
+            type="button"
+            onClick={() => onChange(undefined)}
+            className="text-[11px] font-medium text-red-600 hover:underline"
+          >
+            Clear Date
+          </button>
+        ) : null}
+      </div>
+
+      {/* Quick Presets Bar */}
+      <div className="mb-3 flex flex-wrap gap-1.5 border-b border-zinc-100 pb-3">
+        {presets.map((p) => {
+          const isActive = activePreset === p.id;
           return (
             <button
-              key={p}
+              key={p.id}
               type="button"
-              onClick={() => onChange(getPresetRange(p))}
-              className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-100 hover:border-zinc-300 transition-colors"
+              onClick={() => onChange(getPresetRange(p.id))}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
+                isActive
+                  ? "bg-[#013220] text-white shadow-2xs font-semibold"
+                  : "border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+              }`}
             >
-              {labels[p]}
+              {p.label}
             </button>
           );
         })}
       </div>
 
       {/* Direct Date Inputs */}
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-2">
         <div className="flex-1">
           <label className="mb-1 block text-[10px] font-medium uppercase text-zinc-400">From</label>
           <input
             type="date"
-            className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-primary-text outline-none focus:border-zinc-400"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-primary-text outline-none focus:border-zinc-400 font-medium"
             value={fromStr}
             onChange={handleFromChange}
           />
@@ -414,24 +458,16 @@ export function TableFilterDatePanel({
           <label className="mb-1 block text-[10px] font-medium uppercase text-zinc-400">To</label>
           <input
             type="date"
-            className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-primary-text outline-none focus:border-zinc-400"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-primary-text outline-none focus:border-zinc-400 font-medium"
             value={toStr}
             onChange={handleToChange}
           />
         </div>
       </div>
 
-      {/* Collapsible Calendar Picker */}
-      <div className="mt-3 border-t border-zinc-100 pt-2">
-        <button
-          type="button"
-          onClick={() => setShowCalendar((s) => !s)}
-          className="flex w-full items-center justify-between py-1 text-xs font-medium text-zinc-500 hover:text-primary-text"
-        >
-          <span>{showCalendar ? "Hide Calendar Picker" : "Show Calendar Picker"}</span>
-          <ChevronDown size={14} className={`transition-transform ${showCalendar ? "rotate-180" : ""}`} />
-        </button>
-        {showCalendar ? <TableFilterCalendar value={value} onChange={onChange} /> : null}
+      {/* Custom Calendar Picker */}
+      <div className="border-t border-zinc-100 pt-2">
+        <TableFilterCalendar value={value} onChange={onChange} />
       </div>
     </div>
   );
