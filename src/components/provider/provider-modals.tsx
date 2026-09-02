@@ -168,26 +168,41 @@ export function EditProductCommissionModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-primary-text">Commission Rate</label>
+            <label className="mb-1.5 block text-sm font-medium text-primary-text">
+              {form.commissionType === "Percentage" ||
+              form.commissionType === "% capped @" ||
+              form.commissionType.toLowerCase().includes("cap")
+                ? "Commission Rate (%)"
+                : "Commission Rate"}
+            </label>
             <input
               type="text"
               className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
               value={form.commissionRate}
               onChange={(e) => setForm((f) => ({ ...f, commissionRate: e.target.value }))}
-              placeholder="e.g. 200"
+              placeholder={
+                form.commissionType === "Percentage" ||
+                form.commissionType === "% capped @" ||
+                form.commissionType.toLowerCase().includes("cap")
+                  ? "e.g. 20%"
+                  : "e.g. 200"
+              }
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-primary-text">CAP</label>
-            <input
-              type="text"
-              className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
-              value={form.cap}
-              onChange={(e) => setForm((f) => ({ ...f, cap: e.target.value }))}
-              placeholder="e.g. ₦5000"
-            />
-          </div>
+          {(form.commissionType === "% capped @" ||
+            form.commissionType.toLowerCase().includes("cap")) && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-primary-text">CAP</label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm text-primary-text outline-none focus:border-zinc-400"
+                value={form.cap}
+                onChange={(e) => setForm((f) => ({ ...f, cap: e.target.value }))}
+                placeholder="e.g. ₦5000"
+              />
+            </div>
+          )}
 
           <button
             type="submit"

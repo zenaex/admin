@@ -149,7 +149,7 @@ export function SwapCryptoRateSetupModal({
             />
           </div>
 
-          {form.markupType === "% capped @" && (
+          {(form.markupType === "% capped @" || form.markupType.toLowerCase().includes("cap")) && (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-primary-text">Markup Cap (₦)</label>
               <input

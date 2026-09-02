@@ -762,8 +762,8 @@ function DepositDeviceSection({ tx }: { tx: TransactionDetailModel }) {
 }
 
 function WalletAddressCell({ address }: { address: string }) {
-  if (!address.trim()) {
-    return <span className="text-sm" style={{ color: TEXT }} />;
+  if (!address || !address.trim()) {
+    return <span className="text-sm text-zinc-500">—</span>;
   }
   return (
     <Link
@@ -815,7 +815,8 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
       {completedParts.length > 1 ? ` | ${completedParts.slice(1).join(" | ")}` : ""}
     </span>
   );
-  const walletLink = <WalletAddressCell key="w" address={tx.walletAddress} />;
+  const walletAddressValue = tx.depositWalletAddress || tx.walletAddress;
+  const walletLink = <WalletAddressCell key="w" address={walletAddressValue} />;
 
   const customerHeader = variant === "swap" ? "Customer" : "Customer Names";
   const channelLabel = tx.channel === "Deposit" || tx.channel === "Crypto" ? tx.channel : "Crypto";
@@ -860,12 +861,12 @@ function CryptoTransactionDetailsContent({ tx }: { tx: TransactionDetailModel })
   const recipient =
     variant === "swap"
       ? {
-          headers: ["Wallet Address", "Network", "Coin Received", "Network Fee"] as const,
-          row: [walletLink, tx.network, tx.coinReceived, tx.networkFee] as ReactNode[],
+          headers: ["Deposit Wallet Address", "Network", "Coin Received", "Network Fee"] as const,
+          row: [walletLink, tx.network || "—", tx.coinReceived || "—", tx.networkFee || "—"] as ReactNode[],
         }
       : {
-          headers: ["Wallet Address", "Network", "Network Fee"] as const,
-          row: [walletLink, tx.network, tx.networkFee] as ReactNode[],
+          headers: ["Deposit Wallet Address", "Network", "Network Fee"] as const,
+          row: [walletLink, tx.network || "—", tx.networkFee || "—"] as ReactNode[],
         };
 
   return (

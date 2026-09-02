@@ -71,6 +71,32 @@ export const ISO_TO_FULL_NAME: Record<string, string> = {
   MX: "Mexico",
 };
 
+function formatEsimValidity(o: Record<string, unknown>): string {
+  const strVal = pickString(o, [
+    "validityDays",
+    "validity_days",
+    "validity",
+    "esimValidity",
+    "duration",
+    "validityPeriod",
+    "validity_period",
+    "validDays",
+    "valid_days",
+  ]);
+  if (strVal) {
+    if (/^\d+$/.test(strVal.trim())) {
+      const n = parseInt(strVal.trim(), 10);
+      return `${n} ${n === 1 ? "Day" : "Days"}`;
+    }
+    return strVal;
+  }
+  const numVal = pickNum(o, ["validityDays", "validity_days", "validity", "duration", "validDays"]);
+  if (numVal !== undefined && numVal > 0) {
+    return `${numVal} ${numVal === 1 ? "Day" : "Days"}`;
+  }
+  return "";
+}
+
 function channelKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -1027,8 +1053,31 @@ export function mapApiDetailToTransactionModel(
     "initiated_at",
   ]);
   let product =
-    pickString(o, ["product", "productName", "product_name", "productSlug", "product_slug"]) ||
-    pickNestedString(o, [["product", "name"], ["product", "title"], ["service", "name"], ["product", "slug"]]) ||
+    pickFromBlocks(o, detailBlocks, [
+      "operatorTitle",
+      "operator_title",
+      "operatorName",
+      "operator_name",
+      "packageTitle",
+      "package_title",
+      "packageName",
+      "package_name",
+      "product",
+      "productName",
+      "product_name",
+      "productSlug",
+      "product_slug",
+    ]) ||
+    pickNestedString(o, [
+      ["operator", "title"],
+      ["operator", "name"],
+      ["package", "title"],
+      ["package", "name"],
+      ["product", "name"],
+      ["product", "title"],
+      ["service", "name"],
+      ["product", "slug"],
+    ]) ||
     "";
 
   if (isUtility) {
@@ -1114,10 +1163,10 @@ export function mapApiDetailToTransactionModel(
     rateFeeGiven:
       pickString(o, ["rateFeeGiven", "rate_fee_given", "rateFee", "rate_fee"]) || "",
     balanceAfterGift: pickString(o, ["balanceAfterGift", "balance_after_gift"]) || balanceAfter,
-    esimChannelLabel: routing.channel === "Esim" ? readChannelRaw(o) || "" : "",
-    esimCoverage: pickString(o, ["coverage", "esimCoverage", "region"]) || "",
-    esimDataAllowance: pickString(o, ["dataAllowance", "data_allowance", "allowance"]) || plan,
-    esimValidity: pickString(o, ["validity", "esimValidity", "duration"]) || "",
+    esimCoverage: pickString(o, ["coverage", "esimCoverage", "region", "country", "location"]) || "",
+    esimDataAllowance:
+      pickString(o, ["dataAllowance", "data_allowance", "data", "allowance", "dataSize", "data_size", "dataAmount"]) || plan,
+    esimValidity: formatEsimValidity(o),
     esimPriceUsd:
       pickString(o, ["priceUsd", "price_usd", "usdAmount"]) ||
       (currency.includes("USD") || currency.startsWith("$") ? amountFormatted : ""),
@@ -1182,13 +1231,46 @@ export function mapApiDetailToTransactionModel(
     plan,
     cashback,
     walletAddress: pickFromBlocks(o, detailBlocks, [
+      "depositWalletAddress",
+      "deposit_wallet_address",
+      "depositAddress",
+      "deposit_address",
       "walletAddress",
       "wallet_address",
       "address",
       "toAddress",
       "to_address",
+      "cryptoAddress",
+      "crypto_address",
+      "recipientAddress",
+      "recipient_address",
     ]),
-    network: pickFromBlocks(o, detailBlocks, ["network", "chain", "blockchain"]),
+    depositWalletAddress: pickFromBlocks(o, detailBlocks, [
+      "depositWalletAddress",
+      "deposit_wallet_address",
+      "depositAddress",
+      "deposit_address",
+      "walletAddress",
+      "wallet_address",
+      "address",
+      "toAddress",
+      "to_address",
+      "cryptoAddress",
+      "crypto_address",
+      "recipientAddress",
+      "recipient_address",
+    ]),
+    network: pickFromBlocks(o, detailBlocks, [
+      "network",
+      "networkName",
+      "network_name",
+      "chain",
+      "chainName",
+      "chain_name",
+      "blockchain",
+      "cryptoNetwork",
+      "crypto_network",
+    ]),
     networkFee: pickFromBlocks(o, detailBlocks, ["networkFee", "network_fee", "gasFee", "gas_fee"]),
     meterNumber: pickFromBlocks(o, detailBlocks, ["meterNumber", "meter_number", "meterNo", "meter_no"]),
     meterType: pickFromBlocks(o, detailBlocks, ["meterType", "meter_type"]),

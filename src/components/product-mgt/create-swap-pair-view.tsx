@@ -158,7 +158,7 @@ export function CreateSwapPairView() {
                   />
                 </div>
 
-                {markupType === "% capped @" && (
+                {(markupType === "% capped @" || markupType.toLowerCase().includes("cap")) && (
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-primary-text">Markup Cap (₦)</label>
                     <input
